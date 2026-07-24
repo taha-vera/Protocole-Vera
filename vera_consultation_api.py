@@ -355,12 +355,31 @@ def deconnexion_rh(response: Response, session_vera: Optional[str] = Cookie(None
 
 
 # --------------------------------------------------------------------------
-# Creation de nouveaux comptes RH (Porte 9 : permet une vraie separation
-# organisationnelle entre plusieurs entites emettrices). Protege par un
-# secret ADMIN distinct des comptes RH eux-memes -- un compte RH normal ne
-# peut pas creer d'autres comptes RH, seul celui qui detient ce secret
-# (l'operateur technique du serveur) le peut. Ce secret n'est PAS le mot
-# de passe d'un compte RH : c'est une cle d'administration separee.
+# Creation de nouveaux comptes RH. Protege par un secret ADMIN distinct des
+# comptes RH eux-memes -- un compte RH normal ne peut pas creer d'autres
+# comptes RH, seul celui qui detient ce secret (l'operateur technique du
+# serveur) le peut. Ce secret n'est PAS le mot de passe d'un compte RH :
+# c'est une cle d'administration separee.
+#
+# PORTEE REELLE (corrigee le 24/07/2026) : cette fonction permet d'avoir
+# PLUSIEURS ADMINISTRATEURS D'UNE MEME ORGANISATION (separation des roles,
+# tracabilite de qui a genere quelles autorisations). Elle ne permet PAS
+# d'heberger plusieurs organisations sur une meme instance, contrairement a
+# ce que ce commentaire affirmait ("vraie separation organisationnelle entre
+# plusieurs entites emettrices").
+#
+# Raison : la separation ne porte que sur l'AUTHENTIFICATION. Les DONNEES ne
+# sont pas cloisonnees -- compteurs_votes, cle_rsa_active, budget_epsilon et
+# jetons_autorisation sont tous indexes par departement SEUL, jamais par
+# (compte, departement). Deux organisations creant chacune un departement
+# "Marketing" partageraient donc la meme urne, la meme cle de signature et le
+# meme budget epsilon : les votes de l'une compteraient dans les resultats de
+# l'autre.
+#
+# INVARIANT DE DEPLOIEMENT : une instance VERA = une organisation consultante.
+# Voir LIMITS.md. Un vrai multi-tenant exigerait de re-cler ces quatre tables
+# par (compte, departement) ; non fait, et non necessaire tant que chaque
+# organisation dispose de son instance.
 # --------------------------------------------------------------------------
 
 _secret_admin_creation = os.environ.get("VERA_SECRET_CREATION_COMPTE")

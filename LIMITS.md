@@ -150,3 +150,30 @@ le RH ne voyant que "effectif insuffisant" a l'expiration. Portee a 7 jours ; le
 gain de securite de la valeur precedente etait marginal, la cle etant chiffree
 au repos et l'operateur capable de la dechiffrer detenant VERA_DB_KEY de toute
 facon.
+
+## 11. Une instance VERA = une organisation consultante
+
+VERA permet de creer plusieurs comptes administrateurs (endpoint protege par un
+secret d'administration distinct). Cette fonction sert a avoir PLUSIEURS
+ADMINISTRATEURS D'UNE MEME ORGANISATION -- separation des roles, tracabilite de
+qui a genere quelles autorisations. Elle ne permet PAS d'heberger plusieurs
+organisations distinctes sur une meme instance.
+
+Raison : la separation ne porte que sur l'authentification. Les DONNEES ne sont
+pas cloisonnees. Les tables compteurs_votes, cle_rsa_active, budget_epsilon et
+jetons_autorisation sont indexees par departement SEUL, jamais par le couple
+(compte, departement). Deux organisations creant chacune un departement
+"Marketing" partageraient donc :
+- la meme urne (les votes de l'une compteraient dans les resultats de l'autre) ;
+- la meme cle de signature ;
+- le meme budget epsilon (l'une pouvant epuiser celui de l'autre).
+
+INVARIANT DE DEPLOIEMENT : une instance = une organisation. Chaque organisation
+consultante doit disposer de sa propre installation, avec sa propre base et sa
+propre cle de chiffrement. C'est aussi la configuration la plus sure : le
+cloisonnement est obtenu par construction, pas par du code applicatif qui
+pourrait etre contourne par un bug.
+
+Un vrai multi-tenant exigerait de re-cler ces quatre tables par (compte,
+departement), avec la migration correspondante. Ce n'est pas fait, et ce n'est
+pas necessaire tant que chaque organisation dispose de son instance.
