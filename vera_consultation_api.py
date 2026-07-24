@@ -624,8 +624,18 @@ def resultats(session_vera: Optional[str] = Cookie(None)):
                         "raison": "Budget de confidentialite epuise pour ce groupe.",
                     }
                     continue
-                budget_epsilon.consommer(departement, EPSILON_PAR_PUBLICATION)
-                etat_apres = budget_epsilon.etat(departement)
+                # ORDRE CRITIQUE : on CALCULE l'etat futur sans muter la
+                # memoire. La consommation reelle n'a lieu qu'APRES un commit
+                # reussi (plus bas). Auparavant consommer() mutait ici, 20
+                # lignes avant la persistance : une panne d'ecriture laissait
+                # la memoire en avance sur la base -- departement vu comme
+                # ayant publie alors que le resultat fige etait absent, donc
+                # verrouille ; ou, apres redemarrage, etat recharge ignorant la
+                # consommation, donc republication et double consommation
+                # d'epsilon. Meme motif que le correctif des compteurs de votes
+                # (persister d'abord, muter ensuite).
+                etat_apres = budget_epsilon.etat_apres_consommation(
+                    departement, EPSILON_PAR_PUBLICATION)
 
                 # Le bruit DP est tire UNE SEULE FOIS, a la premiere publication,
                 # puis fige. Republier ne re-tire pas de bruit -- sinon un appelant
@@ -651,6 +661,10 @@ def resultats(session_vera: Optional[str] = Cookie(None)):
                     etat_apres["nombre_publications"],
                     comptes_bruites,
                 )
+                # Commit reussi : la memoire peut suivre. Si la ligne
+                # precedente avait leve, on n'arriverait pas ici et le budget
+                # memoire resterait coherent avec la base (rien consomme).
+                budget_epsilon.consommer(departement, EPSILON_PAR_PUBLICATION)
             else:
                 # Deja publie : on renvoie le resultat bruite fige, jamais un nouveau tirage.
                 comptes_bruites = persistance.charger_resultat_publie(departement)

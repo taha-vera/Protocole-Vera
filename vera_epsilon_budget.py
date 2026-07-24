@@ -90,6 +90,23 @@ class BudgetEpsilonParDepartement:
                 "epsilon_total_autorise": self._epsilon_total_autorise,
                 "nombre_publications": self._nombre_publications.get(departement, 0),
             }
+    def etat_apres_consommation(self, departement: str, epsilon_requete: float) -> dict:
+        """Calcule l'etat qui RESULTERAIT d'une consommation, SANS la faire.
+        Permet a l'appelant de persister d'abord et de ne muter la memoire
+        qu'apres un commit reussi (voir consommer_si_persiste dans l'API).
+        Sans cela, une panne d'ecriture laissait la memoire en avance sur la
+        base : le departement apparaissait comme ayant publie alors que le
+        resultat fige n'existait pas -> verrouillage ; ou, apres redemarrage,
+        l'etat recharge ignorait la consommation -> republication et double
+        consommation d'epsilon."""
+        with self._verrou:
+            consomme = self._epsilon_consomme.get(departement, 0.0)
+            publications = self._nombre_publications.get(departement, 0)
+            return {
+                "epsilon_consomme": consomme + epsilon_requete,
+                "nombre_publications": publications + 1,
+            }
+
     def reset(self) -> None:
         """Remet le budget a zero pour TOUS les departements. Appelee a la
         cloture de consultation, en meme temps que les autres registres

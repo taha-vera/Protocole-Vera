@@ -177,3 +177,28 @@ pourrait etre contourne par un bug.
 Un vrai multi-tenant exigerait de re-cler ces quatre tables par (compte,
 departement), avec la migration correspondante. Ce n'est pas fait, et ce n'est
 pas necessaire tant que chaque organisation dispose de son instance.
+
+## 12. Les comptes administrateurs ne survivent pas a un redemarrage
+
+Les comptes RH sont stockes en memoire du processus (dictionnaire
+_comptes_rh dans vera_admin_auth.py), sans aucune persistance. Un compte cree
+via /api/rh/creer_compte disparait donc au prochain redemarrage du service.
+
+Seul le compte principal survit : il est recree a chaque demarrage a partir des
+variables d'environnement VERA_ADMIN_USER et VERA_ADMIN_PASS, definies dans
+l'unite systemd.
+
+Ce n'est pas un oubli mais une consequence de la doctrine de VERA : rien de
+sensible au repos. Persister des empreintes de mots de passe, meme salees,
+creerait une cible qu'un vol de disque ou une sauvegarde qui fuite pourrait
+exploiter hors ligne. Le choix est assume : les comptes additionnels sont
+TEMPORAIRES PAR CONSTRUCTION et doivent etre recrees apres un redemarrage.
+
+Portee pratique limitee : la creation de comptes n'est pas exposee dans
+l'interface d'administration. C'est une operation d'operateur technique,
+effectuee en ligne de commande avec le secret d'administration, par quelqu'un
+qui connait le systeme. Un organisateur n'y est jamais confronte.
+
+Si un jour plusieurs administrateurs permanents devenaient necessaires, la voie
+propre serait de les declarer dans l'unite systemd au meme titre que le compte
+principal -- pas de les persister en base.
