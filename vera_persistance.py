@@ -395,6 +395,17 @@ def effacer_etat_consultation():
                       "jetons_autorisation"):
             _conn.execute(f"DELETE FROM {table}")
         _conn.commit()
+    # Checkpoint + VACUUM APRES le commit, hors transaction (SQLite l'exige).
+    # Sans eux, la promesse affichee au RH -- "apres cloture le serveur ne
+    # conserve plus rien" -- n'est vraie qu'au niveau LOGIQUE : les lignes
+    # supprimees restent lisibles dans le journal -wal (qui contient les pages
+    # AVANT suppression) et dans les pages liberees du fichier .db. Le PRAGMA
+    # secure_delete ecrase bien les octets d'une ligne supprimee, mais il ne
+    # vide pas le WAL. Meme correctif que celui applique aux migrations le
+    # 23/07 : le DROP nettoyait la vue, pas les octets.
+    with _verrou_db:
+        _conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        _conn.execute("VACUUM")
 
 
 def effacer_cle_rsa():
