@@ -48,20 +48,34 @@ directe. Limite partagee par l'ensemble des systemes de ce type.
 ## 6. Confiance dans l'organisateur au moment de l'emission
 
 L'organisateur (RH) connait, au moment d'emettre les jetons, la correspondance
-LIMITE ARCHITECTURALE IMPORTANTE (identifiee 18/07/2026) : la signature
-aveugle est censee garantir que le serveur ne peut PAS relier un votant a son
-acte de vote (unlinkability). Dans l'architecture actuelle, cette garantie
-n'est PAS effective : le serveur execute l'integralite du protocole RSABSSA
-(aveuglement ET finalisation) et produit le token complet, qu'il transmet au
-RH. Le serveur (ou le RH) peut donc construire la correspondance identite ->
-empreinte du token, puis, apres le vote, lire la table des tokens consommes
-pour savoir qui a vote. Le CONTENU du vote reste protege (agregats bruites,
-aucun vote individuel en base), mais la NON-LIAISON identite<->participation
-n'est pas prouvee cryptographiquement. Le correctif est architectural
-(deplacer aveuglement + finalisation dans le navigateur du votant) et fait
-l'objet d'un chantier dedie (voir AMELIORATIONS_FUTURES). En attendant, la
-non-liaison repose sur la confiance envers l'operateur, au meme titre que
-l'association identite/departement.
+RESOLU le 23/07/2026 (refactor Modele B). Cette section decrivait auparavant
+une limite architecturale : le serveur executait l'integralite du protocole
+RSABSSA (aveuglement ET finalisation), produisait le token complet, et pouvait
+donc relier identite et acte de vote. Ce n'est plus le cas.
+
+Etat actuel : l'aveuglement et la finalisation ont lieu dans le NAVIGATEUR du
+votant (static/vote.html, bibliotheque auto-hebergee). Le serveur ne recoit
+qu'un message deja aveugle, ne voit jamais le secret K ni la signature finale,
+et les deux registres (jetons d'autorisation, empreintes de votes consommes)
+sont disjoints, sans horodatage, sans ordre d'insertion. Verifie bout-en-bout :
+chantier_crypto/test_vote_complet.mjs et test_brique7.mjs.
+
+CE QUI SUBSISTE, et qui est la vraie limite : cette garantie vaut contre un
+tiers et contre un operateur honnete-mais-curieux -- Niveau 1 du modele
+d'adversaire (voir VERA_THREAT_MODEL_COMPLETE.md). Contre un operateur
+ACTIVEMENT MALVEILLANT, elle ne tient pas : celui qui sert le JavaScript au
+votant peut le pieger pour exfiltrer K avant l'aveuglement, celui qui detient
+les cles privees peut fabriquer des votes, celui qui lit le trafic en clair
+apres terminaison TLS peut correler. Aucune cryptographie ne protege contre
+l'entite qui controle le code execute et l'infrastructure.
+
+CONSEQUENCE PRATIQUE : pour qu'une organisation ne puisse pas desanonymiser ses
+propres membres, VERA doit etre heberge par un TIERS distinct de l'organisation
+consultante, et/ou le client doit etre verifiable independamment (build
+reproductible, empreinte publiee). Si l'organisation heberge elle-meme, elle
+est dans la base de confiance : VERA rend alors la desanonymisation PASSIVE
+impossible (rien en base ne relie identite et reponse), mais ne remplace pas la
+confiance envers l'hebergeur face a un adversaire actif.
 
 VERA empeche que cette information se propage dans le
 traitement des reponses, mais ne l'efface pas cote organisateur. La cryptographie
