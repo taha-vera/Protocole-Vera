@@ -70,6 +70,8 @@ Ce seuil n'est pas choisi arbitrairement, il est **mesuré**. À ε=0.5, avec pr
 
 **Pour qui VERA est conçu** : organisations dont les groupes consultés dépassent 240 personnes — grandes entreprises et groupes, fonction publique, hôpitaux, universités, syndicats de branche. Les structures plus petites ne peuvent pas obtenir un résultat à la fois anonyme et suffisamment précis à ε=0.5 : c'est une contrainte mathématique, pas un choix commercial.
 
+**Durée maximale d'une consultation : 7 jours.** Passé ce délai, les clés de signature sont automatiquement détruites et plus aucun vote n'est accepté. Cette limite se combine au seuil : un groupe doit réunir ses 240 réponses **dans la fenêtre d'une semaine**, relances comprises. Distribuez les liens rapidement et relancez tôt — un groupe qui n'atteint pas le seuil avant l'expiration ne publiera aucun résultat. Détail : LIMITS.md §10.
+
 **Sur ε=0.5** : c'est un régime de confidentialité plus strict que les déploiements DP industriels connus (Apple : ε=2–16 ; Google RAPPOR : ε=2–9 ; US Census 2020 : ε≈19,6). L'imprécision sur les petites cohortes n'est pas un défaut d'implémentation — c'est la garantie qui s'exerce.
 
 ## Effacement actif et vérifiable (clôture de consultation)

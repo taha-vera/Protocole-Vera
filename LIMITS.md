@@ -124,3 +124,29 @@ serait elle-même sensible devrait chiffrer le volume au niveau système
 (LUKS/dm-crypt), ce qui sort du périmètre de VERA.
 
 Vérifié par test_chiffrement_repos.py.
+
+## 10. Duree maximale d'une consultation : 7 jours
+
+Une consultation VERA a une duree de vie DURE de 7 jours a compter de son
+ouverture. Passe ce delai, les cles de signature sont automatiquement detruites
+(en memoire et en base) et plus aucun vote n'est accepte : les votants qui
+ouvrent leur lien recoivent une erreur "Aucune consultation active".
+
+Ce n'est pas un parametre de confort : la cle privee ne doit pas exister
+indefiniment, et sa destruction automatique garantit qu'une consultation
+oubliee ne laisse pas de materiel cryptographique actif sur le serveur.
+
+CONSEQUENCE PRATIQUE POUR L'ORGANISATEUR : la fenetre de participation doit
+etre planifiee dans ces 7 jours, relances comprises. Combinee au seuil
+K_MIN=240, cette contrainte impose de distribuer les liens rapidement et de
+relancer tot -- un departement qui n'atteint pas 240 reponses avant
+l'expiration ne publiera aucun resultat.
+
+Historique : cette duree etait de 48h jusqu'au 24/07/2026, et n'etait
+documentee nulle part. Elle entrait en contradiction avec K_MIN=240 (reunir 240
+reponses en deux jours suppose un taux de participation irrealiste dans une
+organisation), au point qu'une consultation risquait de ne jamais rien publier,
+le RH ne voyant que "effectif insuffisant" a l'expiration. Portee a 7 jours ; le
+gain de securite de la valeur precedente etait marginal, la cle etant chiffree
+au repos et l'operateur capable de la dechiffrer detenant VERA_DB_KEY de toute
+facon.

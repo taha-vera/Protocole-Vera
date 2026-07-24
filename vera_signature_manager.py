@@ -11,7 +11,22 @@ import time
 
 import vera_blind_sig as vbs
 
-DUREE_VIE_CLE_SECONDES = 48 * 3600
+# Duree de vie d'une consultation. Passe ce delai le timer detruit les cles
+# (memoire ET base) et plus aucun vote n'est accepte : les votants recoivent un
+# 503 "Aucune consultation active".
+#
+# Portee a 7 jours le 24/07/2026, contre 48h auparavant. Raison : la valeur
+# precedente entrait en contradiction avec K_MIN=240. Reunir 240 reponses en
+# 48h suppose un taux de participation de 80% sur un departement de 300
+# personnes en deux jours -- irrealiste dans une organisation reelle, ou les
+# gens ouvrent leur SMS quand ils peuvent et ou il faut relancer les
+# retardataires. Une consultation risquait donc de ne JAMAIS rien publier, le
+# RH voyant seulement "effectif insuffisant" a l'expiration sans comprendre.
+#
+# Le gain de securite de 48h vs 7 jours est marginal : la cle est chiffree au
+# repos (Fernet), et l'operateur capable de la dechiffrer detient VERA_DB_KEY
+# de toute facon. Le cout d'usage, lui, etait majeur.
+DUREE_VIE_CLE_SECONDES = 7 * 24 * 3600
 
 try:
     import vera_persistance as _persistance
