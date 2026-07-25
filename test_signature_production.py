@@ -2,133 +2,107 @@
 # -*- coding: utf-8 -*-
 """
 test_signature_production.py -- Teste la PRIMITIVE DE PRODUCTION (RSABSSA
-RFC 9474, vera_signature_manager), pas le prototype archive/vera_token.py.
+RFC 9474, module Rust vera_blind_sig), en memoire pure.
 
-Comble le trou de preuve : la LOGIQUE de la Porte 7 etait testee sur un
-prototype forgeable ; ici on exerce la VRAIE primitive cryptographique.
+Reecrit le 25/07/2026 pour le Modele B. La version precedente exercait
+generer_token_signe() et verifier_et_consommer(), methodes du Modele A qui
+levent desormais RuntimeError : le test plantait avant toute assertion.
 
-Isolation : on neutralise l'import de vera_persistance AVANT d'importer le
-gestionnaire, ce qui le fait fonctionner en memoire pure (cles RSA generees a
-la volee, tokens consommes en RAM). AUCUN acces a la base de production,
-AUCUN besoin de VERA_DB_KEY. Le test ne touche rien de reel.
+Intention conservee, et elle est precieuse : exercer la VRAIE primitive
+cryptographique, sans base, sans serveur, sans reseau. C'est le seul test de
+la chaine complete qui ne depend de rien -- les tests JS equivalents exigent un
+serveur vivant. Il tourne en une seconde et attrape toute regression de la
+primitive.
 
 Invariants verifies par 'if ... raise' (survit a python -O).
 """
 
 import sys
-
-# --- Isolation : bloquer vera_persistance pour forcer le mode memoire pure ---
-import builtins
-_vrai_import = builtins.__import__
-def _import_sans_persistance(nom, *a, **k):
-    if nom == "vera_persistance":
-        raise ImportError("neutralise pour le test (mode memoire pure)")
-    return _vrai_import(nom, *a, **k)
-builtins.__import__ = _import_sans_persistance
-
-import vera_signature_manager as vsm
-
-builtins.__import__ = _vrai_import  # on restaure
-
-if vsm._PERSISTANCE_DISPONIBLE:
-    print("ATTENTION : la persistance n'a pas ete neutralisee, test annule pour ne pas toucher la prod.")
-    sys.exit(1)
+import vera_blind_sig as vbs
 
 
 class Echec(Exception):
     pass
 
-def _ok(nom):
-    print(f"OK   {nom}")
+
+def _ok(msg):
+    print("OK   " + msg)
 
 
 def main():
-    print("Test PRIMITIVE DE PRODUCTION Porte 7 (RSABSSA, memoire pure)")
+    print("Test PRIMITIVE de production (RSABSSA RFC 9474, memoire pure)")
     print("-" * 60)
-    g = vsm.GestionnaireSignature()
-    g.ouvrir_consultation()
     ok = True
 
-    # 1. Flux nominal
-    try:
-        token = g.generer_token_signe("dept_A")
-        dep = g.verifier_et_consommer(token)
-        if dep != "dept_A":
-            raise Echec(f"departement attendu dept_A, obtenu {dep}")
-        _ok("1. flux nominal (generer -> verifier -> consommer)")
-    except Echec as e:
-        print(f"FAIL 1. {e}"); ok = False
+    priv, pub = vbs.generer_cles()
+    message = list(b"secret_K_de_test_pour_la_primitive_rsabssa_0001")
 
-    # 2. Anti-rejeu
+    # 1. Chaine nominale complete : aveugler, signer, finaliser, verifier.
     try:
-        token = g.generer_token_signe("dept_B")
-        g.verifier_et_consommer(token)
-        try:
-            g.verifier_et_consommer(token)
-            raise Echec("la 2e consommation aurait du etre refusee")
-        except vsm.TokenDejaUtiliseError:
-            _ok("2. anti-rejeu (double consommation refusee)")
+        blind_msg, secret, randomizer = vbs.aveugler_message(list(pub), message)
+        sig_aveugle = vbs.signer_aveugle(list(priv), list(blind_msg))
+        signature = vbs.finaliser_signature(
+            list(pub), message, list(blind_msg), list(secret),
+            list(sig_aveugle), list(randomizer))
+        if not vbs.verifier_signature(list(pub), message, list(signature), list(randomizer)):
+            raise Echec("la signature produite par la chaine nominale est REFUSEE")
+        _ok("1. chaine complete aveugler/signer/finaliser/verifier")
     except Echec as e:
-        print(f"FAIL 2. {e}"); ok = False
+        print("FAIL 1. " + str(e)); ok = False
+        return 1  # sans chaine nominale, le reste n'a pas de sens
 
-    # 3. Token force / aleatoire
+    # 2. Le serveur n'a JAMAIS vu le message en clair : ce qu'il signe
+    #    (blind_msg) ne contient pas le message. C'est l'aveuglement.
     try:
-        faux = {"message": "00"*32, "signature": "11"*256, "randomizer": "22"*32}
-        try:
-            g.verifier_et_consommer(faux)
-            raise Echec("token force aurait du etre refuse")
-        except vsm.SignatureInvalideError:
-            _ok("3. token force/aleatoire rejete")
+        if bytes(message) in bytes(blind_msg):
+            raise Echec("le message apparait EN CLAIR dans le message aveugle")
+        _ok("2. le message n'apparait pas dans le message aveugle")
     except Echec as e:
-        print(f"FAIL 3. {e}"); ok = False
+        print("FAIL 2. " + str(e)); ok = False
 
-    # 4. Token malforme (pas de crash)
+    # 3. Signature FORGEE (octets alteres) -> refusee.
     try:
-        for cas in ({}, {"message": "zz"}, {"message": "00", "signature": "00"}):
-            try:
-                g.verifier_et_consommer(cas)
-                raise Echec(f"token malforme {cas} aurait du etre refuse")
-            except vsm.SignatureInvalideError:
-                pass
-        _ok("4. token malforme rejete proprement (pas de crash)")
+        forgee = list(signature)
+        forgee[0] = (forgee[0] + 1) % 256
+        if vbs.verifier_signature(list(pub), message, forgee, list(randomizer)):
+            raise Echec("une signature alteree a ete ACCEPTEE")
+        _ok("3. signature alteree refusee")
     except Echec as e:
-        print(f"FAIL 4. {e}"); ok = False
+        print("FAIL 3. " + str(e)); ok = False
 
-    # 5. Round-trip encodage URL
+    # 4. Signature valide mais verifiee sous une AUTRE cle -> refusee.
+    #    C'est ce qui empeche un jeton d'un departement de voter dans un autre.
     try:
-        token = g.generer_token_signe("dept_C")
-        encode = vsm.encoder_token_pour_url(token)
-        redecode = vsm.decoder_token_depuis_url(encode)
-        dep = g.verifier_et_consommer(redecode)
-        if dep != "dept_C":
-            raise Echec("round-trip URL casse")
-        _ok("5. round-trip encodage/decodage URL")
+        _priv2, pub2 = vbs.generer_cles()
+        if vbs.verifier_signature(list(pub2), message, list(signature), list(randomizer)):
+            raise Echec("signature acceptee sous une AUTRE cle publique")
+        _ok("4. signature refusee sous une autre cle (isolation par departement)")
     except Echec as e:
-        print(f"FAIL 5. {e}"); ok = False
+        print("FAIL 4. " + str(e)); ok = False
 
-    # 6. Token d'un autre gestionnaire (autre cle) rejete
+    # 5. Message MODIFIE avec la meme signature -> refuse.
     try:
-        g2 = vsm.GestionnaireSignature()
-        g2.ouvrir_consultation()
-        token_etranger = g2.generer_token_signe("dept_X")
-        try:
-            g.verifier_et_consommer(token_etranger)
-            raise Echec("un token signe par une AUTRE cle aurait du etre refuse")
-        except vsm.SignatureInvalideError:
-            _ok("6. token d'une autre cle rejete (isolation des consultations)")
-        g2.fermer_consultation()
+        autre_message = list(b"secret_K_de_test_pour_la_primitive_rsabssa_9999")
+        if vbs.verifier_signature(list(pub), autre_message, list(signature), list(randomizer)):
+            raise Echec("signature acceptee sur un message DIFFERENT")
+        _ok("5. signature refusee sur un message modifie")
     except Echec as e:
-        print(f"FAIL 6. {e}"); ok = False
+        print("FAIL 5. " + str(e)); ok = False
 
-    g.fermer_consultation()
+    # 6. Mauvais randomizer -> refuse. La variante Randomized lie la signature
+    #    au sel : le serveur ne peut pas verifier sans lui.
+    try:
+        mauvais_rand = [(x + 1) % 256 for x in randomizer]
+        if vbs.verifier_signature(list(pub), message, list(signature), mauvais_rand):
+            raise Echec("signature acceptee avec un randomizer ERRONE")
+        _ok("6. signature refusee avec un mauvais randomizer")
+    except Echec as e:
+        print("FAIL 6. " + str(e)); ok = False
+
     print("-" * 60)
-    if ok:
-        print("PORTE 7 : primitive de PRODUCTION (RSABSSA) validee sur le vrai code.")
-        sys.exit(0)
-    else:
-        print("ECHEC -- la primitive de production ne se comporte pas comme attendu.")
-        sys.exit(1)
+    print("PRIMITIVE : chaine et rejets valides." if ok else "ECHEC : primitive non conforme.")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
