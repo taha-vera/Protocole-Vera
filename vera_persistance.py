@@ -385,7 +385,12 @@ def consommer_jeton_autorisation(jeton):
 
 
 def charger_jetons_autorisation():
-    """Recharge l'etat des jetons d'autorisation au demarrage {jeton: (departement, utilise)}."""
+    """Recharge l'etat des jetons d'autorisation au demarrage.
+
+    Renvoie {EMPREINTE_SHA256: (departement, utilise)} -- PAS le jeton en
+    clair, qui n'existe nulle part en base depuis le correctif de la Porte A.
+    Un appelant qui chercherait un jeton en clair dans ce dict ne trouverait
+    jamais rien : il doit hacher via _empreinte_jeton() au prealable."""
     with _verrou_db:
         rows = _conn.execute(
             "SELECT jeton, departement, utilise FROM jetons_autorisation"

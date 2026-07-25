@@ -31,8 +31,15 @@ def main():
     try:
         p.persister_jeton_autorisation("jeton_A", "dept1")
         etat = p.charger_jetons_autorisation()
-        if etat.get("jeton_A") != ("dept1", False):
-            raise Echec(f"jeton_A mal enregistre: {etat.get('jeton_A')}")
+        # La base ne stocke QUE des empreintes SHA-256 (correctif Porte A du
+        # 24/07 : un jeton en clair y etait rejouable par un lecteur de base
+        # contre /api/signer_aveugle). charger_jetons_autorisation renvoie donc
+        # un dict indexe par empreinte. Chercher "jeton_A" en clair rendait ce
+        # test ROUGE sur du code sain et VERT si on retirait le hachage --
+        # il incitait a reintroduire la faille.
+        emp_A = p._empreinte_jeton("jeton_A")
+        if etat.get(emp_A) != ("dept1", False):
+            raise Echec(f"jeton_A mal enregistre: {etat.get(emp_A)}")
         _ok("1. jeton cree et disponible (utilise=False)")
     except Echec as e:
         print(f"FAIL 1. {e}"); ok = False
@@ -86,8 +93,21 @@ def main():
 
     # 6. Persistance : l'etat utilise survit a un rechargement.
     try:
+        # ASSERTION ANTI-REGRESSION (Porte A) : le jeton en CLAIR ne doit
+        # exister nulle part en base. Sans elle, ce test passe au vert meme si
+        # _empreinte_jeton est neutralise -- verifie par mutation le 25/07 :
+        # avec le hachage retire, le test restait a exit 0. Il verifiait la
+        # coherence ecriture/lecture, pas le hachage lui-meme.
+        rows = p._conn.execute("SELECT jeton FROM jetons_autorisation").fetchall()
+        for (valeur,) in rows:
+            if valeur == "jeton_A":
+                raise Echec("le jeton est stocke EN CLAIR en base -- regression Porte A")
+            if not (len(valeur) == 64 and all(ch in "0123456789abcdef" for ch in valeur)):
+                raise Echec(f"valeur stockee non conforme a un SHA-256 : {valeur[:20]}")
+        _ok("6a. jetons stockes uniquement sous forme d'empreinte SHA-256")
+
         etat = p.charger_jetons_autorisation()
-        if etat.get("jeton_A") != ("dept1", True):
+        if etat.get(p._empreinte_jeton("jeton_A")) != ("dept1", True):
             raise Echec(f"jeton_A devrait etre utilise=True apres rechargement: {etat.get('jeton_A')}")
         _ok("6. etat 'utilise' persiste (survit au rechargement)")
     except Echec as e:
