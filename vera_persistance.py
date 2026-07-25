@@ -10,6 +10,21 @@ import hashlib
 from pathlib import Path
 
 DB_PATH = Path(os.environ.get("VERA_DB_PATH", "/root/vera_state.db"))
+
+# GARDE-FOU : un test ne doit JAMAIS toucher la base de production. Le chemin
+# par defaut est ABSOLU (/root/vera_state.db) ; sans ce garde, tout script de
+# test lance sans VERA_DB_PATH ecrit dans la vraie base -- et certains appellent
+# effacer_etat_consultation(), qui vide sept tables puis VACUUM. Une
+# consultation en cours serait detruite par une simple distraction. Constat du
+# 25/07 : AUCUN des quinze tests Python ne definissait VERA_DB_PATH.
+import sys as _sys
+_script = Path(_sys.argv[0]).name if _sys.argv else ""
+if _script.startswith("test_") and "VERA_DB_PATH" not in os.environ:
+    raise RuntimeError(
+        "REFUS : " + _script + " tente d'utiliser la base de PRODUCTION ("
+        + str(DB_PATH) + "). Un test doit definir VERA_DB_PATH vers une base "
+        "jetable. Exemple : VERA_DB_PATH=/tmp/test.db python3 " + _script
+    )
 _verrou_db = threading.Lock()
 _conn = None
 
