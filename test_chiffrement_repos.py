@@ -44,7 +44,7 @@ def main():
     # La cle RSA privee ne doit JAMAIS apparaitre en clair.
     try:
         cle_privee_secrete = b"SECRET_CLE_RSA_PRIVEE_NE_DOIT_PAS_FUIR_9999"
-        p.persister_cle_rsa_chiffree(cle_privee_secrete, b"pub", 1.0)
+        p.persister_cle_rsa_chiffree("DeptTest", cle_privee_secrete, b"pub", 1.0)
         # forcer l'ecriture WAL sur disque
         p._conn.execute("PRAGMA wal_checkpoint(FULL)")
         octets = _octets_db()

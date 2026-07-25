@@ -109,8 +109,8 @@ def main():
     try:
         cle_privee = b"FAUSSE_CLE_PRIVEE_POUR_TEST_1234567890"
         cle_publique = b"FAUSSE_CLE_PUBLIQUE_POUR_TEST"
-        p.persister_cle_rsa_chiffree(cle_privee, cle_publique, 1234567.0)
-        rechargee = p.charger_cle_rsa_chiffree()
+        p.persister_cle_rsa_chiffree("DeptTest", cle_privee, cle_publique, 1234567.0)
+        rechargee = p.charger_cle_rsa_chiffree("DeptTest")
         if rechargee is None:
             raise Echec("cle RSA non rechargee")
         cp, cpub, ts = rechargee
@@ -122,10 +122,10 @@ def main():
 
     # 6. Le chiffrement utilise bien un salt (deux ecritures -> hex different)
     try:
-        p.persister_cle_rsa_chiffree(b"meme_cle", b"meme_pub", 1.0)
-        row1 = p._conn.execute("SELECT cle_privee_hex, salt_hex FROM cle_rsa_active WHERE id=1").fetchone()
-        p.persister_cle_rsa_chiffree(b"meme_cle", b"meme_pub", 1.0)
-        row2 = p._conn.execute("SELECT cle_privee_hex, salt_hex FROM cle_rsa_active WHERE id=1").fetchone()
+        p.persister_cle_rsa_chiffree("DeptTest", b"meme_cle", b"meme_pub", 1.0)
+        row1 = p._conn.execute("SELECT cle_privee_hex, salt_hex FROM cle_rsa_active WHERE departement='DeptTest'").fetchone()
+        p.persister_cle_rsa_chiffree("DeptTest", b"meme_cle", b"meme_pub", 1.0)
+        row2 = p._conn.execute("SELECT cle_privee_hex, salt_hex FROM cle_rsa_active WHERE departement='DeptTest'").fetchone()
         if row1[1] == row2[1]:
             raise Echec("le salt devrait changer a chaque ecriture")
         if row1[0] == row2[0]:
@@ -145,7 +145,7 @@ def main():
         if p.charger_budget_epsilon():
             raise Echec("budget aurait du etre vide")
         # la cle RSA n'est PAS touchee par effacer_etat_consultation
-        if p.charger_cle_rsa_chiffree() is None:
+        if p.charger_cle_rsa_chiffree("DeptTest") is None:
             raise Echec("la cle RSA (infrastructure) ne devrait PAS etre effacee")
         _ok("7. effacement etat consultation (tout vide, cle RSA preservee)")
     except Echec as e:
