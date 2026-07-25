@@ -85,9 +85,16 @@ _admin_pass = os.environ.get("VERA_ADMIN_PASS")
 if _admin_user and _admin_pass:
     auth.creer_compte(_admin_user, _admin_pass)
 
+# CORS restreint au domaine de VERA. allow_origins=["*"] etait inutilement
+# large : tout le client (page de vote, tableau de bord) est servi depuis ce
+# meme domaine, aucune origine tierce n'a besoin d'appeler l'API. Le risque
+# etait limite -- allow_credentials n'etant pas active, le cookie de session RH
+# n'a jamais ete transmis en cross-origin -- mais une politique ouverte permet
+# a n'importe quel site d'interroger les endpoints publics depuis le navigateur
+# d'un visiteur. Principe de moindre privilege.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://vera-consultation.duckdns.org"],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
