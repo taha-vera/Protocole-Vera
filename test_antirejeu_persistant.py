@@ -2,96 +2,103 @@
 # -*- coding: utf-8 -*-
 """
 test_antirejeu_persistant.py -- Porte 14 : l'anti-rejeu doit survivre a un
-redemarrage. Scenario : consommer un token, simuler un redemarrage (recreer
-le gestionnaire depuis la base), verifier que le rejeu est refuse.
+redemarrage.
 
-Isolation totale : base temporaire jetable + cle de test. Ne touche jamais
-la prod. C'est le test le plus sensible en securite (Porte 14).
+Reecrit le 25/07/2026 pour le Modele B. La version precedente passait par
+generer_token_signe() et verifier_et_consommer(), methodes du Modele A qui
+levent desormais RuntimeError : le test plantait avant toute assertion depuis
+le refactor, et l'invariant n'etait plus couvert par aucun test Python.
+
+Scenario Modele B : enregistrer un vote (donc une empreinte K en base),
+simuler un redemarrage en recreant le gestionnaire, verifier que l'empreinte
+est rechargee ET qu'un rejeu du meme K est refuse par la contrainte de base.
+
+Isolation : VERA_DB_PATH doit pointer vers une base jetable (impose par le
+garde-fou de vera_persistance).
 """
 
 import os
 import sys
-import tempfile
-from pathlib import Path
+import hashlib
 
-os.environ["VERA_DB_KEY"] = "cle_de_test_antirejeu_jetable"
+if "VERA_DB_PATH" not in os.environ:
+    print("Ce test exige VERA_DB_PATH vers une base jetable.")
+    print("Exemple : VERA_DB_PATH=/tmp/antirejeu.db python3 " + sys.argv[0])
+    sys.exit(1)
 
 import vera_persistance as p
-
-_tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-_tmp.close()
-p.DB_PATH = Path(_tmp.name)
-p.initialiser()
-
 import vera_signature_manager as vsm
 
 
 class Echec(Exception):
     pass
 
-def _ok(nom):
-    print(f"OK   {nom}")
 
-def _nettoyer():
-    for suff in ("", "-wal", "-shm"):
-        try:
-            Path(str(_tmp.name) + suff).unlink()
-        except FileNotFoundError:
-            pass
+def _ok(msg):
+    print("OK   " + msg)
 
 
 def main():
-    print("Test anti-rejeu PERSISTANT (Porte 14, base jetable)")
+    print("Test anti-rejeu PERSISTANT (Porte 14, Modele B)")
     print("-" * 55)
     ok = True
+    p.initialiser()
 
-    # 1. Consommer un token avec un premier gestionnaire.
+    K = b"secret_de_test_pour_anti_rejeu_32"
+    empreinte = hashlib.sha384(K).hexdigest()
+
+    # 1. Enregistrer un vote : l'empreinte de K part en base.
     try:
-        g1 = vsm.GestionnaireSignature()
-        g1.ouvrir_consultation()
-        token = g1.generer_token_signe("dept_A")
-        dep = g1.verifier_et_consommer(token)
-        if dep != "dept_A":
-            raise Echec("consommation initiale echouee")
-        _ok("1. token consomme par le 1er gestionnaire")
-    except Echec as e:
-        print(f"FAIL 1. {e}"); ok = False
+        p.enregistrer_vote_atomique("dept_A", "oui", empreinte)
+        _ok("1. vote enregistre, empreinte K persistee")
+    except Exception as e:
+        print("FAIL 1. " + str(e)); ok = False
 
-    # 2. Verifier que le token consomme est bien PERSISTE en base.
+    # 2. L'empreinte est-elle bien en base ?
     try:
         consommes = p.charger_tokens_consommes()
-        if len(consommes) < 1:
-            raise Echec("aucun token consomme trouve en base -- persistance cassee")
-        _ok("2. token consomme present en base (persiste)")
+        if empreinte not in consommes:
+            raise Echec("empreinte absente de la base -- persistance cassee")
+        _ok("2. empreinte presente en base (persistee)")
     except Echec as e:
-        print(f"FAIL 2. {e}"); ok = False
+        print("FAIL 2. " + str(e)); ok = False
 
-    # 3. SIMULER UN REDEMARRAGE : nouveau gestionnaire, recharge depuis la base.
-    #    Note : on garde la meme cle RSA (persistee), donc le token reste
-    #    cryptographiquement valide -- seul l'anti-rejeu doit le bloquer.
+    # 3. SIMULER UN REDEMARRAGE : un nouveau gestionnaire doit recharger
+    #    l'anti-rejeu depuis la base dans son cache memoire.
     try:
-        # Fermer le 1er sans detruire la cle en base (on veut la reutiliser).
-        # On recree simplement un gestionnaire : __init__ recharge _tokens_consommes.
         g2 = vsm.GestionnaireSignature()
-        g2.ouvrir_consultation()  # recharge la cle RSA persistee + tokens consommes
-        try:
-            g2.verifier_et_consommer(token)  # rejeu du MEME token
-            raise Echec("REJEU ACCEPTE apres redemarrage -- faille Porte 14 !")
-        except vsm.TokenDejaUtiliseError:
-            _ok("3. rejeu du token APRES redemarrage refuse (Porte 14 tient)")
-        g2.fermer_consultation()
+        if empreinte not in g2._tokens_consommes:
+            raise Echec("le nouveau gestionnaire n'a PAS recharge l'empreinte "
+                        "-- un rejeu passerait apres redemarrage")
+        _ok("3. apres redemarrage simule, empreinte rechargee en memoire")
     except Echec as e:
-        print(f"FAIL 3. {e}"); ok = False
+        print("FAIL 3. " + str(e)); ok = False
 
-    _nettoyer()
+    # 4. Le rejeu est-il refuse ? La DB est l'autorite : l'INSERT strict doit
+    #    lever DoubleVoteErreur, meme sur un gestionnaire neuf.
+    try:
+        try:
+            p.enregistrer_vote_atomique("dept_A", "oui", empreinte)
+            raise Echec("le rejeu a ete ACCEPTE -- double vote possible")
+        except p.DoubleVoteErreur:
+            _ok("4. rejeu du meme K refuse (DoubleVoteErreur)")
+    except Echec as e:
+        print("FAIL 4. " + str(e)); ok = False
+
+    # 5. Le compteur n'a PAS ete incremente par le rejeu.
+    try:
+        compteurs, _eff = p.charger_compteurs()
+        n = compteurs.get("dept_A", {}).get("oui", 0)
+        if n != 1:
+            raise Echec("compteur a " + str(n) + " au lieu de 1 -- le rejeu a compte")
+        _ok("5. compteur inchange par le rejeu (1 vote, pas 2)")
+    except Echec as e:
+        print("FAIL 5. " + str(e)); ok = False
+
     print("-" * 55)
-    if ok:
-        print("PORTE 14 : anti-rejeu survit au redemarrage -- verifie.")
-        sys.exit(0)
-    else:
-        print("ECHEC -- l'anti-rejeu ne survit pas au redemarrage.")
-        sys.exit(1)
+    print("ANTI-REJEU PERSISTANT : valide." if ok else "ECHEC : anti-rejeu non garanti.")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
