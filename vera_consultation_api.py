@@ -16,7 +16,7 @@ import hmac
 import secrets
 from urllib.parse import quote
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Header, Cookie, Response, Request
@@ -768,6 +768,34 @@ def cloturer_consultation(session_vera: Optional[str] = Cookie(None)):
         "statut": "consultation cloturee",
         "avertissement": "Sauvegardez ces resultats : le serveur ne les conserve plus.",
         "resultats_finaux": resultats_finaux,
+    }
+
+
+@app.get("/api/rh/echeance")
+def echeance_consultation(session_vera: Optional[str] = Cookie(None)):
+    """Date de fin de la consultation en cours.
+
+    Ajoute le 26/07 : temps_restant_secondes() existait dans le gestionnaire
+    mais aucun endpoint ne l'exposait. Ni le RH, ni le votant, ni le SMS
+    n'indiquaient jusqu'a quand voter. A l'echeance, un votant recevait une
+    erreur technique sans jamais apprendre que la consultation etait terminee.
+
+    Renvoie ouverte=False si aucune cle n'existe encore : la consultation n'a
+    pas commence, l'horloge des 7 jours ne demarre qu'a la premiere generation
+    de liens."""
+    exiger_session(session_vera)
+    restant = gestionnaire_signature.temps_restant_secondes()
+    if restant is None:
+        return {
+            "ouverte": False,
+            "message": "Aucune consultation ouverte. Elle demarrera a la generation des premiers liens.",
+        }
+    fin = datetime.utcnow() + timedelta(seconds=restant)
+    return {
+        "ouverte": True,
+        "heures_restantes": round(restant / 3600, 1),
+        "jours_restants": round(restant / 86400, 1),
+        "fin_utc": fin.isoformat(timespec="minutes") + "Z",
     }
 
 
