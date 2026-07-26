@@ -91,8 +91,26 @@ class GestionnaireSignature:
                         self._cles = {}
                         ts_recharge = None
                         break
-            self._ouverture_ts = ts_recharge if ts_recharge is not None else time.time()
+            # L'horloge des 7 jours part de la PREMIERE CLE, pas du demarrage
+            # du serveur. Avant le 26/07, _ouverture_ts valait time.time() des
+            # le lancement du service : un serveur en ligne depuis six jours ne
+            # laissait que 24h au RH qui ouvrait sa consultation ce jour-la, et
+            # les votants arrivant apres l'echeance recevaient une erreur
+            # technique sans jamais apprendre que la consultation etait finie.
+            # Sans cle en base, la consultation n'a pas commence : on n'arme
+            # rien. Le timer est arme a la creation de la premiere cle (voir
+            # _armer_expiration, appele depuis _obtenir_ou_creer_cle).
+            self._ouverture_ts = ts_recharge
             self._consultation_ouverte = True
+        if self._ouverture_ts is not None:
+            self._armer_expiration()
+
+    def _armer_expiration(self):
+        """Arme (ou reamorce) le timer de destruction depuis _ouverture_ts.
+        Appele au demarrage si des cles existent deja, et a la creation de la
+        toute premiere cle d'une consultation neuve."""
+        if self._timer_destruction is not None:
+            self._timer_destruction.cancel()
         temps_ecoule = time.time() - self._ouverture_ts
         temps_restant = max(0.0, DUREE_VIE_CLE_SECONDES - temps_ecoule)
         self._timer_destruction = threading.Timer(temps_restant, self._expirer_cle)
@@ -150,6 +168,10 @@ class GestionnaireSignature:
         DOIT etre appelee sous self._verrou."""
         if departement in self._cles:
             return self._cles[departement]
+        # PREMIERE cle de la consultation : c'est maintenant qu'elle commence.
+        if self._ouverture_ts is None:
+            self._ouverture_ts = time.time()
+            self._armer_expiration()
         priv, pub = vbs.generer_cles()
         priv = bytes(priv)
         pub = bytes(pub)
