@@ -671,15 +671,15 @@
         try {
           const rfDl = data.resultats_finaux || {};
           const horo = new Date().toISOString().slice(0, 16).replace('T', ' ');
-          let txt = 'VERA -- Resultats definitifs de consultation\n';
+          let txt = 'VERA — Résultats définitifs de consultation\n';
           txt += '======================================================\n';
-          txt += 'Cloture le : ' + horo + '\n';
-          txt += 'Ces chiffres n existent plus sur le serveur.\n';
+          txt += 'Clôturé le : ' + horo + '\n';
+          txt += 'Ces chiffres n\'existent plus sur le serveur.\n';
           txt += 'Ce fichier est la seule copie : conservez-le.\n';
           txt += '======================================================\n\n';
           const clesDl = Object.keys(rfDl);
           if (clesDl.length === 0) {
-            txt += 'Aucun groupe n avait atteint le seuil de publication.\n';
+            txt += 'Aucun groupe n\'a atteint le seuil de publication.\n';
           } else {
             for (const dep of clesDl) {
               const r = rfDl[dep] || {};
@@ -693,13 +693,13 @@
                   txt += '  ' + k + ' : ' + cpt[k] + '\n';
                   tot += cpt[k];
                 }
-                txt += '  (total : ' + tot + ' reponses)\n';
+                txt += '  (total : ' + tot + ' réponses)\n';
               }
               txt += '\n';
             }
             txt += '------------------------------------------------------\n';
-            txt += 'Comptages apres bruit differentiel (epsilon = 0.5) et\n';
-            txt += 'projection. Voir LIMITS.md pour la precision.\n';
+            txt += 'Comptages après bruit différentiel (epsilon = 0.5) et\n';
+            txt += 'projection sur le simplexe. Voir LIMITS.md pour la précision.\n';
           }
           const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
           const url = URL.createObjectURL(blob);
