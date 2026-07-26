@@ -14,6 +14,7 @@ de ce systeme.
 
 import hmac
 import secrets
+from urllib.parse import quote
 import threading
 from datetime import datetime
 from typing import Optional
@@ -588,7 +589,12 @@ def generer_autorisations(payload: GenererAutorisationsRequete, session_vera: Op
             # chargement de la page suffisait a relier une identite a un instant
             # de vote -- le canal que la coupure des logs sur les POST visait,
             # laisse ouvert par le GET de la page.
-            lien = f"{base_url}#a={jeton}&d={payload.departement}&k={empreinte_cle}"
+            # Le departement est ENCODE : insere brut, un nom contenant un
+            # espace ou un caractere special produisait une URL que certains
+            # clients SMS tronquent au premier espace. Le votant recevait alors
+            # un lien coupe et un departement inconnu. Constat du 26/07 : un
+            # departement nomme "Dp test" avait bien produit un lien a espace.
+            lien = f"{base_url}#a={jeton}&d={quote(payload.departement, safe='')}&k={empreinte_cle}"
             autorisations.append({"jeton": jeton, "lien_sms": lien})
 
     return {
