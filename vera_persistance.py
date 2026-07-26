@@ -49,6 +49,11 @@ _SQL_TABLES = [
     "CREATE TABLE IF NOT EXISTS effectifs (departement TEXT PRIMARY KEY, effectif INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS resultats_publies (departement TEXT PRIMARY KEY, resultat_json TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS codes_courts (code TEXT PRIMARY KEY, token TEXT NOT NULL)",
+    # Intitule de la question, fige a l'ouverture de la consultation.
+    # Une seule ligne (id=1). Les OPTIONS ne sont pas stockees : elles restent
+    # a trois (oui/non/abstention) car toute la calibration DP en depend --
+    # DELTA_INT=2 et K_MIN=240 ont ete mesures sur trois options.
+    "CREATE TABLE IF NOT EXISTS question_active (id INTEGER PRIMARY KEY CHECK (id = 1), intitule TEXT NOT NULL)",
     "CREATE TABLE IF NOT EXISTS jetons_autorisation (jeton TEXT PRIMARY KEY, departement TEXT NOT NULL, utilise INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS cle_rsa_active (departement TEXT PRIMARY KEY, cle_privee_hex TEXT NOT NULL, cle_publique_hex TEXT NOT NULL, ouverture_unix REAL NOT NULL, salt_hex TEXT)",
 ]
@@ -384,6 +389,25 @@ def consommer_jeton_autorisation(jeton):
         return row[0] if row else None
 
 
+def charger_question():
+    """Intitule de la question en cours, ou None si aucun n'a ete defini."""
+    with _verrou_db:
+        row = _conn.execute("SELECT intitule FROM question_active WHERE id = 1").fetchone()
+    return row[0] if row else None
+
+
+def persister_question(intitule):
+    """Fige l'intitule de la consultation. Ecrase l'eventuel precedent :
+    l'API n'autorise l'appel que tant qu'aucune cle n'existe."""
+    with _verrou_db:
+        _conn.execute(
+            "INSERT INTO question_active (id, intitule) VALUES (1, ?) "
+            "ON CONFLICT(id) DO UPDATE SET intitule = excluded.intitule",
+            (intitule,),
+        )
+        _conn.commit()
+
+
 def charger_jetons_autorisation():
     """Recharge l'etat des jetons d'autorisation au demarrage.
 
@@ -411,7 +435,7 @@ def effacer_etat_consultation():
     Operation atomique (une seule transaction)."""
     with _verrou_db:
         for table in ("compteurs_votes", "effectifs", "codes_courts",
-                      "tokens_consommes", "budget_epsilon", "resultats_publies",
+                      "tokens_consommes", "budget_epsilon", "resultats_publies", "question_active",
                       "jetons_autorisation"):
             _conn.execute(f"DELETE FROM {table}")
         _conn.commit()

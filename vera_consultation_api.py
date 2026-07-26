@@ -285,6 +285,14 @@ def _generer_code_court_unique() -> str:
         detail="Impossible de generer un code unique. Espace probablement sature.",
     )
 
+# Valeur par DEFAUT. L'intitule reel est defini par l'organisation via
+# POST /api/rh/question, tant qu'aucune cle n'existe (donc avant la generation
+# du premier lien). Il est ensuite fige pour toute la consultation : le laisser
+# modifiable permettrait de recueillir 200 reponses sur une question, de la
+# changer, puis d'en recueillir 40 autres et de publier le tout comme un
+# resultat unique -- une manipulation invisible dans les chiffres.
+# Les OPTIONS ne sont pas modifiables : toute la calibration DP suppose trois
+# options (DELTA_INT=2, K_MIN=240 mesure sur trois).
 QUESTION_ACTIVE = {
     "question": "Êtes-vous favorable à la proposition soumise à cette consultation ?",
     "options": [
@@ -293,6 +301,19 @@ QUESTION_ACTIVE = {
         {"valeur": "abstention", "texte": "Je m'abstiens"},
     ],
 }
+
+def question_courante():
+    """Question en cours : celle definie par l'organisation, ou le defaut."""
+    intitule = None
+    try:
+        intitule = persistance.charger_question()
+    except Exception:
+        pass
+    return {
+        "question": intitule or QUESTION_ACTIVE["question"],
+        "options": QUESTION_ACTIVE["options"],
+    }
+
 
 # K_MIN = 240 : seuil MESURE (14/07/2026), pas choisi arbitrairement.
 # A eps=0.5 avec projection sur le simplexe, l'erreur max sur les 3 options
@@ -656,7 +677,7 @@ def resultats(session_vera: Optional[str] = Cookie(None)):
                 comptes_bruts = compteurs_par_departement.get(departement, {})
                 comptes_ordonnes = {
                     option["valeur"]: comptes_bruts.get(option["valeur"], 0)
-                    for option in QUESTION_ACTIVE["options"]
+                    for option in question_courante()["options"]
                 }
                 # Laplace vectoriel (Delta_1 = 2, scale = 4, eps = 0.5) PUIS
                 # projection sur le simplexe {x >= 0, somme = effectif}.
@@ -727,7 +748,7 @@ def cloturer_consultation(session_vera: Optional[str] = Cookie(None)):
             comptes_bruts = compteurs_par_departement.get(departement, {})
             comptes_ordonnes = {
                 option["valeur"]: comptes_bruts.get(option["valeur"], 0)
-                for option in QUESTION_ACTIVE["options"]
+                for option in question_courante()["options"]
             }
             deja = persistance.charger_resultat_publie(departement)
             if deja is not None:
@@ -769,6 +790,36 @@ def cloturer_consultation(session_vera: Optional[str] = Cookie(None)):
         "avertissement": "Sauvegardez ces resultats : le serveur ne les conserve plus.",
         "resultats_finaux": resultats_finaux,
     }
+
+
+class QuestionRequete(BaseModel):
+    intitule: str = Field(min_length=10, max_length=300)
+
+
+@app.post("/api/rh/question")
+def definir_question(payload: QuestionRequete, session_vera: Optional[str] = Cookie(None)):
+    """Definit l'intitule de la consultation.
+
+    N'est accepte que tant qu'AUCUNE cle n'existe, c'est-a-dire avant la
+    generation du premier lien. Ensuite la question est figee : la modifier en
+    cours de route permettrait de recueillir des reponses sur une question, de
+    la changer, puis de publier l'ensemble comme un resultat unique -- une
+    manipulation que rien dans les chiffres ne trahirait.
+
+    Les options (oui / non / abstention) ne sont pas modifiables : la
+    calibration DP les suppose au nombre de trois."""
+    exiger_session(session_vera)
+    if gestionnaire_signature.temps_restant_secondes() is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=("La consultation a deja commence : la question ne peut plus "
+                    "etre modifiee. Cloturez d'abord la consultation en cours."),
+        )
+    intitule = payload.intitule.strip()
+    if not intitule:
+        raise HTTPException(status_code=422, detail="Intitule vide.")
+    persistance.persister_question(intitule)
+    return {"statut": "question definie", "question": intitule}
 
 
 @app.get("/api/rh/echeance")
@@ -947,7 +998,7 @@ def obtenir_question():
     # identite<->vote (unlinkability), pas le contenu de la question elle-meme.
     # Aucun token requis ici : le droit de voter est prouve au moment du vote
     # (signature sur K dans /api/repondre), pas a la consultation de la question.
-    return QUESTION_ACTIVE
+    return question_courante()
 
 
 class ReponseModeleB(BaseModel):
@@ -981,7 +1032,7 @@ def repondre(payload: ReponseModeleB):
     except ValueError:
         raise HTTPException(status_code=422, detail="Champs hex invalides.")
 
-    valeurs_valides = {opt["valeur"] for opt in QUESTION_ACTIVE["options"]}
+    valeurs_valides = {opt["valeur"] for opt in question_courante()["options"]}
     if payload.reponse not in valeurs_valides:
         raise HTTPException(status_code=422, detail="Reponse invalide")
 
