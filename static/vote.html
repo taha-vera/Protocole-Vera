@@ -2,7 +2,11 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<!-- Pas de maximum-scale ni user-scalable : les bloquer empeche le zoom par
+     pincement sur mobile. Une consultation d organisation inclut des personnes
+     malvoyantes et des personnes agees ; leur retirer la possibilite d agrandir
+     la question et les options revient a leur retirer leur voix. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Consultation — Réponse confidentielle</title>
 <style>
   /* Aucune police distante : la page de vote ne doit dependre d'AUCUN tiers.
