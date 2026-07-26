@@ -719,11 +719,11 @@
           // ce que le RH voit a l ecran est exactement ce qu il conserve.
           const horo = new Date().toISOString().slice(0, 16).replace('T', ' ');
           let txt = 'VERA — Résultats définitifs de consultation\n';
-          txt += '======================================================\n';
+          txt += '============================================\n';
           txt += 'Clôturé le : ' + horo + '\n';
           txt += 'Ces chiffres n\'existent plus sur le serveur.\n';
           txt += 'Ce fichier est la seule copie : conservez-le.\n';
-          txt += '======================================================\n\n';
+          txt += '============================================\n\n';
           const clesDl = Object.keys(rfDl);
           if (clesDl.length === 0) {
             txt += 'Aucun groupe n\'a atteint le seuil de publication.\n';
@@ -744,9 +744,16 @@
               }
               txt += '\n';
             }
-            txt += '------------------------------------------------------\n';
-            txt += 'Comptages après bruit différentiel (epsilon = 0.5) et\n';
-            txt += 'projection sur le simplexe. Voir LIMITS.md pour la précision.\n';
+            // La note sur le bruit ne concerne que des comptages publies :
+            // l afficher quand tout est refuse parle de chiffres inexistants.
+            const auMoinsUnPublie = clesDl.some(function (d) {
+              return rfDl[d] && !rfDl[d].refuse;
+            });
+            if (auMoinsUnPublie) {
+              txt += '--------------------------------------------\n';
+              txt += 'Comptages après bruit différentiel (epsilon = 0.5) et\n';
+              txt += 'projection sur le simplexe. Voir LIMITS.md pour la précision.\n';
+            }
           }
           txtResultats = txt;
           const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
