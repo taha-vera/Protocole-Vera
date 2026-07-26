@@ -335,6 +335,13 @@
           <div>
             <label for="qty-input">Nombre de personnes</label>
             <input type="number" id="qty-input" min="1" max="1000" placeholder="10" required>
+            <p style="font-size:13px; color:#6b7280; margin-top:6px; line-height:1.45;">
+              Procédez par lots de 20 à 30. Les liens s'affichent un par un pour
+              que vous les envoyiez : si vous fermez cette page avant d'avoir
+              terminé, les liens non encore envoyés sont perdus (ils ne sont
+              stockés nulle part, c'est ce qui garantit l'anonymat). Vous pouvez
+              revenir en générer d'autres à tout moment.
+            </p>
           </div>
         </div>
         <button class="btn-primary" id="generate-btn">Générer les liens de participation</button>
@@ -502,6 +509,21 @@
   // suivant n'apparaisse.
   let fileDistribution = [];
   let indexDistributionActuel = 0;
+
+  // AVERTISSEMENT AVANT FERMETURE. La file de distribution ne vit qu'en
+  // memoire : fermer l'onglet au milieu perd les liens non encore distribues.
+  // Ils existent en base (jetons non consommes) mais sont irrecuperables --
+  // le serveur ne stocke que des empreintes SHA-256 depuis le correctif
+  // Porte A, il ne peut pas reconstituer les liens. On previent donc plutot
+  // que de persister des jetons en clair sur le poste du RH.
+  window.addEventListener('beforeunload', function (e) {
+    if (fileDistribution.length > 0 && indexDistributionActuel < fileDistribution.length) {
+      const restants = fileDistribution.length - indexDistributionActuel;
+      e.preventDefault();
+      e.returnValue = restants + ' lien(s) non encore distribue(s) seront perdus.';
+      return e.returnValue;
+    }
+  });
 
   const sequentialOutput = document.getElementById('sequential-output');
   const seqProgress = document.getElementById('seq-progress');
