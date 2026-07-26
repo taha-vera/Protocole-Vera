@@ -1,3 +1,7 @@
+// Mot de passe de test : lu depuis VERA_TEST_PASS, valeur de repli
+// 'test1234' pour une instance locale jetable. NE JAMAIS y mettre le
+// mot de passe de production -- un secret en dur dans le depot public a
+// deja fuite le 21/07 et impose une purge d'historique.
 import { RSABSSA } from '@cloudflare/blindrsa-ts';
 
 const BASE = 'http://127.0.0.1:8020';
@@ -8,7 +12,7 @@ const fromHex = (h) => new Uint8Array(Buffer.from(h, 'hex'));
 // 1. Login RH + generer un jeton d'autorisation (simule le RH)
 const login = await fetch(`${BASE}/api/rh/connexion`, {
   method: 'POST', headers: {'Content-Type':'application/json'},
-  body: JSON.stringify({identifiant:'asso_acer', mot_de_passe:'test1234'})
+  body: JSON.stringify({identifiant:'asso_acer', mot_de_passe:(process.env.VERA_TEST_PASS || 'test1234')})
 });
 const cookie = login.headers.get('set-cookie');
 console.log('1. login:', login.status);

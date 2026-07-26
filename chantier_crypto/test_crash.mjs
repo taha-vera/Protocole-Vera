@@ -1,3 +1,7 @@
+// Mot de passe de test : lu depuis VERA_TEST_PASS, valeur de repli
+// 'test1234' pour une instance locale jetable. NE JAMAIS y mettre le
+// mot de passe de production -- un secret en dur dans le depot public a
+// deja fuite le 21/07 et impose une purge d'historique.
 // test_crash.mjs — Crash test Modele B. Deux phases separees par un kill -9
 // du serveur (orchestre par crash_test.sh).
 //   Phase 1 : vote A commite (200) + signature B obtenue mais PAS votee.
@@ -21,7 +25,7 @@ const phase = process.argv[2];
 async function cookieRH() {
   const r = await fetch(`${BASE}/api/rh/connexion`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ identifiant: 'asso_acer', mot_de_passe: 'test1234' }),
+    body: JSON.stringify({ identifiant: 'asso_acer', mot_de_passe: (process.env.VERA_TEST_PASS || 'test1234') }),
   });
   if (r.status !== 200) throw new Error(`connexion RH: ${r.status}`);
   return r.headers.get('set-cookie');

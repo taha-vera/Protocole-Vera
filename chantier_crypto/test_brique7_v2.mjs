@@ -1,3 +1,7 @@
+// Mot de passe de test : lu depuis VERA_TEST_PASS, valeur de repli
+// 'test1234' pour une instance locale jetable. NE JAMAIS y mettre le
+// mot de passe de production -- un secret en dur dans le depot public a
+// deja fuite le 21/07 et impose une purge d'historique.
 // test_brique7_v2.mjs — Brique 7 durcie. Prouve ce que la v1 ne prouvait pas :
 //   T3  : K survit reellement a un 422 (faute de frappe -> revote possible)
 //   T5  : course anti-rejeu (2 requetes simultanees meme K -> exactement un 200)
@@ -14,7 +18,7 @@ const DEP_B = 'Brique7vB';
 
 const login = await fetch(`${BASE}/api/rh/connexion`, {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ identifiant: 'asso_acer', mot_de_passe: 'test1234' }),
+  body: JSON.stringify({ identifiant: 'asso_acer', mot_de_passe: (process.env.VERA_TEST_PASS || 'test1234') }),
 });
 const cookie = login.headers.get('set-cookie');
 
