@@ -7,6 +7,7 @@ des identifiants, et le cycle de vie des sessions.
 """
 
 import sys
+import time
 import vera_admin_auth as auth
 
 
@@ -86,6 +87,25 @@ def main():
         _ok("7. sel par compte : meme mot de passe -> hash differents")
     except Echec as e:
         print(f"FAIL 7. {e}"); ok = False
+
+    # 8. EXPIRATION DE SESSION. Trou signale par l'audit du 25/07 : les sept
+    #    tests ci-dessus passaient tous meme si les sessions n'expiraient
+    #    JAMAIS. On force l'echeance dans le passe plutot que d'attendre huit
+    #    heures.
+    try:
+        auth.creer_compte("compte_expiration", "motdepasse123")
+        jeton_exp = auth.ouvrir_session("compte_expiration")
+        if auth.session_valide(jeton_exp) != "compte_expiration":
+            raise Echec("session fraiche deja invalide")
+        auth._sessions[jeton_exp]["expire_a"] = time.time() - 1
+        if auth.session_valide(jeton_exp) is not None:
+            raise Echec("une session EXPIREE est encore acceptee -- un cookie "
+                        "vole resterait valable indefiniment")
+        if jeton_exp in auth._sessions:
+            raise Echec("session expiree non purgee du registre (fuite memoire)")
+        _ok("8. session expiree refusee et purgee du registre")
+    except Echec as e:
+        print(f"FAIL 8. {e}"); ok = False
 
     print("-" * 50)
     if ok:

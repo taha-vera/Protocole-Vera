@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Test logique endpoint /api/signer_aveugle (brique 2 refactor crypto)."""
+"""Test de la LOGIQUE de signature aveugle (brique 2 du refactor crypto).
+
+NB (26/07) : ce fichier n'atteint PAS l'endpoint HTTP, contrairement a ce que
+son ancien titre laissait croire -- aucun appel reseau ici. Il exerce la
+primitive vera_blind_sig de bout en bout et le refus du rejeu de jeton, en
+memoire. L'endpoint est couvert par chantier_crypto/test_brique7_v2.mjs, qui
+frappe le vrai serveur. Un titre qui promet plus que le contenu fait croire a
+une couverture inexistante."""
 import tempfile, sys
 from pathlib import Path
 import vera_persistance as p
