@@ -268,7 +268,7 @@
 
   async function chargerQuestion() {
     if (!jetonAutorisation) {
-      showError("Ce lien semble incomplet. Il a peut-etre ete coupe lors de l'envoi : verifiez que vous l'avez ouvert en entier, ou demandez-en un nouveau a la personne qui vous l'a transmis.");
+      showError("Ce lien semble incomplet. Il a peut-être été coupé lors de l'envoi : vérifiez que vous l'avez ouvert en entier, ou demandez-en un nouveau à la personne qui vous l'a transmis.");
       return;
     }
     try {
@@ -291,7 +291,7 @@
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!selectedValue) return;
-    if (!departementVote) { showError("Ce lien semble incomplet. Il a peut-etre ete coupe lors de l'envoi : verifiez que vous l'avez ouvert en entier, ou demandez-en un nouveau a la personne qui vous l'a transmis."); return; }
+    if (!departementVote) { showError("Ce lien semble incomplet. Il a peut-être été coupé lors de l'envoi : vérifiez que vous l'avez ouvert en entier, ou demandez-en un nouveau à la personne qui vous l'a transmis."); return; }
     submitBtn.disabled = true;
     submitBtn.textContent = 'Preparation…';
     // Le jeton se consomme des la demande de signature : a partir d'ici,
@@ -322,7 +322,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jeton_autorisation: jetonAutorisation, message_aveugle_hex: toHex(blindedMsg) })
       });
-      if (rSig.status === 403) { showError("Ce lien a deja servi. Si vous avez deja vote, votre reponse est enregistree : il n'y a rien d'autre a faire. Si vous n'avez PAS pu voter (page fermee trop tot, connexion perdue), demandez un nouveau lien a la personne qui vous a envoye celui-ci."); return; }
+      if (rSig.status === 403) { showError("Ce lien a déjà servi. Si vous avez déjà voté, votre réponse est enregistrée : il n'y a rien d'autre à faire. Si vous n'avez PAS pu voter (page fermée trop tôt, connexion perdue), demandez un nouveau lien à la personne qui vous a envoyé celui-ci."); return; }
       if (!rSig.ok) throw new Error('signature refusee');
       const { signature_aveugle_hex, departement } = await rSig.json();
 
