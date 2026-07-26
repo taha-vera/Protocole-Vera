@@ -663,6 +663,7 @@
         const data = await resp.json();
         if (!resp.ok) { throw new Error(data.detail || 'Erreur'); }
 
+        let txtResultats = '';
         // TELECHARGEMENT IMMEDIAT, avant tout affichage. Le serveur a DEJA
         // efface les donnees quand cette reponse arrive : si l onglet se ferme
         // ou si le navigateur plante, les resultats n existent plus nulle part.
@@ -670,6 +671,9 @@
         // conserver cote serveur : la garantie d effacement reste entiere.
         try {
           const rfDl = data.resultats_finaux || {};
+          // txt est declare hors du try (voir plus haut) pour servir aussi a
+          // l affichage et au presse-papiers : une seule mise en forme, donc
+          // ce que le RH voit a l ecran est exactement ce qu il conserve.
           const horo = new Date().toISOString().slice(0, 16).replace('T', ' ');
           let txt = 'VERA — Résultats définitifs de consultation\n';
           txt += '======================================================\n';
@@ -701,6 +705,7 @@
             txt += 'Comptages après bruit différentiel (epsilon = 0.5) et\n';
             txt += 'projection sur le simplexe. Voir LIMITS.md pour la précision.\n';
           }
+          txtResultats = txt;
           const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           const a2 = document.createElement('a');
@@ -723,7 +728,7 @@
           html += '<p>Aucun groupe n\'avait de résultat publiable.</p>';
         } else {
           html += '<pre style="white-space:pre-wrap; background:#fff; padding:12px; border-radius:6px;">';
-          html += JSON.stringify(rf, null, 2);
+          html += (txtResultats || JSON.stringify(rf, null, 2));
           html += '</pre>';
           html += '<button class="copy-btn" id="cloture-copy">Copier les résultats</button>';
         }
@@ -734,7 +739,7 @@
         const copyBtn = document.getElementById('cloture-copy');
         if (copyBtn) {
           copyBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(JSON.stringify(rf, null, 2));
+            navigator.clipboard.writeText(txtResultats || JSON.stringify(rf, null, 2));
             copyBtn.textContent = 'Copié !';
           });
         }
