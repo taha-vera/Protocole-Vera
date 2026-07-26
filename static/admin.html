@@ -662,6 +662,58 @@
         const resp = await fetch(`${API_BASE}/rh/cloturer`, { method: 'POST', credentials: 'include' });
         const data = await resp.json();
         if (!resp.ok) { throw new Error(data.detail || 'Erreur'); }
+
+        // TELECHARGEMENT IMMEDIAT, avant tout affichage. Le serveur a DEJA
+        // efface les donnees quand cette reponse arrive : si l onglet se ferme
+        // ou si le navigateur plante, les resultats n existent plus nulle part.
+        // Ecrire le fichier des la premiere ligne ferme cette fenetre sans rien
+        // conserver cote serveur : la garantie d effacement reste entiere.
+        try {
+          const rfDl = data.resultats_finaux || {};
+          const horo = new Date().toISOString().slice(0, 16).replace('T', ' ');
+          let txt = 'VERA -- Resultats definitifs de consultation\n';
+          txt += '======================================================\n';
+          txt += 'Cloture le : ' + horo + '\n';
+          txt += 'Ces chiffres n existent plus sur le serveur.\n';
+          txt += 'Ce fichier est la seule copie : conservez-le.\n';
+          txt += '======================================================\n\n';
+          const clesDl = Object.keys(rfDl);
+          if (clesDl.length === 0) {
+            txt += 'Aucun groupe n avait atteint le seuil de publication.\n';
+          } else {
+            for (const dep of clesDl) {
+              const r = rfDl[dep] || {};
+              txt += 'Groupe : ' + dep + '\n';
+              if (r.refuse) {
+                txt += '  Non publiable : ' + (r.raison || 'seuil non atteint') + '\n';
+              } else {
+                const cpt = r.resultats_bruits || {};
+                let tot = 0;
+                for (const k of Object.keys(cpt)) {
+                  txt += '  ' + k + ' : ' + cpt[k] + '\n';
+                  tot += cpt[k];
+                }
+                txt += '  (total : ' + tot + ' reponses)\n';
+              }
+              txt += '\n';
+            }
+            txt += '------------------------------------------------------\n';
+            txt += 'Comptages apres bruit differentiel (epsilon = 0.5) et\n';
+            txt += 'projection. Voir LIMITS.md pour la precision.\n';
+          }
+          const blob = new Blob([txt], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a2 = document.createElement('a');
+          a2.href = url;
+          a2.download = 'vera-resultats-' + new Date().toISOString().slice(0, 10) + '.txt';
+          document.body.appendChild(a2);
+          a2.click();
+          document.body.removeChild(a2);
+          setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        } catch (e) {
+          console.error('Telechargement automatique impossible :', e);
+        }
+
         // Afficher les resultats finaux, a sauvegarder imperativement.
         let html = '<div style="border:2px solid #C9A227; border-radius:8px; padding:16px; background:#fffdf5;">';
         html += '<p style="color:#d9534f; font-weight:bold; font-size:1.05em;">Consultation clôturée. Le serveur ne conserve plus aucune donnée. Sauvegardez ces résultats maintenant — ils sont irrécupérables.</p>';
