@@ -326,6 +326,23 @@
     <div class="container">
 
       <div class="section">
+        <div class="section-title">Question posée</div>
+        <div class="card" style="margin-bottom:24px;">
+          <label for="question-input">Formulez la question soumise au vote</label>
+          <textarea id="question-input" rows="3" maxlength="300"
+                    placeholder="Ex. Souhaitez-vous que l'établissement passe à la semaine de quatre jours ?"
+                    style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; font-family:inherit; font-size:15px;"></textarea>
+          <p style="font-size:13px; color:#6b7280; margin:6px 0 12px; line-height:1.45;">
+            Les réponses possibles sont toujours Oui, Non et Je m'abstiens.
+            <strong>La question se fige dès la génération du premier lien</strong> et ne
+            peut plus être modifiée : la changer en cours de consultation
+            permettrait de mélanger des réponses portant sur deux questions
+            différentes.
+          </p>
+          <button class="btn-primary" id="question-btn">Définir la question</button>
+          <p id="question-etat" style="font-size:14px; margin-top:10px;"></p>
+        </div>
+
         <div class="section-title">Préparer des invitations</div>
         <div class="field-row">
           <div>
@@ -676,6 +693,69 @@
   }
 
   // --- Cloture de consultation ---
+  // --- Question de la consultation ---------------------------------------
+  const questionInput = document.getElementById('question-input');
+  const questionBtn = document.getElementById('question-btn');
+  const questionEtat = document.getElementById('question-etat');
+
+  async function chargerQuestion() {
+    if (!questionInput) return;
+    try {
+      const r = await fetch(`${API_BASE}/question`);
+      if (r.ok) {
+        const d = await r.json();
+        questionInput.value = d.question || '';
+      }
+      // La consultation a-t-elle demarre ? Si oui, la question est figee.
+      const rEch = await fetch(`${API_BASE}/rh/echeance`, { credentials: 'include' });
+      if (rEch.ok) {
+        const ech = await rEch.json();
+        if (ech.ouverte) {
+          questionInput.disabled = true;
+          questionBtn.disabled = true;
+          questionEtat.style.color = '#6b7280';
+          questionEtat.textContent =
+            'La consultation a commencé : la question est figée jusqu\'à la clôture.';
+        }
+      }
+    } catch (e) { /* silencieux : le reste du tableau de bord reste utilisable */ }
+  }
+
+  if (questionBtn) {
+    questionBtn.addEventListener('click', async () => {
+      const intitule = (questionInput.value || '').trim();
+      if (intitule.length < 10) {
+        questionEtat.style.color = '#d9534f';
+        questionEtat.textContent = 'La question doit faire au moins 10 caractères.';
+        return;
+      }
+      questionBtn.disabled = true;
+      questionBtn.textContent = 'Enregistrement…';
+      try {
+        const r = await fetch(`${API_BASE}/rh/question`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ intitule })
+        });
+        const d = await r.json();
+        if (r.ok) {
+          questionEtat.style.color = '#2f7d32';
+          questionEtat.textContent = 'Question enregistrée. Elle se figera à la génération du premier lien.';
+        } else {
+          questionEtat.style.color = '#d9534f';
+          questionEtat.textContent = d.detail || 'Erreur lors de l\'enregistrement.';
+        }
+      } catch (e) {
+        questionEtat.style.color = '#d9534f';
+        questionEtat.textContent = 'Impossible de contacter le serveur.';
+      }
+      questionBtn.disabled = false;
+      questionBtn.textContent = 'Définir la question';
+    });
+    chargerQuestion();
+  }
+
   const cloturerBtn = document.getElementById('cloturer-btn');
   const clotureConfirm = document.getElementById('cloture-confirm');
   const clotureInput = document.getElementById('cloture-input');
