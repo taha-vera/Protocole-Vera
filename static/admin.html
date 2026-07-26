@@ -379,7 +379,7 @@
         <button class="btn-secondary" id="cloturer-btn" style="background:#d9534f; color:#fff; border:none;">Clôturer et effacer les données</button>
         <div id="cloture-confirm" style="display:none; margin-top:12px;">
           <p style="color:#d9534f; font-weight:bold;">Cette action est irréversible. Pour confirmer, tapez CLÔTURER ci-dessous :</p>
-          <input type="text" id="cloture-input" placeholder="CLÔTURER" style="margin-bottom:8px;">
+          <input type="text" id="cloture-input" placeholder="Tapez le mot ici" style="margin-bottom:8px;">
           <button class="btn-secondary" id="cloture-confirm-btn" style="background:#d9534f; color:#fff; border:none;">Confirmer la clôture définitive</button>
           <button class="btn-secondary" id="cloture-cancel-btn">Annuler</button>
         </div>
@@ -527,7 +527,7 @@
     const total = fileDistribution.length;
     const r = fileDistribution[indexDistributionActuel];
 
-    seqProgress.textContent = `Code ${indexDistributionActuel + 1} sur ${total}`;
+    seqProgress.textContent = `Lien ${indexDistributionActuel + 1} sur ${total}`;
 
     // Modele B : on distribue un LIEN personnel complet, plus un code court.
     // Le lien porte le jeton, le departement et l'empreinte de cle dans son
