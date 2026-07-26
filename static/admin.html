@@ -488,6 +488,22 @@
       }
 
       const data = await resp.json();
+      // Recuperer la date limite pour l inserer dans les messages. Sans
+      // elle, le votant ignore jusqu a quand il peut voter, remet a plus tard,
+      // et decouvre l echeance par une erreur technique.
+      try {
+        const rEch = await fetch(`${API_BASE}/rh/echeance`, { credentials: 'include' });
+        if (rEch.ok) {
+          const ech = await rEch.json();
+          if (ech.ouverte && ech.fin_utc) {
+            const d = new Date(ech.fin_utc);
+            echeanceTexte = d.toLocaleDateString('fr-FR', {
+              weekday: 'long', day: 'numeric', month: 'long'
+            });
+          }
+        }
+      } catch (e) { echeanceTexte = ''; }
+
       demarrerDistributionSequentielle(data.autorisations);
 
       document.getElementById('dept-input').value = '';
@@ -507,6 +523,8 @@
   // visible a l'ecran (et donc photographiable, copiable en bloc, ou
   // sauvegardee par erreur) -- chaque code disparait avant que le
   // suivant n'apparaisse.
+  let echeanceTexte = '';  // date limite, inseree dans chaque message SMS
+
   let fileDistribution = [];
   let indexDistributionActuel = 0;
 
@@ -554,8 +572,11 @@
     // Modele B : on distribue un LIEN personnel complet, plus un code court.
     // Le lien porte le jeton, le departement et l'empreinte de cle dans son
     // fragment (#) -- il ne doit donc jamais etre tronque ni reformate.
-    const message = `Pour participer a la consultation, ouvrez ce lien personnel :\n\n${r.lien_sms}\n\nCe lien ne fonctionne qu'une seule fois et ne permet a personne de savoir ce que vous avez repondu.`;
-    seqCodeMessage.innerHTML = `Pour participer a la consultation, ouvrez ce lien personnel :\n\n<span class="code-highlight">${r.lien_sms}</span>\n\nCe lien ne fonctionne qu'une seule fois et ne permet a personne de savoir ce que vous avez repondu.`;
+    const ligneEcheance = echeanceTexte
+      ? `\n\nVous avez jusqu'au ${echeanceTexte}.`
+      : '';
+    const message = `Pour participer a la consultation, ouvrez ce lien personnel :\n\n${r.lien_sms}${ligneEcheance}\n\nCe lien ne fonctionne qu'une seule fois et ne permet a personne de savoir ce que vous avez repondu.`;
+    seqCodeMessage.innerHTML = `Pour participer a la consultation, ouvrez ce lien personnel :\n\n<span class="code-highlight">${r.lien_sms}</span>${ligneEcheance}\n\nCe lien ne fonctionne qu'une seule fois et ne permet a personne de savoir ce que vous avez repondu.`;
     seqCopyBtn.dataset.message = message;
     seqCopyBtn.textContent = 'Copier ce message';
     seqCopyBtn.classList.remove('copied');
