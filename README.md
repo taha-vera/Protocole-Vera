@@ -15,6 +15,16 @@ incompatible avec le décompte bruité qu'impose la confidentialité
 différentielle. VERA convient à une consultation d'opinion, pas à un scrutin
 contraignant ou juridiquement opposable. Détail complet : [LIMITS.md §13](LIMITS.md).
 
+**Règle d'usage.** Le budget de confidentialité (ε=0.5) s'applique **par
+consultation**, et non par cohorte : il est remis à zéro à chaque clôture.
+Reposer une question à la même population k fois coûte ε = 0.5 × k sur ces
+personnes. VERA ne peut pas l'empêcher techniquement — suivre l'exposition
+d'un individu supposerait de l'identifier, ce que l'anonymat interdit, et le
+nom de département reste modifiable par l'organisateur. La protection est donc
+une règle d'usage : **pas plus de 4 consultations par période de 12 mois
+glissants sur la même population** (ε cumulé = 2.0, dernier palier
+défendable). Barème complet et justification : [LIMITS.md §14](LIMITS.md).
+
 - *Modèle de menace complet (17 portes)* : [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md)
 - *Mécanisme de bruit en production* : [vera_dp_noise.py](vera_dp_noise.py) (OpenDP, Δ=2, scale=4, ε=0.5, bounds=(0,10000))
 - *Persistance chiffrée de l'état (Portes 11, 14)* : [vera_persistance.py](vera_persistance.py) (SQLite WAL, Fernet/AES-128)

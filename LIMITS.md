@@ -262,3 +262,90 @@ annuaire. VERA ne fournit pas ces garanties, il ne les empeche pas.
 Cette limite est enoncee au votant sur la page de vote : *"VERA protege votre
 reponse. Il ne verifie pas la liste des personnes invitees : c'est
 l'organisateur qui l'etablit."*
+
+## 14. Le budget epsilon ne survit pas a la cloture : regle d'usage sur le nombre de consultations
+
+> **EN CLAIR, sans jargon.**
+> La protection de VERA s'use si vous consultez plusieurs fois les MEMES
+> personnes. Une ou deux consultations par an sur un groupe : protection
+> solide. Quatre : encore correcte. Au-dela de six, un employeur curieux
+> pourrait deviner qui a repondu quoi une fois sur vingt.
+> **Regle simple : pas plus de quatre consultations par an sur le meme groupe.**
+> VERA ne peut pas vous en empecher techniquement -- il ne sait pas qui sont
+> vos membres, c'est ce qui protege leur anonymat. C'est donc a l'organisation
+> de s'y tenir.
+
+
+**Ce qui est garanti techniquement.** Chaque publication applique exactement
+epsilon = 0.5 (Laplace, Delta_1 = 2, scale = 4). A l'interieur d'une
+consultation, un departement ne peut publier qu'une seule fois : republier
+renvoie le resultat fige, sans nouveau tirage de bruit -- sinon un appelant
+pourrait moyenner N tirages et annuler la protection. Ce verrou fonctionne et
+a ete verifie.
+
+**Ce qui n'est pas garanti.** A la cloture, `budget_epsilon.reset()` remet le
+compteur a zero. Une nouvelle consultation sur la meme population repart donc
+avec un budget plein. Le budget est en realite **par consultation**, pas **par
+cohorte** : reposer la meme question aux memes personnes k fois coute
+epsilon = 0.5 * k sur ces personnes, sans que rien ne le mesure ni ne le
+signale.
+
+**Pourquoi ce n'est pas corrigeable techniquement.** La composition
+differentielle porte sur les PERSONNES, pas sur les noms de groupes. Or VERA
+n'a aucune notion d'identite persistante -- c'est precisement ce qui garantit
+l'anonymat. Le seul identifiant disponible est le nom du departement, qui est :
+
+- une approximation imparfaite (les effectifs changent entre deux
+  consultations : ce n'est deja plus la meme population) ;
+- controle par l'organisateur lui-meme, donc contournable en renommant
+  "RH" en "RH 2".
+
+Un blocage dur sur un identifiant que l'adversaire choisit librement ne
+protege de rien contre un organisateur malveillant, et enfermerait un groupe
+legitime apres N consultations. Le `reset()` n'est pas un defaut : il corrige
+un vrai bug (un departement reutilisant un nom deja publie devenait
+definitivement non publiable). La limite est structurelle.
+
+**La protection est donc une REGLE D'USAGE, pas un verrou.**
+
+### Bareme d'exposition cumulee
+
+| Consultations | epsilon cumule | Protection | L'adversaire trouve juste | Verdict |
+|---|---|---|---|---|
+| 1 | 0.5 | ***** | 62 % | Forte |
+| 2 | 1.0 | ****- | 73 % | Forte |
+| **4** | **2.0** | ***-- | **88 %** | **Modere -- seuil recommande** |
+| 6 | 3.0 | **--- | 95 % | Limite haute a ne pas franchir |
+| 10 | 5.0 | *---- | 99 % | Faible |
+| 20 | 10.0 | ----- | 99.99 % | La garantie ne veut plus rien dire |
+
+Lecture de la colonne "l'adversaire trouve juste" : un observateur qui, avant
+publication, hesite a pile ou face sur la reponse d'une personne, peut apres
+publication atteindre ce niveau de certitude. A epsilon = 3, il se trompe une
+fois sur vingt seulement -- c'est le seuil conventionnel de la certitude
+statistique, celui a partir duquel un employeur pourrait agir. Au-dela, la
+phrase affichee au votant ("personne ne peut savoir ce que vous avez
+repondu") cesse d'etre defendable.
+
+### Regle retenue
+
+**Une organisation ne devrait pas publier plus de 4 consultations par periode
+de 12 mois glissants sur la meme population** (epsilon cumule = 2.0).
+
+Au-dela, la protection sort de la zone defendable publiquement. VERA ne
+l'empeche pas techniquement -- il ne le peut pas -- mais l'organisation qui
+depasse ce rythme doit savoir qu'elle degrade la garantie qu'elle a annoncee
+a ses membres.
+
+### Trois precisions, pour ne pas surestimer le risque
+
+1. Les pourcentages ci-dessus sont un **plafond du pire cas theorique** : ils
+   supposent un adversaire connaissant deja toutes les autres reponses sauf
+   une, et des questions parfaitement correlees. L'inference reellement
+   mesuree sur VERA est tres inferieure : AUC = 0.6209 (IC95%
+   [0.6185, 0.6232]), a peine mieux que le hasard.
+2. **K_MIN = 240 est la protection pratique porteuse.** La borne epsilon est
+   le garde-fou formel ; le seuil de 240 participants est ce qui noie une
+   reponse individuelle sur le terrain.
+3. La population evolue entre deux consultations (departs, arrivees), donc
+   "la meme cohorte sur un an" surestime deja l'exposition reelle.
