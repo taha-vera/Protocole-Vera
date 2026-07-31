@@ -35,14 +35,19 @@ défendable). Barème complet et justification : [LIMITS.md §14](LIMITS.md).
 - v1.0 (2026-06-12) : https://doi.org/10.5281/zenodo.20668681
 - v1.1 (2026-06-12, porte 7 fermée en prototype) : https://doi.org/10.5281/zenodo.20671969
 
-## État des 17 portes (mis à jour 13/07/2026)
+## État des portes (résumé, 1-17 -- table complète à 26 portes dans [VERA_AUDIT_REFERENCE.md](VERA_AUDIT_REFERENCE.md))
+
+> Ce tableau n'a pas suivi toutes les mises à jour de sécurité. Pour l'état
+> complet et à jour (26 portes, dont 9 fermées après le 13/07/2026), se référer
+> à [VERA_AUDIT_REFERENCE.md](VERA_AUDIT_REFERENCE.md), tenu dans le dépôt et
+> poussé avec le code à chaque déploiement.
 
 | Porte | État |
 |---|---|
 | 1. Mécanisme de bruit | Fermée — Δ=2, scale=4, ε=0.5 vérifié |
 | 2. MIA générale | Fermée — AUC=0.6209, IC95% [0.6185, 0.6232], borne théorique 0.6225 incluse (N=100 000, bootstrap) |
 | 3. Canal temporel | Fermée — fuite sub-microseconde (0.209µs), inexploitable via réseau |
-| 4. Composition séquentielle | Fermée — budget par population, vérifié empiriquement |
+| 4. Composition séquentielle | Réouverte 17/07, limite assumée — le budget est remis à zéro à CHAQUE clôture (non par cohorte). Détail et règle d'usage : [LIMITS.md §14](LIMITS.md) |
 | 5. Observateur réseau | Hors-périmètre, assumé (VPN/Tor au choix utilisateur) |
 | 6. Coercition | Hors-périmètre, limite partagée par tout système de vote |
 | 7. Différenciation « 49/1 » | Fermée — primitive RSABSSA RFC 9474 + unlinkability EFFECTIVE depuis le refactor Modèle B (23/07/2026). L'aveuglement et la finalisation ont lieu dans le navigateur du votant (static/vote.html, lib auto-hébergée) : le serveur ne voit jamais le secret K ni la signature finale, et ne peut relier ni le jeton d'autorisation au vote, ni l'identité à la réponse. Une clé RSA par département, empreinte engagée dans le lien de participation et vérifiée côté client (parade substitution de clé). Vérifié bout-en-bout : chantier_crypto/test_vote_complet.mjs, test_brique7.mjs. LIMITE : garantie valable contre un tiers et un opérateur honnête-mais-curieux (Niveau 1 du modèle d'adversaire) ; contre un opérateur activement malveillant qui sert le JS et détient les clés, un hébergement tiers est nécessaire — voir la section Modèle d'adversaire du threat model. |
@@ -51,7 +56,7 @@ défendable). Barème complet et justification : [LIMITS.md §14](LIMITS.md).
 | 10. Sondage binaire K_MIN | Fermée — effectif/fiable retirés de l'API |
 | 11. Accès direct SQLite / clé RSA | Fermée — chiffrement Fernet/AES-128, salt PBKDF2 aléatoire, crash-testée |
 | 12. Secret admin visible /proc | Limite assumée (contexte solo-root) |
-| 13. Soustraction d'agrégats | Limite irréductible DP, atténuée par budget ε |
+| 13. Soustraction d'agrégats | Limite irréductible DP, atténuée par budget ε PAR CONSULTATION uniquement (même réserve que Porte 4) |
 | 14. Non-persistance de l'état | Fermée — SQLite WAL, crash-testée (kill -9 réel) |
 | 15. Trafic en clair (HTTP) | Fermée — HTTPS via Nginx + Let's Encrypt, redirection automatique verifiee |
 | 16. Retention des logs applicatifs | Fermée — purge manuelle a cloture + logrotate 3 jours en filet de securite |
