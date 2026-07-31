@@ -170,7 +170,10 @@
 
   .dept-progress { font-size: 12px; color: var(--ink-light); }
 
-  .empty-state { font-size: 13px; color: var(--ink-light); opacity: 0.7; text-align: center; padding: 16px; }
+  .empty-state { font-size: 13px; color: var(--ink-light); text-align: center; padding: 16px; }
+  /* opacity:0.7 supprimee : ink-light (#2D5240) sur fond blanc donne 8.27:1 ;
+     avec opacity:0.7 le ratio tombait a ~5.8:1 sur 13px -- limite WCAG AA.
+     Sans opacity on gagne 2 points de ratio sans changer la couleur percue. */
 
   .codes-output {
     margin-top: 16px;
@@ -257,6 +260,8 @@
   }
 
   .copy-btn.copied { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .dept-alerte { color: #b3261e; font-weight: 600; }
+  .copy-btn.echec { background: #b3261e; color: #fff; border-color: #b3261e; }
 
   .copy-hint {
     font-size: 12px;
@@ -371,6 +376,15 @@
           </div>
           <div class="seq-nav">
             <button class="btn-secondary" id="seq-next-btn">J'ai envoyé ce message — suivant</button>
+          </div>
+          <div style="margin-top:16px; padding:12px 14px; background:#fff4e5; border-left:3px solid #d97706; border-radius:4px;">
+            <p style="font-size:13px; color:#7c2d12; line-height:1.5; margin:0 0 10px;">
+              <strong>Envoi en masse&nbsp;?</strong> Pour un grand nombre d'invitations, exportez tout le lot en fichier CSV
+              (colonnes&nbsp;: département, lien, message) à charger dans votre propre outil d'envoi SMS.
+              Le fichier <strong>ne contient aucun numéro de téléphone</strong> — c'est vous qui associez chaque ligne à un destinataire.
+              En revanche il contient les liens de vote&nbsp;: traitez-le comme confidentiel (quiconque l'obtient peut voter à la place des invités) et <strong>supprimez-le une fois les SMS envoyés</strong>.
+            </p>
+            <button class="btn-secondary" id="seq-export-btn" type="button">Exporter tout le lot (CSV)</button>
           </div>
           <p class="seq-done" id="seq-done" style="display:none;">
             Tous les codes ont été distribués. Cette liste ne sera plus jamais affichée.
@@ -544,6 +558,7 @@
 
   let fileDistribution = [];
   let indexDistributionActuel = 0;
+  let departementDistribution = '';  // departement du lot courant, pour l'export CSV
 
   // AVERTISSEMENT AVANT FERMETURE. La file de distribution ne vit qu'en
   // memoire : fermer l'onglet au milieu perd les liens non encore distribues.
@@ -572,6 +587,14 @@
   function demarrerDistributionSequentielle(resultats) {
     fileDistribution = resultats;
     indexDistributionActuel = 0;
+    // Departement du lot (tous les liens d'un lot partagent le meme) : sert de
+    // colonne dans l'export CSV. Recupere depuis le fragment du premier lien
+    // pour ne dependre d'aucune variable exterieure.
+    try {
+      const frag = (resultats[0] && resultats[0].lien_sms || '').split('#')[1] || '';
+      const params = new URLSearchParams(frag);
+      departementDistribution = params.get('d') || '';
+    } catch (e) { departementDistribution = ''; }
     sequentialOutput.classList.add('active');
     seqDone.style.display = 'none';
     seqCodeBlock.style.display = 'block';
@@ -603,14 +626,51 @@
       : "J'ai envoyé ce message — suivant";
   }
 
-  seqCopyBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(seqCopyBtn.dataset.message);
-    seqCopyBtn.textContent = 'Copié ✓';
-    seqCopyBtn.classList.add('copied');
-    setTimeout(() => {
-      seqCopyBtn.textContent = 'Copier ce message';
+  // Copie robuste (B4) : navigator.clipboard peut REJETER (contexte non
+  // securise, permission refusee, vieux navigateur) sans lever d'exception
+  // synchrone. L'ancien code affichait "Copié ✓" sans jamais verifier -- si la
+  // copie echouait, le RH collait le lien PRECEDENT et deux personnes
+  // recevaient le meme lien. On attend la promesse, on tente un repli
+  // execCommand, et en dernier recours on le DIT au lieu de mentir.
+  async function copierTexte(texte) {
+    try {
+      await navigator.clipboard.writeText(texte);
+      return true;
+    } catch (e) {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = texte;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e2) {
+        return false;
+      }
+    }
+  }
+
+  seqCopyBtn.addEventListener('click', async () => {
+    const ok = await copierTexte(seqCopyBtn.dataset.message);
+    if (ok) {
+      seqCopyBtn.textContent = 'Copié ✓';
+      seqCopyBtn.classList.remove('echec');
+      seqCopyBtn.classList.add('copied');
+      setTimeout(() => {
+        seqCopyBtn.textContent = 'Copier ce message';
+        seqCopyBtn.classList.remove('copied');
+      }, 2000);
+    } else {
+      // On NE remet PAS "Copié" : le message reste visible et selectionnable
+      // dans seq-code-message, on invite a le copier a la main.
+      seqCopyBtn.textContent = 'Copie impossible — sélectionnez le texte et copiez-le à la main';
       seqCopyBtn.classList.remove('copied');
-    }, 2000);
+      seqCopyBtn.classList.add('echec');
+    }
   });
 
   seqNextBtn.addEventListener('click', () => {
@@ -631,6 +691,45 @@
     afficherCodeActuel();
   });
 
+  // Export CSV de TOUT le lot, genere cote client a partir des liens deja en
+  // memoire -- le serveur ne stocke/logge rien de plus. Colonnes : departement,
+  // lien, message pret a envoyer. AUCUN numero : c'est le RH qui, dans son outil
+  // SMS, associe chaque ligne a un destinataire. L'anonymat de VERA est preserve
+  // (le serveur ne voit jamais un numero). Le fichier reste sensible (il porte
+  // les liens = credentials) : l'avertissement a l'ecran le rappelle.
+  function echapperCsv(champ) {
+    return '"' + String(champ).replace(/"/g, '""') + '"';
+  }
+  function exporterLotCsv() {
+    if (!fileDistribution || fileDistribution.length === 0) {
+      alert("Aucun lot à exporter (la distribution est terminée ou vide). Générez un nouveau lot pour l'exporter.");
+      return;
+    }
+    const dep = departementDistribution || '';
+    const echeance = echeanceTexte ? ` Vous avez jusqu'au ${echeanceTexte}.` : '';
+    const lignes = [['departement', 'lien', 'message'].map(echapperCsv).join(',')];
+    for (const r of fileDistribution) {
+      const lien = r.lien_sms;
+      // Message mono-ligne (memes phrases que la distribution sequentielle,
+      // sauts de ligne remplaces par des espaces pour les outils SMS).
+      const message = `Pour participer a la consultation, ouvrez ce lien personnel : ${lien}${echeance} Ce lien ne fonctionne qu'une seule fois et ne permet a personne de savoir ce que vous avez repondu.`;
+      lignes.push([dep, lien, message].map(echapperCsv).join(','));
+    }
+    // BOM UTF-8 pour qu'Excel ouvre correctement les accents ; CRLF (RFC 4180).
+    const csv = '\uFEFF' + lignes.join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `liens-vote-${(dep || 'export').replace(/[^a-zA-Z0-9_-]/g, '_')}-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  document.getElementById('seq-export-btn').addEventListener('click', exporterLotCsv);
+
   async function rafraichirEtat() {
     try {
       const resp = await fetch(`${API_BASE}/rh/etat_departements`, { credentials: 'include' });
@@ -643,17 +742,31 @@
       } else {
         deptList.innerHTML = departements.map(dep => {
           const d = etat[dep];
-          // L API expose votes_recus, seuil_k_min et publiable. Sous le
-          // seuil, votes_recus vaut la chaine "< 240" : on n expose NI
-          // l effectif exact NI le manque, pour ne pas trahir la taille d une
-          // petite cohorte.
+          // L API expose votes_recus, invitations_generees, seuil_k_min et
+          // publiable. Sous le seuil, votes_recus vaut la chaine "< 240" : on
+          // n expose NI l effectif exact NI le manque, pour ne pas trahir la
+          // taille d une petite cohorte. invitations_generees, lui, est la
+          // saisie du RH -- non identifiant -- et s affiche toujours.
           // NB: ne pas nommer cette variable "etat" -- ce nom est deja pris
           // par la reponse JSON dans la portee englobante, et la redeclaration
           // cassait silencieusement le rendu de toute la liste.
-          const libelle = d.publiable
-            ? `${d.votes_recus} réponses — publiable`
-            : `${d.votes_recus} réponses — seuil de ${d.seuil_k_min} non atteint`;
-          return `<div class="dept-row"><span>${dep}</span><span class="dept-progress">${libelle}</span></div>`;
+          const inv = d.invitations_generees || 0;
+          // Ligne invitations : visible DES la generation, avant tout vote.
+          // C est ce qui evite au RH de croire a un echec et de regenerer.
+          const invTexte = `${inv} invitation${inv > 1 ? 's' : ''} envoyée${inv > 1 ? 's' : ''}`;
+          let libelle, classe = 'dept-progress';
+          if (d.publiable) {
+            libelle = `${invTexte} · ${d.votes_recus} réponses — publiable`;
+          } else if (inv > 0 && inv < d.seuil_k_min) {
+            // ALERTE mort-ne : moins d invitations que le seuil -> ce groupe
+            // ne publiera JAMAIS, meme a 100% de participation. Surface ici,
+            // en continu, plutot qu a la cloture apres 300 SMS envoyes.
+            libelle = `${invTexte} · sous le seuil de ${d.seuil_k_min} : aucun résultat ne pourra être publié pour ce groupe`;
+            classe = 'dept-progress dept-alerte';
+          } else {
+            libelle = `${invTexte} · ${d.votes_recus} réponses — seuil de ${d.seuil_k_min} non atteint`;
+          }
+          return `<div class="dept-row"><span>${dep}</span><span class="${classe}">${libelle}</span></div>`;
         }).join('');
       }
 
@@ -786,6 +899,19 @@
         const data = await resp.json();
         if (!resp.ok) { throw new Error(data.detail || 'Erreur'); }
 
+        // B1bis : re-clic de cloture sur un etat deja vide. Le serveur repond
+        // "rien_a_cloturer" plutot que des resultats vides. On l'affiche
+        // honnetement au lieu de "aucun groupe publiable" (qui faisait croire
+        // que des reponses avaient ete jugees insuffisantes).
+        if (data.statut === 'rien_a_cloturer') {
+          clotureResultats.innerHTML = '<div style="border:2px solid #C9A227; border-radius:8px; padding:16px; background:#fffdf5;"><p>' +
+            (data.message || 'Aucune donnée à clôturer.') + '</p></div>';
+          clotureResultats.style.display = 'block';
+          clotureConfirm.style.display = 'none';
+          if (typeof rafraichirEtat === 'function') { rafraichirEtat(); }
+          return;
+        }
+
         let txtResultats = '';
         // TELECHARGEMENT IMMEDIAT, avant tout affichage. Le serveur a DEJA
         // efface les donnees quand cette reponse arrive : si l onglet se ferme
@@ -868,9 +994,16 @@
         clotureConfirm.style.display = 'none';
         const copyBtn = document.getElementById('cloture-copy');
         if (copyBtn) {
-          copyBtn.addEventListener('click', () => {
-            navigator.clipboard.writeText(txtResultats || JSON.stringify(rf, null, 2));
-            copyBtn.textContent = 'Copié !';
+          copyBtn.addEventListener('click', async () => {
+            const ok = await copierTexte(txtResultats || JSON.stringify(rf, null, 2));
+            if (ok) {
+              copyBtn.textContent = 'Copié !';
+            } else {
+              // Le fichier .txt a deja ete telecharge automatiquement : la copie
+              // n'est pas le seul filet. On le dit clairement au lieu de mentir.
+              copyBtn.textContent = 'Copie impossible — le fichier a été téléchargé ; sinon sélectionnez le texte ci-dessus';
+              copyBtn.classList.add('echec');
+            }
           });
         }
         // Rafraichir le dashboard (doit etre vide maintenant).

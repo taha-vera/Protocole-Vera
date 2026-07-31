@@ -735,6 +735,27 @@ def cloturer_consultation(session_vera: Optional[str] = Cookie(None)):
     RH a la reception de cette reponse sont definitivement perdus."""
     exiger_session(session_vera)
 
+    # Garde anti double-cloture (B1bis). Si l'etat est deja entierement vide
+    # (aucun vote, aucune invitation), il n'y a rien a clore : soit consultation
+    # jamais demarree, soit RE-CLIC apres une cloture dont la reponse s'est
+    # perdue en transit. Sans cette garde, on tombait dans la boucle sur un etat
+    # vide et on renvoyait resultats_finaux={} -> le front affichait "aucun
+    # groupe publiable", laissant croire que des reponses avaient ete jugees
+    # insuffisantes alors qu'elles avaient deja ete affichees puis effacees.
+    # On ne detruit/rouvre donc RIEN et on repond honnetement.
+    invitations_existantes = persistance.compter_jetons_par_departement()
+    with verrou:
+        etat_vide = not effectif_par_departement and not invitations_existantes
+    if etat_vide:
+        return {
+            "statut": "rien_a_cloturer",
+            "message": (
+                "Aucune donnee a cloturer. Si vous venez de cloturer une "
+                "consultation, ses resultats vous ont ete affiches a ce "
+                "moment-la : le serveur ne les conserve plus."
+            ),
+        }
+
     # 1. Figer/recuperer les resultats finaux des departements publiables.
     resultats_finaux = {}
     with verrou:
@@ -864,26 +885,34 @@ def etat_departements(session_vera: Optional[str] = Cookie(None)):
     reelle et non identifiante : le nombre de votes recus par departement."""
     exiger_session(session_vera)
 
+    invitations = persistance.compter_jetons_par_departement()
     etat = {}
     with verrou:
-        for dep, nb_votes in effectif_par_departement.items():
+        # UNION jetons U effectifs : un departement peut avoir des invitations
+        # generees sans aucun vote encore. Il DOIT alors apparaitre -- sinon le
+        # RH, ne voyant rien apres avoir genere 300 liens, croit a un echec et
+        # regenere, doublant les liens en circulation.
+        departements = set(effectif_par_departement) | set(invitations)
+        for dep in departements:
+            nb_votes = effectif_par_departement.get(dep, 0)
+            nb_invitations = invitations.get(dep, 0)
             publiable = nb_votes >= K_MIN
             if publiable:
                 # Au-dessus du seuil : l'effectif exact n'est plus sensible.
-                etat[dep] = {
-                    "votes_recus": nb_votes,
-                    "seuil_k_min": K_MIN,
-                    "publiable": True,
-                }
+                votes_exposes = nb_votes
             else:
-                # Sous le seuil : on n'expose NI l'effectif exact, NI le manque
-                # exact (qui permettrait de le deduire). On indique seulement
-                # que le departement n'est pas encore publiable.
-                etat[dep] = {
-                    "votes_recus": f"< {K_MIN}",
-                    "seuil_k_min": K_MIN,
-                    "publiable": False,
-                }
+                # Sous le seuil : on masque le nombre de votes (NI l'effectif
+                # exact NI le manque, qui permettrait de le deduire). Le nombre
+                # d'INVITATIONS reste expose : c'est la saisie du RH, pas une
+                # donnee de participant. Les votes restant masques ici, aucun
+                # taux de participation exact n'est calculable en regime sensible.
+                votes_exposes = f"< {K_MIN}"
+            etat[dep] = {
+                "votes_recus": votes_exposes,
+                "invitations_generees": nb_invitations,
+                "seuil_k_min": K_MIN,
+                "publiable": publiable,
+            }
 
     return etat
 

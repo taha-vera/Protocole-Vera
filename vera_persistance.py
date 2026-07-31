@@ -422,6 +422,22 @@ def charger_jetons_autorisation():
     return {row[0]: (row[1], bool(row[2])) for row in rows}
 
 
+def compter_jetons_par_departement():
+    """Nombre de jetons d'autorisation GENERES par departement (utilises ou
+    non). Agregat NON identifiant : c'est la quantite que le RH a lui-meme
+    saisie a la generation -- il ne relie aucun votant a rien, aucune reponse
+    a personne. Sert au tableau de bord a (1) montrer qu'un departement existe
+    des la generation, avant tout vote, sinon le RH croit a un echec et
+    regenere en doublant les liens ; (2) avertir qu'un departement dont le
+    total d'invitations est deja sous K_MIN ne pourra jamais publier. Lecture
+    seule, aucune mutation."""
+    with _verrou_db:
+        rows = _conn.execute(
+            "SELECT departement, COUNT(*) FROM jetons_autorisation GROUP BY departement"
+        ).fetchall()
+    return {row[0]: row[1] for row in rows}
+
+
 def effacer_etat_consultation():
     """Efface TOUT l'etat brut d'une consultation : compteurs, effectifs,
     codes courts, tokens consommes, budget epsilon, resultats publies,

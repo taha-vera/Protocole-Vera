@@ -50,7 +50,9 @@
     color: var(--ink-light);
     text-align: center;
     margin-bottom: 8px;
-    opacity: 0.75;
+    /* opacity supprimee : avec opacity:0.75, le ratio de contraste tombait sous
+       le seuil WCAG 1.4.3 (4.5:1 requis pour texte de 13px). ink-light seul
+       donne 8.27:1 -- aucun ajustement visuel significatif a cette opacite. */
   }
 
   h1 {
@@ -113,9 +115,13 @@
 
   .footnote {
     text-align: center;
-    font-size: 12px;
+    font-size: 13px; /* 12px etait sous le seuil WCAG -- texte non-gras sous 18px
+                        doit etre >= 14px pour WCAG AA ; on monte a 13px minimum
+                        et on supprime l'opacity pour garder le ratio 8.27:1. */
     color: var(--ink-light);
-    opacity: 0.65;
+    /* opacity:0.65 supprimee : ratio chutait a ~5.4:1 sur 12px, echec WCAG.
+       C'est la phrase la plus importante de la page ("ce lien est a usage unique")
+       -- la rendre lisible n'est pas optionnel. */
     margin-top: 24px;
     line-height: 1.5;
   }
@@ -123,6 +129,20 @@
   .state-screen { display: none; text-align: center; padding-top: 40px; }
   .state-screen.active { display: block; }
   #form-screen.hidden { display: none; }
+  /* sr-only : masque visuellement le contenu mais le laisse accessible aux
+     lecteurs d'ecran. Technique standard WCAG (pas display:none qui supprime
+     aussi l'accessibilite). Utilisee pour vote-hint (D5). */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+  }
 
   .state-icon { width: 64px; height: 64px; margin: 0 auto 24px; }
 
@@ -164,15 +184,23 @@
 
       <form id="vote-form">
         <div class="question-block">
-          <div class="options" id="options-container"></div>
+          <!-- D4 : role="radiogroup" + aria-labelledby lie les options a la question.
+               Sans cela, un lecteur d'ecran annonce "Oui, bouton radio" sans jamais
+               dire de quelle question il s'agit. -->
+          <div class="options" id="options-container" role="radiogroup" aria-labelledby="question-title" aria-describedby="vote-hint"></div>
         </div>
-        <button type="submit" class="submit-btn" id="submit-btn" disabled>
+        <!-- D5 : le bouton est desactive au chargement ; sans indication, un utilisateur
+             de lecteur d'ecran ne sait pas pourquoi. vote-hint explique la condition.
+             L'attribut aria-describedby est retire des que l'utilisateur choisit
+             une option (voir renderOptions). -->
+        <p id="vote-hint" class="sr-only">Choisissez une réponse ci-dessus pour activer le bouton d'envoi.</p>
+        <button type="submit" class="submit-btn" id="submit-btn" disabled aria-describedby="vote-hint">
           Envoyer ma réponse
         </button>
       </form>
 
       <p class="footnote">
-        Ce lien est à usage unique. Une fois votre réponse envoyée, elle ne peut plus être modifiée ni retracée jusqu'à vous.
+        Ce lien est à usage unique et personnel — <strong>ne le transférez pas</strong> : quiconque l'ouvre peut voter à votre place. Une fois votre réponse envoyée, elle ne peut plus être modifiée ni retracée jusqu'à vous. En cas de problème, contactez la personne qui vous a envoyé ce lien.
       </p>
       <p id="avertissement-envoi" style="display:none; margin-top:14px; padding:12px 14px; background:#fff4e5; border-left:3px solid #d97706; color:#7c2d12; font-size:15px; line-height:1.5;" role="status">
         <strong>Ne fermez pas cette page.</strong> L'envoi est en cours. Si vous
@@ -181,7 +209,7 @@
       </p>
     </div>
 
-    <div id="success-screen" class="state-screen">
+    <div id="success-screen" class="state-screen" role="status" aria-live="polite" aria-atomic="true">
       <svg class="state-icon" viewBox="0 0 64 64" fill="none">
         <circle cx="32" cy="32" r="30" stroke="#1B3A2F" stroke-width="2"/>
         <path d="M20 33 L28 41 L44 24" stroke="#C9A227" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -190,14 +218,14 @@
       <p class="state-text">Merci d'avoir participé. Votre contribution a été intégrée au résultat collectif, sans pouvoir être reliée à votre identité.</p>
     </div>
 
-    <div id="error-screen" class="state-screen">
+    <div id="error-screen" class="state-screen" role="alert" aria-live="assertive" aria-atomic="true">
       <svg class="state-icon" viewBox="0 0 64 64" fill="none">
         <circle cx="32" cy="32" r="30" stroke="#8B3A3A" stroke-width="2"/>
         <path d="M32 20 L32 38" stroke="#8B3A3A" stroke-width="3" stroke-linecap="round"/>
         <circle cx="32" cy="46" r="2" fill="#8B3A3A"/>
       </svg>
-      <p class="state-title">Ce lien a déjà été utilisé</p>
-      <p class="state-text">Chaque lien de participation ne peut servir qu'une seule fois. Si vous pensez qu'il s'agit d'une erreur, contactez l'organisateur.</p>
+      <p class="state-title">Une erreur est survenue</p>
+      <p class="state-text">Chaque lien de participation ne peut servir qu'une seule fois. Si vous pensez qu'il s'agit d'une erreur, contactez la personne qui vous a envoyé ce lien.</p>
     </div>
 
   </div>
@@ -240,10 +268,45 @@
 
   let selectedValue = null;
 
-  function showError(message) {
+  // C1 : showError accepte un message ET un titre optionnel. Sans titre,
+  // on affiche « Une erreur est survenue » plutôt que le titre générique
+  // « Ce lien a déjà été utilisé » qui trompait les cas sans rapport
+  // (lien incomplet, département inconnu, clé non conforme…). Le titre
+  // « Ce lien a déjà été utilisé » est réservé au cas 403 (jeton consommé).
+  function showError(message, titre) {
     formScreen.classList.add('hidden');
     errorScreen.classList.add('active');
+    const titreEl = errorScreen.querySelector('.state-title');
+    if (titre !== undefined) {
+      titreEl.textContent = titre;
+    } else if (!message) {
+      // Appel sans argument = cas 410/409 (consultation fermée)
+      titreEl.textContent = 'Consultation terminée';
+    } else {
+      // Cas générique : ne pas mentir que le lien a "déjà été utilisé"
+      titreEl.textContent = 'Une erreur est survenue';
+    }
     if (message) errorScreen.querySelector('.state-text').textContent = message;
+  }
+
+  // C4 : bandeau d'erreur inline pour les exceptions réseau (remplace alert()).
+  // Pas de modal bloquante : le votant peut relire le formulaire, changer
+  // d'option ou réessayer sans avoir à fermer une popup.
+  function showInlineError(texte) {
+    let bandeau = document.getElementById('inline-error');
+    if (!bandeau) {
+      bandeau = document.createElement('p');
+      bandeau.id = 'inline-error';
+      bandeau.setAttribute('role', 'alert');
+      bandeau.style.cssText = 'margin-top:12px;padding:10px 14px;background:#fef2f2;border-left:3px solid #8B3A3A;border-radius:4px;font-size:14px;color:#8B3A3A;line-height:1.5;';
+      submitBtn.insertAdjacentElement('afterend', bandeau);
+    }
+    bandeau.textContent = texte;
+    bandeau.style.display = 'block';
+  }
+  function cacherInlineError() {
+    const bandeau = document.getElementById('inline-error');
+    if (bandeau) bandeau.style.display = 'none';
   }
 
   function showSuccess() {
@@ -264,6 +327,9 @@
       input.addEventListener('change', (e) => {
         selectedValue = e.target.value;
         submitBtn.disabled = false;
+        // D5 : le bouton est actif, le hint "choisissez une option" n'est plus
+        // pertinent -- on le delie pour ne pas embrouiller le lecteur d'ecran.
+        submitBtn.removeAttribute('aria-describedby');
         optionsContainer.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
         e.target.closest('.option').classList.add('selected');
       });
@@ -272,7 +338,24 @@
 
   async function chargerQuestion() {
     if (!jetonAutorisation) {
-      showError("Ce lien semble incomplet. Il a peut-être été coupé lors de l'envoi : vérifiez que vous l'avez ouvert en entier, ou demandez-en un nouveau à la personne qui vous l'a transmis.");
+      showError("Ce lien semble incomplet. Il a peut-être été coupé lors de l'envoi : vérifiez que vous l'avez ouvert en entier, ou demandez-en un nouveau à la personne qui vous l'a transmis.", "Lien incomplet");
+      return;
+    }
+    // Si CET appareil a deja depose un vote pour ce jeton, on n'affiche PAS un
+    // formulaire re-votable (anxiogene, et le vote serait refuse en 403). On
+    // montre directement la confirmation rassurante.
+    if (await dejaVoteLocal()) { showSuccess(); return; }
+    // Reprise (gap audit) : un vote signe mais non depose a survecu a la
+    // fermeture de l'onglet. On le RE-DEPOSE directement au lieu de le perdre,
+    // sans re-signer (le jeton est consomme). deposerVote gere succes / retry.
+    const votePending = await lirePendingLocal();
+    if (votePending) {
+      formScreen.classList.remove('hidden');
+      enCours = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Reprise de votre vote…';
+      document.getElementById('avertissement-envoi').style.display = 'block';
+      await deposerVote(votePending);
       return;
     }
     try {
@@ -292,26 +375,117 @@
   const toHex = (u8) => Array.from(u8).map(b => b.toString(16).padStart(2,'0')).join('');
   const fromHex = (h) => new Uint8Array(h.match(/.{2}/g).map(b => parseInt(b,16)));
 
+  // Memoire locale du vote (Test "le lendemain", option B : zero serveur).
+  // La cle est le SHA-256 du jeton -- on ne recopie PAS le credential en clair
+  // dans localStorage. Best-effort : si localStorage est indisponible (mode
+  // prive, desactive), on degrade silencieusement et l'anti-rejeu serveur (403)
+  // reste le filet. Ne couvre QUE le meme appareil/navigateur -- c'est assume :
+  // aucune sonde de participation cote serveur n'est creee.
+  async function cleVoteLocal() {
+    const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(jetonAutorisation || ''));
+    return 'vera_vote:' + toHex(new Uint8Array(h));
+  }
+  async function marquerVoteLocal() {
+    try { localStorage.setItem(await cleVoteLocal(), '1'); } catch (e) { /* degrade */ }
+  }
+  async function dejaVoteLocal() {
+    try { return localStorage.getItem(await cleVoteLocal()) === '1'; } catch (e) { return false; }
+  }
+
+  // Reprise apres fermeture d'onglet (gap audit A1/A2/A3). Une fois la signature
+  // finalisee, le jeton est CONSOMME : si l'onglet ferme avant le depot, la voix
+  // est perdue et re-signer est impossible. On persiste donc le votePayload
+  // complet en sessionStorage (cloisonne a l'onglet, efface a sa fermeture) pour
+  // pouvoir RE-DEPOSER a la reouverture. Le payload contient la reponse choisie :
+  // stockage transitoire, sur l'appareil du votant, jamais transmis au serveur ni
+  // au RH, et la signature reste non-reliable a l'identite par construction.
+  // Efface des que le depot reussit. Best-effort : si sessionStorage est
+  // indisponible, on degrade (comportement identique a avant ce correctif).
+  async function clePendingLocal() {
+    const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(jetonAutorisation || ''));
+    return 'vera_pending:' + toHex(new Uint8Array(h));
+  }
+  async function sauverPendingLocal(payload) {
+    try { sessionStorage.setItem(await clePendingLocal(), JSON.stringify(payload)); } catch (e) { /* degrade */ }
+  }
+  async function lirePendingLocal() {
+    try {
+      const brut = sessionStorage.getItem(await clePendingLocal());
+      return brut ? JSON.parse(brut) : null;
+    } catch (e) { return null; }
+  }
+  async function effacerPendingLocal() {
+    try { sessionStorage.removeItem(await clePendingLocal()); } catch (e) { /* degrade */ }
+  }
+
+  // Verrou de re-entrance (Test double-tap). Le bouton disabled bloque deja les
+  // re-clics, mais un submit peut aussi venir de la touche Entree ou d'un event
+  // deja en file : ce flag est la garantie porteuse, le disabled reste l'UX.
+  let enCours = false;
+  // Payload d'un vote dont la signature est finalisee (jeton donc CONSOMME) mais
+  // dont le depot a echoue. On le garde pour RE-DEPOSER sans re-signer -- sinon
+  // la voix est perdue alors que le credential en main est valide (Test mode
+  // avion : coupure reseau entre la signature et le depot).
+  let votePayloadEnAttente = null;
+
+  // Depot du vote, isole pour etre re-essayable. 409 = l'empreinte K est deja
+  // comptee => la voix EST enregistree : c'est un succes du point de vue de
+  // l'electeur, pas une erreur (l'ancien code affichait un ecran rouge pour un
+  // vote pourtant compte).
+  async function deposerVote(votePayload) {
+    try {
+      const rVote = await fetch(`${API_BASE}/repondre`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(votePayload)
+      });
+      if (rVote.status === 409) { votePayloadEnAttente = null; await effacerPendingLocal(); await marquerVoteLocal(); showSuccess(); return; }
+      if (!rVote.ok) throw new Error('vote refuse (' + rVote.status + ')');
+      votePayloadEnAttente = null;
+      await effacerPendingLocal();
+      await marquerVoteLocal();
+      showSuccess();
+    } catch (err) {
+      // Signature VALIDE, vote NON depose, jeton deja consomme : re-signer est
+      // impossible. On conserve le payload et on propose de re-envoyer.
+      votePayloadEnAttente = votePayload;
+      enCours = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Réessayer l'envoi";
+      document.getElementById('avertissement-envoi').style.display = 'none';
+      showInlineError("Votre choix est prêt mais l'envoi a échoué (connexion ?). Votre lien reste valable : appuyez sur « Réessayer l'envoi ».");
+    }
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (enCours) return;
     if (!selectedValue) return;
-    if (!departementVote) { showError("Ce lien semble incomplet. Il a peut-être été coupé lors de l'envoi : vérifiez que vous l'avez ouvert en entier, ou demandez-en un nouveau à la personne qui vous l'a transmis."); return; }
+    if (!departementVote) { showError("Ce lien semble incomplet. Il a peut-être été coupé lors de l'envoi : vérifiez que vous l'avez ouvert en entier, ou demandez-en un nouveau à la personne qui vous l'a transmis.", "Lien incomplet"); return; }
+    enCours = true;
     submitBtn.disabled = true;
+    // Chemin de RE-DEPOT : un vote a deja ete signe, seul l'envoi avait echoue.
+    // On re-depose directement, sans repasser par la signature.
+    if (votePayloadEnAttente) {
+      submitBtn.textContent = 'Envoi du vote…';
+      await deposerVote(votePayloadEnAttente);
+      return;
+    }
     submitBtn.textContent = 'Preparation…';
     // Le jeton se consomme des la demande de signature : a partir d'ici,
     // fermer la page fait perdre la voix. On le dit explicitement -- un bouton
     // grise seul laisse croire a un plantage.
     document.getElementById('avertissement-envoi').style.display = 'block';
+    let votePayload = null;
     try {
       const suite = window.RSABSSA.SHA384.PSS.Randomized();
 
       const rPk = await fetch(`${API_BASE}/cle_publique?departement=${encodeURIComponent(departementVote)}`);
-      if (rPk.status === 404) { showError('Consultation introuvable pour ce departement.'); return; }
+      if (rPk.status === 404) { showError('Ce département n\'est pas reconnu. Vérifiez que vous avez ouvert le lien en entier, ou demandez-en un nouveau à la personne qui vous l\'a transmis.', 'Département inconnu'); return; }
       if (!rPk.ok) throw new Error('cle publique indisponible');
       const { cle_publique_hex, empreinte_sha256 } = await rPk.json();
 
       if (empreinteCleAttendue && empreinte_sha256 !== empreinteCleAttendue) {
-        showError('Cle du serveur non conforme au lien. Vote refuse par securite.');
+        showError('La clé du serveur ne correspond pas à ce lien. Vote refusé par sécurité. Demandez un nouveau lien à la personne qui vous a transmis celui-ci.', 'Erreur de sécurité');
         return;
       }
 
@@ -326,7 +500,7 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jeton_autorisation: jetonAutorisation, message_aveugle_hex: toHex(blindedMsg) })
       });
-      if (rSig.status === 403) { showError("Ce lien a déjà servi. Si vous avez déjà voté, votre réponse est enregistrée : il n'y a rien d'autre à faire. Si vous n'avez PAS pu voter (page fermée trop tôt, connexion perdue), demandez un nouveau lien à la personne qui vous a envoyé celui-ci."); return; }
+      if (rSig.status === 403) { showError("Ce lien a déjà servi. Si vous avez déjà voté, votre réponse est enregistrée : il n'y a rien d'autre à faire. Si vous n'avez PAS pu voter (page fermée trop tôt, connexion perdue), demandez un nouveau lien à la personne qui vous a envoyé celui-ci.", "Ce lien a déjà été utilisé"); return; }
       if (!rSig.ok) throw new Error('signature refusee');
       const { signature_aveugle_hex, departement } = await rSig.json();
 
@@ -335,29 +509,36 @@
       const randomizer = prepared.slice(0, 32);
       const Kmsg = prepared.slice(prepared.length - 32);
 
-      submitBtn.textContent = 'Envoi du vote…';
-      const rVote = await fetch(`${API_BASE}/repondre`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // P-A : bourrage a longueur constante. TLS preserve la longueur du
-          // clair : sans ce pad, "abstention" (10 octets) se distingue de
-          // "oui"/"non" (3 octets) a la simple taille du paquet chiffre, et un
-          // observateur passif lit les abstentions sans dechiffrer. On complete
-          // pour que (reponse + departement + pad) fasse toujours LONGUEUR_CIBLE_FIXE.
-          pad: 'x'.repeat(Math.max(0, LONGUEUR_CIBLE_FIXE - selectedValue.length - departement.length)),
-          K_hex: toHex(Kmsg), randomizer_hex: toHex(randomizer),
-          signature_hex: toHex(signature), reponse: selectedValue, departement: departement
-        })
-      });
-      if (rVote.status === 409) { showError('Vous avez deja vote.'); return; }
-      if (!rVote.ok) throw new Error('vote refuse (' + rVote.status + ')');
-      showSuccess();
+      // A partir d'ici le jeton est CONSOMME et la signature finalisee. Le
+      // depot part dans deposerVote(), qui possede sa propre logique de retry :
+      // un echec reseau ici ne doit PLUS jeter le credential.
+      votePayload = {
+        // P-A : bourrage a longueur constante. TLS preserve la longueur du
+        // clair : sans ce pad, "abstention" (10 octets) se distingue de
+        // "oui"/"non" (3 octets) a la simple taille du paquet chiffre, et un
+        // observateur passif lit les abstentions sans dechiffrer. On complete
+        // pour que (reponse + departement + pad) fasse toujours LONGUEUR_CIBLE_FIXE.
+        pad: 'x'.repeat(Math.max(0, LONGUEUR_CIBLE_FIXE - selectedValue.length - departement.length)),
+        K_hex: toHex(Kmsg), randomizer_hex: toHex(randomizer),
+        signature_hex: toHex(signature), reponse: selectedValue, departement: departement
+      };
+      // Jeton deja consomme : on persiste AVANT de tenter le depot, pour survivre
+      // a une fermeture d'onglet entre la signature et l'envoi (gap audit).
+      await sauverPendingLocal(votePayload);
     } catch (err) {
+      // Echec AVANT d'avoir une signature finalisee (cle publique, signature
+      // refusee, reseau pendant le blinding). Pas de credential a preserver.
+      enCours = false;
       submitBtn.disabled = false;
       submitBtn.textContent = 'Envoyer ma réponse';
       document.getElementById('avertissement-envoi').style.display = 'none';
-      alert('Erreur : ' + err.message);
+      showInlineError('Erreur inattendue : ' + err.message + '. Réessayez ou contactez la personne qui vous a envoyé ce lien.');
+      return;
     }
+
+    // Depot (et retry en cas d'echec reseau) hors du try de signature.
+    submitBtn.textContent = 'Envoi du vote…';
+    await deposerVote(votePayload);
   });
 
   chargerQuestion();
