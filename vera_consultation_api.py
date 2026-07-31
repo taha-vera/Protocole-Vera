@@ -266,25 +266,6 @@ def _reinitialiser_echecs(ip: str) -> None:
 CAPACITE_CODES = 10000
 SEUIL_SATURATION_CODES = 9000  # au-dela, on refuse de generer
 
-def _generer_code_court_unique() -> str:
-    """Genere un code a 4 chiffres non deja attribue.
-
-    Leve une erreur si l'espace des codes est sature, plutot que de boucler
-    a l'infini sous le verrou global (ce qui gelerait toute l'API)."""
-    if len(registre_codes_courts) >= SEUIL_SATURATION_CODES:
-        raise HTTPException(
-            status_code=503,
-            detail="Espace des codes sature. Cloturez une consultation avant d'en ouvrir une nouvelle.",
-        )
-    for _ in range(200):
-        code = f"{secrets.randbelow(CAPACITE_CODES):04d}"
-        if code not in registre_codes_courts:
-            return code
-    raise HTTPException(
-        status_code=503,
-        detail="Impossible de generer un code unique. Espace probablement sature.",
-    )
-
 # Valeur par DEFAUT. L'intitule reel est defini par l'organisation via
 # POST /api/rh/question, tant qu'aucune cle n'existe (donc avant la generation
 # du premier lien). Il est ensuite fige pour toute la consultation : le laisser
@@ -492,36 +473,6 @@ def generer_tokens(payload: GenererTokensRequete, session_vera: Optional[str] = 
         status_code=410,
         detail="Endpoint obsolete. Utilisez /api/rh/generer_autorisations (flux Modele B).",
     )
-    resultats_generes = []
-    with verrou:
-        # Verification de saturation AVANT la boucle : on refuse d'emblee si la
-        # demande ne tient pas dans l'espace restant. Cela evite de commettre un
-        # etat partiel (k tokens deja generes et enregistres) puis de lever une
-        # erreur au milieu de la boucle -> tokens orphelins. Tout ou rien.
-        if len(registre_codes_courts) + payload.quantite > SEUIL_SATURATION_CODES:
-            raise HTTPException(
-                status_code=503,
-                detail="Espace des codes temporairement sature. L'espace se libere au fur et a mesure que les participants votent. Pour tout reinitialiser immediatement, cloturez la consultation.",
-            )
-        for _ in range(payload.quantite):
-            # Token SIGNE (RSABSSA, Porte 7). La signature aveugle est
-            # OBLIGATOIRE : le service refuse de demarrer sans elle (voir le
-            # bloc d'import fail-closed en haut du fichier). Le code court a 4
-            # chiffres reste le seul element transmis au participant. La
-            # verification se fait par la signature elle-meme, pas par une
-            # recherche dans un dictionnaire -- aucun registre_tokens n'est
-            # tenu cote serveur (c'est ce qui garantit la non-liaison).
-            token_signe = gestionnaire_signature.generer_token_signe(payload.departement)
-            token = encoder_token_pour_url(token_signe)
-
-            code_court = _generer_code_court_unique()
-            registre_codes_courts[code_court] = token
-            persistance.persister_code_court(code_court, token)
-            resultats_generes.append({"token": token, "code_court": code_court})
-
-    return {"resultats": resultats_generes, "departement": payload.departement, "genere_par": compte}
-
-
 # ============================================================================
 # REFACTOR CRYPTO -- Endpoint de signature aveugle (Temps 2, cote serveur)
 # Le votant a aveugle son message DANS SON NAVIGATEUR. Il presente ici son
@@ -1057,103 +1008,12 @@ def etat_departements(session_vera: Optional[str] = Cookie(None)):
 # l'autorisation, cf. ATTRIBUTION_FLOW.md)
 # --------------------------------------------------------------------------
 
-def _incrementer_compteur(departement: str, reponse: str) -> None:
-    """
-    Incrementation directe du compteur cumule -- a aucun moment la reponse
-    individuelle de ce vote n'existe seule en memoire au-dela de cette
-    fonction. Une fois le compteur incremente, la valeur "oui"/"non" de
-    CE vote precis n'est plus recuperable -- seul le total cumule existe.
-    Partagee entre l'ancien et le nouveau format de token (meme garantie
-    de minimisation des donnees dans les deux cas). DOIT etre appelee
-    sous le verrou global (pas de verrou interne ici).
-    """
-    compteurs_par_departement.setdefault(departement, {})
-    compteurs_par_departement[departement][reponse] = (
-        compteurs_par_departement[departement].get(reponse, 0) + 1
-    )
-    effectif_par_departement[departement] = effectif_par_departement.get(departement, 0) + 1
-    # Le vote est deja compte en memoire (ci-dessus) AVANT la persistance.
-    # Si la persistance echoue (disque plein, base verrouillee), le vote n'est
-    # PAS perdu pour la session en cours : il compte deja. On logge l'incident
-    # pour reconciliation, mais on ne leve pas -- sinon l'utilisateur recevrait
-    # un 500 alors que son token est deja consomme (il ne pourrait pas revoter)
-    # et que son vote est bel et bien comptabilise. Le risque residuel est la
-    # perte de ce vote a un futur redemarrage ; il est trace dans les logs.
-    try:
-        persistance.persister_vote(
-            departement, reponse,
-            compteurs_par_departement[departement][reponse],
-            effectif_par_departement[departement],
-        )
-    except Exception as e:
-        import logging
-        logging.error(
-            "ECHEC persistance vote (departement=%s) : %s -- vote compte en "
-            "memoire, a reconcilier. Ne pas perdre au prochain redemarrage.",
-            departement, e,
-        )
-
-
 class ReponseEntrante(BaseModel):
     reponse: str
 
 
 class CodeCourtEntrant(BaseModel):
     code: str
-
-
-@app.post("/api/resoudre_code")
-def resoudre_code(payload: CodeCourtEntrant, request: Request):
-    """
-    Convertit un code court (4 chiffres) en token complet, pour rediriger
-    le participant vers son lien de vote reel. Proteges contre le
-    brute-force par limitation de tentatives par IP -- avec seulement
-    10000 combinaisons possibles, sans cette protection le code serait
-    devinable en quelques minutes par un script automatise.
-    """
-    # Lecture de l'IP client, robuste au deploiement :
-    # - Si la connexion vient de localhost (127.0.0.1 / ::1), c'est Nginx qui
-    #   relaie : on fait confiance a X-Real-IP, qu'il pose avec la vraie IP
-    #   source (proxy_set_header X-Real-IP $remote_addr, non falsifiable).
-    # - Sinon (app exposee directement, sans proxy), X-Real-IP serait pose par
-    #   le client lui-meme et donc falsifiable : on l'IGNORE et on prend l'IP
-    #   directe de connexion. Cela evite deux failles :
-    #     (a) sans Nginx, un client usurpant X-Real-IP contournerait l'anti-bruteforce ;
-    #     (b) sans le check localhost, tous les clients tomberaient dans le
-    #         meme bucket 127.0.0.1 -> 5 echecs de n'importe qui bloquent tout le monde.
-    # On ne lit jamais X-Forwarded-For (premier element controle par le client).
-    ip_directe = request.client.host if request.client else "inconnue"
-    if ip_directe in ("127.0.0.1", "::1"):
-        ip_client = request.headers.get("x-real-ip") or ip_directe
-    else:
-        ip_client = ip_directe
-    _verifier_anti_bruteforce(ip_client)
-
-    code_normalise = payload.code.strip()
-    if not code_normalise.isdigit() or len(code_normalise) != 4:
-        _enregistrer_echec(ip_client)
-        raise HTTPException(status_code=422, detail="Le code doit comporter 4 chiffres")
-
-    with verrou:
-        token = registre_codes_courts.get(code_normalise)
-
-    if token is None:
-        _enregistrer_echec(ip_client)
-        raise HTTPException(status_code=404, detail="Code invalide")
-
-    _reinitialiser_echecs(ip_client)
-    return {"token": token}
-
-
-def _token_est_signe(token: str) -> bool:
-    """
-    Distingue un ancien token simple (secrets.token_urlsafe(24), ~32
-    caracteres) d'un nouveau token signe (Base64 encodant un JSON avec
-    message+signature+randomizer, nettement plus long, ~900+ caracteres).
-    Heuristique simple sur la longueur -- suffisante car les deux formats
-    n'ont pas de zone de recoupement realiste en pratique.
-    """
-    return len(token) > 200
 
 
 @app.get("/api/question")

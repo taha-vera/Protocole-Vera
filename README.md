@@ -5,6 +5,16 @@
 VERA publie un résultat collectif (sondage sensible, consultation interne)
 sans jamais rendre lisible la contribution d'un individu — et le prouve.
 
+**Périmètre de la garantie.** VERA garantit l'**anonymat**, pas l'**intégrité du
+scrutin**. Le système ne dispose d'aucune liste de référence des personnes
+invitées — c'est ce qui protège l'anonymat — et ne peut donc pas attester que
+les jetons émis correspondent à de vraies personnes distinctes, ni qu'aucun n'a
+été utilisé par l'organisateur. Il n'y a ni reçu votant, ni urne publique, ni
+recomptage possible : la vérifiabilité de bout en bout exige un décompte exact,
+incompatible avec le décompte bruité qu'impose la confidentialité
+différentielle. VERA convient à une consultation d'opinion, pas à un scrutin
+contraignant ou juridiquement opposable. Détail complet : [LIMITS.md §13](LIMITS.md).
+
 - *Modèle de menace complet (17 portes)* : [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md)
 - *Mécanisme de bruit en production* : [vera_dp_noise.py](vera_dp_noise.py) (OpenDP, Δ=2, scale=4, ε=0.5, bounds=(0,10000))
 - *Persistance chiffrée de l'état (Portes 11, 14)* : [vera_persistance.py](vera_persistance.py) (SQLite WAL, Fernet/AES-128)

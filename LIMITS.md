@@ -48,8 +48,14 @@ directe. Limite partagee par l'ensemble des systemes de ce type.
 ## 6. Confiance dans l'organisateur au moment de l'emission
 
 L'organisateur (RH) connait, au moment d'emettre les jetons, la correspondance
-RESOLU le 23/07/2026 (refactor Modele B). Cette section decrivait auparavant
-une limite architecturale : le serveur executait l'integralite du protocole
+entre chaque jeton et la personne a qui il l'envoie -- c'est lui qui distribue
+les liens. VERA empeche que cette information se propage dans le traitement des
+reponses, mais ne l'efface pas cote organisateur. La cryptographie ne peut pas
+retirer cette connaissance initiale.
+
+RESOLU le 23/07/2026 (refactor Modele B) pour la partie serveur. Cette section
+decrivait auparavant une limite architecturale supplementaire : le serveur
+executait l'integralite du protocole
 RSABSSA (aveuglement ET finalisation), produisait le token complet, et pouvait
 donc relier identite et acte de vote. Ce n'est plus le cas.
 
@@ -76,10 +82,6 @@ reproductible, empreinte publiee). Si l'organisation heberge elle-meme, elle
 est dans la base de confiance : VERA rend alors la desanonymisation PASSIVE
 impossible (rien en base ne relie identite et reponse), mais ne remplace pas la
 confiance envers l'hebergeur face a un adversaire actif.
-
-VERA empeche que cette information se propage dans le
-traitement des reponses, mais ne l'efface pas cote organisateur. La cryptographie
-ne peut pas retirer cette connaissance initiale.
 
 ## 7. Perimetre : consultation d'opinion, pas donnees de sante
 
@@ -202,3 +204,61 @@ qui connait le systeme. Un organisateur n'y est jamais confronte.
 Si un jour plusieurs administrateurs permanents devenaient necessaires, la voie
 propre serait de les declarer dans l'unite systemd au meme titre que le compte
 principal -- pas de les persister en base.
+
+## 13. Integrite du scrutin : VERA garantit l'anonymat, pas la sincerite du resultat
+
+C'est la limite la plus importante de ce document, et la plus facile a mal
+comprendre : **VERA prouve que personne ne peut relier une reponse a une
+personne. Il ne prouve pas que le resultat publie reflete un vrai scrutin.**
+
+Ce que VERA garantit techniquement :
+
+- une reponse ne peut pas etre reliee a la personne qui l'a emise (signature
+  aveugle, registres disjoints, absence d'horodatage) ;
+- un jeton d'autorisation ne peut servir qu'une fois (consommation atomique) ;
+- une meme signature ne peut deposer qu'un vote (anti-rejeu sur l'empreinte
+  du secret K) ;
+- aucun resultat n'est publie sous le seuil K_MIN.
+
+Ce que VERA ne garantit PAS :
+
+- que les jetons emis correspondent a de vraies personnes distinctes. Le
+  systeme genere le nombre de jetons qu'on lui demande ; il n'a aucune liste
+  de reference, aucun annuaire, aucun moyen de savoir a qui un lien est envoye
+  (c'est precisement ce qui protege l'anonymat) ;
+- qu'aucun de ces jetons n'a ete utilise par l'organisateur lui-meme. Un
+  organisateur qui genere 240 jetons et vote 240 fois obtient un resultat
+  publie entierement fabrique, et rien dans les chiffres ne le trahit ;
+- qu'un votant puisse verifier que sa voix figure dans le total. Il n'y a ni
+  recu, ni urne publique, ni recomptage possible.
+
+**Pourquoi ce n'est pas un defaut a corriger, mais un choix impose.** La
+verifiabilite de bout en bout -- celle des systemes de vote type Belenios ou
+Helios -- repose sur la publication d'une urne et d'un decompte EXACTS, que
+chacun peut recompter. Or VERA publie un decompte BRUITE : c'est toute la
+garantie de confidentialite differentielle. Les deux proprietes sont en
+conflit direct, un total verifiable trahissant les individus que le bruit
+protege. Les concilier exigerait une preuve a divulgation nulle de connaissance
+attestant que le bruit a ete correctement ajoute a un ensemble de bulletins
+publiquement engages. C'est un sujet de recherche, pas une option de
+configuration.
+
+VERA a donc choisi l'anonymat prouve plutot que l'integrite prouvee.
+
+**Consequence pratique.** VERA convient a une consultation d'opinion ou le
+commanditaire cherche une reponse sincere de son organisation -- son interet
+est d'obtenir un resultat vrai. Il ne convient PAS a un scrutin contraignant,
+electif ou juridiquement opposable, ou l'organisateur pourrait avoir interet a
+fabriquer le resultat et ou la contestation doit pouvoir s'appuyer sur une
+preuve.
+
+L'integrite, dans le perimetre de VERA, repose sur des garanties
+ORGANISATIONNELLES et non cryptographiques : le nombre d'invitations generees
+par groupe est visible dans le tableau de bord et peut etre rapproche d'un
+effectif reel connu ; un tiers (representant du personnel, commissaire aux
+comptes, huissier) peut attester que la liste de diffusion correspondait a un
+annuaire. VERA ne fournit pas ces garanties, il ne les empeche pas.
+
+Cette limite est enoncee au votant sur la page de vote : *"VERA protege votre
+reponse. Il ne verifie pas la liste des personnes invitees : c'est
+l'organisateur qui l'etablit."*
