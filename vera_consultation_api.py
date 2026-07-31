@@ -302,13 +302,41 @@ QUESTION_ACTIVE = {
     ],
 }
 
+# Dernier intitule lu avec succes. "charge" distingue "jamais lu" de "lu, et il
+# n'y avait pas de question definie" -- sans quoi on ne peut pas savoir si un
+# None signifie "aucune question" ou "lecture impossible".
+_cache_question = {"intitule": None, "charge": False}
+
+
 def question_courante():
-    """Question en cours : celle definie par l'organisation, ou le defaut."""
-    intitule = None
+    """Question en cours : celle definie par l'organisation, ou le defaut.
+
+    En cas d'erreur de lecture, ne retombe PLUS silencieusement sur la question
+    par defaut. L'ancien `except Exception: pass` avait une consequence que rien
+    ne signalait : une erreur SQLite transitoire faisait servir la question par
+    defaut aux votants suivants, dont les reponses etaient comptees dans le MEME
+    compteur que celles portant sur la vraie question. Substitution silencieuse
+    de question -- exactement ce que definir_question interdit deliberement en
+    figeant l'intitule des la generation du premier lien.
+
+    Nouveau comportement : on sert le dernier intitule lu avec succes (cache
+    memoire), et si aucun n'a jamais ete lu, on refuse plutot que de deviner.
+    """
     try:
         intitule = persistance.charger_question()
+        _cache_question["intitule"] = intitule
+        _cache_question["charge"] = True
     except Exception:
-        pass
+        if not _cache_question["charge"]:
+            # Jamais lu avec succes : impossible de savoir quelle question est
+            # en cours. Servir le defaut risquerait de melanger des reponses
+            # portant sur deux questions differentes.
+            raise HTTPException(
+                status_code=503,
+                detail="Question de la consultation temporairement indisponible. Reessayez dans un instant.",
+            )
+        intitule = _cache_question["intitule"]
+
     return {
         "question": intitule or QUESTION_ACTIVE["question"],
         "options": QUESTION_ACTIVE["options"],
@@ -595,28 +623,31 @@ def generer_autorisations(payload: GenererAutorisationsRequete, session_vera: Op
 
     base_url = "https://vera-consultation.duckdns.org/vote"
     autorisations = []
-    with verrou:
-        for _ in range(payload.quantite):
-            # Jeton d'autorisation aleatoire, imprevisible, a usage unique.
-            jeton = secrets.token_urlsafe(24)
-            persistance.persister_jeton_autorisation(jeton, payload.departement)
-            # Lien SMS complet : jeton en query, empreinte de cle en FRAGMENT
-            # (#k=). Le fragment n'est jamais transmis au serveur -> il ne peut
-            # pas savoir quelle empreinte le client verifie, ni s'y adapter.
-            # TOUT le credential passe par le FRAGMENT (#), rien en query string.
-            # Le navigateur ne transmet JAMAIS le fragment au serveur : le jeton
-            # n'apparait donc dans aucun access log (avec IP + horodatage), ni
-            # dans un proxy, ni dans le Referer. En query (?a=JETON), le simple
-            # chargement de la page suffisait a relier une identite a un instant
-            # de vote -- le canal que la coupure des logs sur les POST visait,
-            # laisse ouvert par le GET de la page.
-            # Le departement est ENCODE : insere brut, un nom contenant un
-            # espace ou un caractere special produisait une URL que certains
-            # clients SMS tronquent au premier espace. Le votant recevait alors
-            # un lien coupe et un departement inconnu. Constat du 26/07 : un
-            # departement nomme "Dp test" avait bien produit un lien a espace.
-            lien = f"{base_url}#a={jeton}&d={quote(payload.departement, safe='')}&k={empreinte_cle}"
-            autorisations.append({"jeton": jeton, "lien_sms": lien})
+    # HORS DU VERROU GLOBAL. La generation de jetons est du calcul local
+    # (secrets.token_urlsafe) sur des donnees qui n'existent pas encore : elle
+    # ne touche a aucun registre partage et n'a donc rien a serialiser contre
+    # les votes en cours. L'ancienne version tenait `verrou` pendant toute la
+    # boucle ET pendant les N commits SQLite, gelant l'API entiere.
+    jetons = [secrets.token_urlsafe(24) for _ in range(payload.quantite)]
+
+    # UNE SEULE transaction pour tout le lot (voir C-8 dans la persistance).
+    persistance.persister_jetons_autorisation_lot(jetons, payload.departement)
+
+    for jeton in jetons:
+        # TOUT le credential passe par le FRAGMENT (#), rien en query string.
+        # Le navigateur ne transmet JAMAIS le fragment au serveur : le jeton
+        # n'apparait donc dans aucun access log (avec IP + horodatage), ni dans
+        # un proxy, ni dans le Referer. En query (?a=JETON), le simple
+        # chargement de la page suffisait a relier une identite a un instant de
+        # vote -- le canal que la coupure des logs sur les POST visait, laisse
+        # ouvert par le GET de la page.
+        # Le departement est ENCODE : insere brut, un nom contenant un espace
+        # ou un caractere special produisait une URL que certains clients SMS
+        # tronquent au premier espace. Le votant recevait alors un lien coupe et
+        # un departement inconnu. Constat du 26/07 : un departement nomme
+        # "Dp test" avait bien produit un lien a espace.
+        lien = f"{base_url}#a={jeton}&d={quote(payload.departement, safe='')}&k={empreinte_cle}"
+        autorisations.append({"jeton": jeton, "lien_sms": lien})
 
     return {
         "departement": payload.departement,

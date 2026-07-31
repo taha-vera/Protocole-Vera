@@ -264,7 +264,21 @@
   // qui permet de classer les requetes par cohorte et reduit l'ensemble
   // d'anonymat dans les petits departements. 96 laisse de la marge pour des
   // noms de departement longs et de futures options.
-  const LONGUEUR_CIBLE_FIXE = 96;
+  // Cible du bourrage a longueur constante (P-A). Doit rester STRICTEMENT
+  // superieure a (longueur max du departement + longueur de la reponse la plus
+  // longue), soit 100 + 10 = 110 avec le schema serveur actuel
+  // (departement: max_length=100, reponse: "abstention").
+  //
+  // Elle valait 96, ce qui saturait le max(0, ...) des 87 caracteres de nom de
+  // departement : a partir de la, "oui" produisait un corps de 96 octets et
+  // "abstention" un corps de 97 -- puis l'ecart se creusait (103 contre 110 a
+  // 100 caracteres). Un observateur reseau passif lisait alors les abstentions
+  // a la simple taille du paquet TLS, sans rien dechiffrer : exactement le
+  // canal que ce bourrage existe pour fermer.
+  //
+  // 200 laisse 90 caracteres de marge. Si le schema serveur devait un jour
+  // autoriser des noms plus longs, cette constante doit suivre.
+  const LONGUEUR_CIBLE_FIXE = 200;
 
   let selectedValue = null;
 

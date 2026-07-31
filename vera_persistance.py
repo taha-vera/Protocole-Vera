@@ -355,8 +355,37 @@ def _empreinte_jeton(jeton):
     return hashlib.sha256(jeton.encode("utf-8")).hexdigest()
 
 
+def persister_jetons_autorisation_lot(jetons, departement):
+    """Enregistre les empreintes de PLUSIEURS jetons en UNE transaction.
+
+    L'appel unitaire persister_jeton_autorisation fait un commit par jeton, et
+    PRAGMA synchronous=FULL impose un fsync par commit. Generer 1000 jetons
+    signifiait donc 1000 fsync -- de une a dix secondes pendant lesquelles
+    l'appelant tenait le verrou global de l'API : tous les votes en cours
+    partaient en timeout, et sur les 10 000 invitations visees, dix gels
+    successifs. C'etait aussi un vecteur d'auto-deni de service trivial, le
+    serveur tournant avec un worker unique.
+
+    Ici : un executemany, un commit, un fsync. Le gain est de deux ordres de
+    grandeur sur un lot de 1000.
+    """
+    if not jetons:
+        return
+    with _verrou_db:
+        _conn.executemany(
+            "INSERT INTO jetons_autorisation (jeton, departement, utilise) VALUES (?, ?, 0) "
+            "ON CONFLICT(jeton) DO NOTHING",
+            [(_empreinte_jeton(j), departement) for j in jetons],
+        )
+        _conn.commit()
+
+
 def persister_jeton_autorisation(jeton, departement):
-    """Enregistre l'EMPREINTE d'un jeton d'autorisation a sa generation."""
+    """Enregistre l'EMPREINTE d'un jeton d'autorisation a sa generation.
+
+    Conserve pour les appels unitaires et les tests. Pour un lot, utiliser
+    persister_jetons_autorisation_lot (un seul commit au lieu de N).
+    """
     with _verrou_db:
         _conn.execute(
             "INSERT INTO jetons_autorisation (jeton, departement, utilise) VALUES (?, ?, 0) "
