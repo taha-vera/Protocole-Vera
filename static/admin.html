@@ -730,6 +730,51 @@
   }
   document.getElementById('seq-export-btn').addEventListener('click', exporterLotCsv);
 
+  // Echappement HTML des valeurs saisies par l utilisateur avant insertion
+  // dans innerHTML. Utilise textContent du DOM comme encodeur -- le navigateur
+  // fait le travail, aucune liste de caracteres a maintenir.
+  function echapperHtml(valeur) {
+    const d = document.createElement('div');
+    d.textContent = String(valeur == null ? '' : valeur);
+    return d.innerHTML;
+  }
+
+  // Publication explicite d un departement (POST). La lecture du tableau de
+  // bord ne publie plus rien : c est ce clic, et lui seul, qui fige le
+  // resultat et consomme le budget epsilon. Delegation d evenement car les
+  // boutons sont recrees a chaque rafraichissement.
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.btn-publier');
+    if (!btn) return;
+    const dep = btn.dataset.dep;
+    if (!dep) return;
+    // L irreversibilite doit etre dite AVANT, pas decouverte apres.
+    const ok = confirm(
+      `Publier définitivement les résultats du groupe « ${dep} » ?\n\n`
+      + `Le résultat sera figé sur les réponses reçues à cet instant. `
+      + `Les réponses qui arriveraient ensuite ne pourront plus être comptées, `
+      + `et cette publication ne peut pas être annulée.`
+    );
+    if (!ok) return;
+    btn.disabled = true;
+    btn.textContent = 'Publication…';
+    try {
+      const resp = await fetch(`${API_BASE}/rh/publier`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ departement: dep })
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) { throw new Error(data.detail || 'Publication refusée'); }
+      await rafraichirEtat();
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Publier ce groupe';
+      alert('Publication impossible : ' + err.message);
+    }
+  });
+
   async function rafraichirEtat() {
     try {
       const resp = await fetch(`${API_BASE}/rh/etat_departements`, { credentials: 'include' });
@@ -766,7 +811,13 @@
           } else {
             libelle = `${invTexte} · ${d.votes_recus} réponses — seuil de ${d.seuil_k_min} non atteint`;
           }
-          return `<div class="dept-row"><span>${dep}</span><span class="${classe}">${libelle}</span></div>`;
+          // Echappement : `dep` est une saisie libre du RH, jamais filtree
+          // cote serveur. Voir le commentaire detaille dans le rendu des
+          // resultats. `libelle` est construit a partir de valeurs numeriques
+          // et de d.votes_recus (chaine controlee par le serveur : un entier
+          // ou "< 240"), mais on l echappe aussi par principe -- ne jamais
+          // faire d exception dans une regle d echappement.
+          return `<div class="dept-row"><span>${echapperHtml(dep)}</span><span class="${classe}">${echapperHtml(libelle)}</span></div>`;
         }).join('');
       }
 
@@ -777,26 +828,40 @@
         if (cles.length > 0) {
           resultsArea.innerHTML = cles.map(dep => {
             const r = resultats[dep];
-            // resultats_bruits : comptages APRES bruit differentiel et
-            // projection sur le simplexe. Le serveur n expose jamais les
-            // comptes bruts -- l ancien nom du champ, comptes_BRUTS_sans_DP,
-            // etait un residu d une intention abandonnee.
-            // Cas REFUSE : sous le seuil K_MIN, l API ne renvoie pas de
-            // comptages mais {refuse, raison}. Sans ce test, on affichait
-            // "0 reponses" et un libelle vide -- le RH pouvait croire que
-            // personne n avait vote, alors que des reponses existent mais que
-            // le seuil de publication n est pas atteint.
+            // ECHAPPEMENT OBLIGATOIRE : `dep` vient du champ libre
+            // "departement" saisi a la generation (100 caracteres, aucun
+            // filtrage serveur). Interpole brut dans innerHTML, il permettait
+            // une XSS stockee : sur une instance multi-administrateurs, un
+            // admin creant un departement nomme <img src=x onerror=...>
+            // faisait executer son script dans la session authentifiee d un
+            // autre admin -- donc appeler /api/rh/cloturer (destruction
+            // totale) ou generer des lots. Le cookie est httponly, ce qui
+            // empeche l exfiltration de session, mais pas les actions.
+            const depSafe = echapperHtml(dep);
+            // Cas REFUSE : sous le seuil K_MIN, l API renvoie {refuse, raison}
+            // et aucun comptage. Sans ce test on affichait "0 reponses", et le
+            // RH pouvait croire que personne n avait vote.
             if (r.refuse) {
-              return `<div class="dept-row"><span>${dep}</span><span class="dept-progress">${r.raison || 'Non publiable'}</span></div>`;
+              return `<div class="dept-row"><span>${depSafe}</span><span class="dept-progress">${echapperHtml(r.raison || 'Non publiable')}</span></div>`;
+            }
+            // NOUVEAU : publiable mais PAS ENCORE PUBLIE. Auparavant ce cas
+            // n existait pas cote client parce qu il n existait pas cote
+            // serveur : la simple lecture de cet ecran declenchait la
+            // publication et figeait le resultat. Desormais on affiche l etat
+            // et on laisse le RH decider.
+            if (r.publiable && !r.publie) {
+              return `<div class="dept-row"><span>${depSafe}</span><span class="dept-progress">`
+                + `Seuil atteint — résultat non publié. `
+                + `<button class="btn-secondary btn-publier" data-dep="${depSafe}" type="button" style="margin-left:8px;padding:4px 10px;font-size:13px;">Publier ce groupe</button>`
+                + `</span></div>`;
             }
             const comptesTexte = Object.entries(r.resultats_bruits || {})
-              .map(([k, v]) => `${k}: ${v}`).join(', ');
-            // L API ne renvoie pas de champ effectif : elle expose
-            // resultats_bruits et budget_epsilon. L effectif se deduit de la
-            // somme des comptages publies -- la projection sur le simplexe
+              .map(([k, v]) => `${echapperHtml(k)}: ${v}`).join(', ');
+            // L API ne renvoie pas de champ effectif : l effectif se deduit de
+            // la somme des comptages publies -- la projection sur le simplexe
             // garantit qu ils somment exactement a l effectif reel.
             const total = Object.values(r.resultats_bruits || {}).reduce((a, b) => a + b, 0);
-            return `<div class="dept-row"><span>${dep} (${total} réponses)</span><span class="dept-progress">${comptesTexte}</span></div>`;
+            return `<div class="dept-row"><span>${depSafe} (${total} réponses)</span><span class="dept-progress">${echapperHtml(comptesTexte)}</span></div>`;
           }).join('');
         }
       }

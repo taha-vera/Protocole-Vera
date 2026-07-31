@@ -627,96 +627,193 @@ def generer_autorisations(payload: GenererAutorisationsRequete, session_vera: Op
     }
 
 
+def _publier_departement(departement, effectif):
+    """Publie UN departement : tire le bruit DP, persiste, consomme le budget.
+
+    DOIT etre appelee avec `verrou` deja tenu par l'appelant.
+
+    C'EST LE SEUL CHEMIN DE PUBLICATION DU CODE. Avant ce correctif il en
+    existait deux : celui de /api/rh/resultats (complet, avec verification de
+    budget) et celui de /api/rh/cloturer (qui appelait publier_histogramme_dp
+    en direct, SANS peut_publier ni consommer ni persister -- la Porte 4 etait
+    purement et simplement contournee). Deux chemins pour une operation
+    irreversible, c'est un chemin de trop : toute publication passe desormais
+    ici, ou nulle part.
+
+    Retourne un dict pret a etre renvoye au client.
+    """
+    etat_avant = budget_epsilon.etat(departement)
+
+    if etat_avant["nombre_publications"] > 0:
+        # Deja publie : on renvoie le resultat fige, JAMAIS un nouveau tirage.
+        # Re-tirer permettrait de moyenner N echantillons et d'annuler le bruit.
+        fige = persistance.charger_resultat_publie(departement)
+        if fige is None:
+            return {
+                "refuse": True,
+                "raison": "Resultat fige introuvable, publication refusee par securite.",
+            }
+        return {
+            "resultats_bruits": fige,
+            "budget_epsilon": budget_epsilon.etat(departement),
+            "publie": True,
+        }
+
+    if not budget_epsilon.peut_publier(departement, EPSILON_PAR_PUBLICATION):
+        return {
+            "refuse": True,
+            "raison": "Budget de confidentialite epuise pour ce groupe.",
+        }
+
+    # ORDRE CRITIQUE : on CALCULE l'etat futur sans muter la memoire. La
+    # consommation reelle n'a lieu qu'APRES un commit reussi (plus bas).
+    # Si consommer() mutait ici, une panne d'ecriture laisserait la memoire en
+    # avance sur la base -- departement vu comme ayant publie alors que le
+    # resultat fige est absent, donc verrouille a jamais.
+    etat_apres = budget_epsilon.etat_apres_consommation(
+        departement, EPSILON_PAR_PUBLICATION)
+
+    comptes_bruts = compteurs_par_departement.get(departement, {})
+    comptes_ordonnes = {
+        option["valeur"]: comptes_bruts.get(option["valeur"], 0)
+        for option in question_courante()["options"]
+    }
+    # Laplace vectoriel (Delta_1 = 2, scale = 4, eps = 0.5) PUIS projection sur
+    # le simplexe {x >= 0, somme = effectif}. La projection est du
+    # post-traitement : gratuite en epsilon, elle reduit l'erreur d'environ 25%
+    # et garantit que les comptages publies somment exactement a l'effectif.
+    comptes_bruites = publier_histogramme_dp(comptes_ordonnes, effectif)
+
+    # ATOMICITE : budget + resultat committes ensemble. Sans cela, un crash
+    # entre les deux ecritures laissait "budget consomme mais resultat absent"
+    # -> departement verrouille a jamais.
+    persistance.persister_publication_atomique(
+        departement,
+        etat_apres["epsilon_consomme"],
+        etat_apres["nombre_publications"],
+        comptes_bruites,
+    )
+    # Commit reussi : la memoire peut suivre.
+    budget_epsilon.consommer(departement, EPSILON_PAR_PUBLICATION)
+
+    return {
+        "resultats_bruits": comptes_bruites,
+        "budget_epsilon": budget_epsilon.etat(departement),
+        "publie": True,
+    }
+
+
 @app.get("/api/rh/resultats")
 def resultats(session_vera: Optional[str] = Cookie(None)):
+    """LECTURE SEULE. Ne publie rien, ne consomme aucun budget epsilon.
+
+    Avant ce correctif, cet endpoint PUBLIAIT : ouvrir le tableau de bord
+    suffisait a figer le resultat. Consequence concrete sur un departement de
+    1000 invites : le 240e vote arrive, le RH consulte son suivi, le resultat
+    est fige sur 240 reponses -- et les votes 241 a 1000, bien qu'enregistres
+    en base, ne seront JAMAIS publies. Aucun ecran ne signalait l'ecart.
+
+    Aggravation anonymat : le resultat fige correspondait aux 240 PREMIERS
+    votants, sous-ensemble que le RH peut enumerer en surveillant le compteur
+    de participation pendant qu'il relance les gens. L'ensemble d'anonymat
+    n'etait plus le departement mais une cohorte de 240 personnes identifiables.
+
+    Aggravation securite : etant un GET mutant avec un cookie SameSite=Lax, il
+    etait declenchable par simple navigation cross-site (CSRF). Un lien piege
+    ouvert par un RH connecte figeait les resultats de tous les departements
+    ayant franchi K_MIN. L'attaquant ne lisait rien (CORS), il n'en avait pas
+    besoin : l'effet destructeur etait dans l'ecriture.
+
+    La publication est desormais un acte delibere : POST /api/rh/publier.
+    """
     exiger_session(session_vera)
 
     resultat_par_departement = {}
     with verrou:
         for departement, effectif in effectif_par_departement.items():
 
-            # SEUIL K_MIN : on refuse de publier un resultat pour une cohorte
-            # trop petite. Ce n'est pas une degradation ni un bruit renforce --
-            # c'est un refus pur et simple. En dessous de K_MIN participants,
-            # meme un resultat bruite reste trop informatif sur les individus,
-            # et l'erreur relative rend de toute facon le chiffre inutilisable.
-            # Verifie AVANT toute consommation de budget epsilon.
+            # SEUIL K_MIN : refus pur et simple sous la barre. Verifie avant
+            # toute autre consideration.
             if effectif < K_MIN:
                 resultat_par_departement[departement] = {
                     "refuse": True,
                     "raison": f"Effectif insuffisant : moins de {K_MIN} participants (seuil minimum de publication). Le nombre exact n'est pas communique pour ne pas exposer la taille d'une petite cohorte.",
+                    "publiable": False,
+                    "publie": False,
                 }
                 continue
 
-            etat_avant = budget_epsilon.etat(departement)
-            deja_publie = etat_avant["nombre_publications"] > 0
+            deja_publie = budget_epsilon.etat(departement)["nombre_publications"] > 0
 
             if not deja_publie:
-                if not budget_epsilon.peut_publier(departement, EPSILON_PAR_PUBLICATION):
-                    resultat_par_departement[departement] = {
-                        "refuse": True,
-                        "raison": "Budget de confidentialite epuise pour ce groupe.",
-                    }
-                    continue
-                # ORDRE CRITIQUE : on CALCULE l'etat futur sans muter la
-                # memoire. La consommation reelle n'a lieu qu'APRES un commit
-                # reussi (plus bas). Auparavant consommer() mutait ici, 20
-                # lignes avant la persistance : une panne d'ecriture laissait
-                # la memoire en avance sur la base -- departement vu comme
-                # ayant publie alors que le resultat fige etait absent, donc
-                # verrouille ; ou, apres redemarrage, etat recharge ignorant la
-                # consommation, donc republication et double consommation
-                # d'epsilon. Meme motif que le correctif des compteurs de votes
-                # (persister d'abord, muter ensuite).
-                etat_apres = budget_epsilon.etat_apres_consommation(
-                    departement, EPSILON_PAR_PUBLICATION)
-
-                # Le bruit DP est tire UNE SEULE FOIS, a la premiere publication,
-                # puis fige. Republier ne re-tire pas de bruit -- sinon un appelant
-                # pourrait moyenner N tirages et supprimer le bruit (epsilon -> infini).
-                comptes_bruts = compteurs_par_departement.get(departement, {})
-                comptes_ordonnes = {
-                    option["valeur"]: comptes_bruts.get(option["valeur"], 0)
-                    for option in question_courante()["options"]
+                # PUBLIABLE MAIS NON PUBLIE : on le dit, on ne le fait pas.
+                # C'est ici que se jouait le bug : l'ancien code publiait.
+                resultat_par_departement[departement] = {
+                    "publiable": True,
+                    "publie": False,
+                    "message": (
+                        "Ce groupe a atteint le seuil et peut etre publie. La "
+                        "publication est definitive : elle fige le resultat sur "
+                        "les reponses recues a cet instant, et les reponses "
+                        "ulterieures ne pourront plus etre comptees."
+                    ),
                 }
-                # Laplace vectoriel (Delta_1 = 2, scale = 4, eps = 0.5) PUIS
-                # projection sur le simplexe {x >= 0, somme = effectif}.
-                # La projection est du post-traitement : gratuite en epsilon,
-                # elle reduit l'erreur de ~25% et garantit que les comptages
-                # publies somment exactement a l'effectif reel.
-                comptes_bruites = publier_histogramme_dp(comptes_ordonnes, effectif)
+                continue
 
-                # ATOMICITE : budget + resultat committes ensemble. Sans cela,
-                # un crash entre les deux ecritures laissait "budget consomme
-                # mais resultat absent" -> departement verrouille a jamais.
-                persistance.persister_publication_atomique(
-                    departement,
-                    etat_apres["epsilon_consomme"],
-                    etat_apres["nombre_publications"],
-                    comptes_bruites,
-                )
-                # Commit reussi : la memoire peut suivre. Si la ligne
-                # precedente avait leve, on n'arriverait pas ici et le budget
-                # memoire resterait coherent avec la base (rien consomme).
-                budget_epsilon.consommer(departement, EPSILON_PAR_PUBLICATION)
-            else:
-                # Deja publie : on renvoie le resultat bruite fige, jamais un nouveau tirage.
-                comptes_bruites = persistance.charger_resultat_publie(departement)
-                if comptes_bruites is None:
-                    # Cas limite : publie mais resultat non trouve (etat incoherent),
-                    # on refuse plutot que de re-tirer du bruit et casser la garantie DP.
-                    resultat_par_departement[departement] = {
-                        "refuse": True,
-                        "raison": "Resultat fige introuvable, publication refusee par securite.",
-                    }
-                    continue
+            fige = persistance.charger_resultat_publie(departement)
+            if fige is None:
+                resultat_par_departement[departement] = {
+                    "refuse": True,
+                    "raison": "Resultat fige introuvable, publication refusee par securite.",
+                    "publiable": False,
+                    "publie": True,
+                }
+                continue
 
             resultat_par_departement[departement] = {
-                "resultats_bruits": comptes_bruites,
+                "resultats_bruits": fige,
                 "budget_epsilon": budget_epsilon.etat(departement),
+                "publiable": True,
+                "publie": True,
             }
 
     return resultat_par_departement
+
+
+class PublierRequete(BaseModel):
+    departement: str = Field(min_length=1, max_length=100)
+
+
+@app.post("/api/rh/publier")
+def publier(requete: PublierRequete, session_vera: Optional[str] = Cookie(None)):
+    """Publie un departement. ACTE DELIBERE ET IRREVERSIBLE.
+
+    POST et non GET, pour deux raisons cumulatives : la semantique (cette
+    operation ecrit, consomme du budget epsilon et fige un resultat pour
+    toujours) et la protection CSRF (le cookie de session est SameSite=Lax,
+    qui bloque les POST cross-site mais laisse passer les GET de navigation).
+
+    Un seul departement par appel : publier est une decision par groupe, pas
+    une action de masse declenchee par inadvertance.
+    """
+    exiger_session(session_vera)
+
+    with verrou:
+        effectif = effectif_par_departement.get(requete.departement)
+        if effectif is None:
+            raise HTTPException(status_code=404, detail="Departement inconnu.")
+        if effectif < K_MIN:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Effectif insuffisant : moins de {K_MIN} participants.",
+            )
+        resultat = _publier_departement(requete.departement, effectif)
+
+    if resultat.get("refuse"):
+        raise HTTPException(status_code=409, detail=resultat["raison"])
+
+    return {"departement": requete.departement, **resultat}
+
 
 
 @app.post("/api/rh/cloturer")
@@ -756,9 +853,19 @@ def cloturer_consultation(session_vera: Optional[str] = Cookie(None)):
             ),
         }
 
-    # 1. Figer/recuperer les resultats finaux des departements publiables.
+    # VERROU TENU DE LA PUBLICATION JUSQU'A L'EFFACEMENT COMPLET.
+    # Auparavant les etapes 2 et 3 s'executaient HORS verrou : un POST
+    # /api/repondre concurrent pouvait commiter entre le figement des
+    # resultats et l'effacement de la base. Le votant recevait
+    # {"statut": "enregistre"} et l'ecran "Reponse enregistree -- votre
+    # contribution a ete integree au resultat collectif", alors que son vote
+    # etait efface quelques millisecondes plus tard et n'apparaissait dans
+    # aucun resultat. Le message etait faux. La cloture est desormais atomique
+    # du point de vue des votes : soit un vote est compte et publie, soit il
+    # est refuse, jamais "accepte puis silencieusement detruit".
     resultats_finaux = {}
     with verrou:
+        # 1. Figer/recuperer les resultats finaux des departements publiables.
         for departement, effectif in effectif_par_departement.items():
             if effectif < K_MIN:
                 resultats_finaux[departement] = {
@@ -766,28 +873,25 @@ def cloturer_consultation(session_vera: Optional[str] = Cookie(None)):
                     "raison": f"Effectif insuffisant : moins de {K_MIN} participants.",
                 }
                 continue
-            comptes_bruts = compteurs_par_departement.get(departement, {})
-            comptes_ordonnes = {
-                option["valeur"]: comptes_bruts.get(option["valeur"], 0)
-                for option in question_courante()["options"]
-            }
-            deja = persistance.charger_resultat_publie(departement)
-            if deja is not None:
-                resultats_finaux[departement] = {"resultats_bruits": deja}
-            else:
-                resultats_finaux[departement] = {
-                    "resultats_bruits": publier_histogramme_dp(comptes_ordonnes, effectif)
-                }
+            # PASSAGE PAR LE CHEMIN BUDGETAIRE UNIQUE. L'ancien code appelait
+            # publier_histogramme_dp en direct : ni peut_publier, ni consommer,
+            # ni persister_publication_atomique. C'etait le seul chemin de
+            # publication du code qui ignorait totalement la Porte 4 -- sur un
+            # etat ou budget_epsilon serait renseigne mais resultats_publies
+            # vide (restauration partielle de sauvegarde), la cloture tirait un
+            # SECOND echantillon de bruit sur les memes comptages. Deux tirages
+            # Laplace independants sur le meme vecteur se moyennent : epsilon
+            # effectif divise par deux a chaque iteration.
+            resultats_finaux[departement] = _publier_departement(departement, effectif)
 
-    # 2. Detruire la cle de signature -> tous les tokens en circulation
-    #    deviennent cryptographiquement invalides.
-    gestionnaire_signature.fermer_consultation()
+        # 2. Detruire la cle de signature -> tous les tokens en circulation
+        #    deviennent cryptographiquement invalides.
+        gestionnaire_signature.fermer_consultation()
 
-    # 3. Effacer tout l'etat brut cote base.
-    persistance.effacer_etat_consultation()
+        # 3. Effacer tout l'etat brut cote base.
+        persistance.effacer_etat_consultation()
 
-    # 4. Vider les registres memoire.
-    with verrou:
+        # 4. Vider les registres memoire.
         compteurs_par_departement.clear()
         effectif_par_departement.clear()
         registre_codes_courts.clear()
