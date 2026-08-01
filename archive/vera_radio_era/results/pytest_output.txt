@@ -1,8 +1,0 @@
-============================= test session starts ==============================
-platform android -- Python 3.13.13, pytest-9.0.3, pluggy-1.6.0 -- /data/data/com.termux/files/usr/bin/python3.13
-cachedir: .pytest_cache
-rootdir: /data/data/com.termux/files/home/Vera-protocole
-plugins: cov-7.1.0, anyio-4.13.0
-collecting ... collected 0 items
-
-============================ no tests ran in 0.03s =============================

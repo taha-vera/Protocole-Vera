@@ -1,9 +1,0 @@
-{
-  "shift_robustness": null,
-  "metrics": {
-    "rsr_g1": 1.0,
-    "csc_g1": 1.0,
-    "rsr_g2": 1.0,
-    "csc_g2": 0.6065277155794397
-  }
-}

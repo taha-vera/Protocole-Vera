@@ -1,5 +1,0 @@
-[package]
-name = "vera-v33"
-version = "3.3.0"
-edition = "2021"
-[workspace]
