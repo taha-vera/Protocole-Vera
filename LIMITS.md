@@ -246,11 +246,25 @@ configuration.
 VERA a donc choisi l'anonymat prouve plutot que l'integrite prouvee.
 
 **Consequence pratique.** VERA convient a une consultation d'opinion ou le
-commanditaire cherche une reponse sincere de son organisation -- son interet
-est d'obtenir un resultat vrai. Il ne convient PAS a un scrutin contraignant,
-electif ou juridiquement opposable, ou l'organisateur pourrait avoir interet a
-fabriquer le resultat et ou la contestation doit pouvoir s'appuyer sur une
-preuve.
+commanditaire cherche reellement a savoir ce que pense son organisation.
+
+Attention toutefois a ne pas se rassurer trop vite avec l'argument « un
+organisateur qui falsifie son propre sondage se trompe lui-meme » : il n'est
+vrai que si la consultation sert a INFORMER l'organisateur. Or un barometre
+social sert souvent a COMMUNIQUER un resultat -- a une direction, a des
+representants du personnel, a des salaries, a une tutelle. Dans ce cas
+l'organisateur ne se trompe pas lui-meme, il trompe des tiers, et c'est
+precisement le scenario qu'un delegue syndical ou un DPO a en tete.
+
+Ne pas se rassurer non plus avec l'idee que « les participants verraient
+l'ecart » : ils ne voient pas la liste de diffusion. Un organisateur qui
+ajoute vingt invitations fictives et vote vingt fois n'est detectable par
+aucun participant -- c'est exactement ce qu'implique le fait que VERA ne
+connaisse pas la liste.
+
+VERA ne convient PAS a un scrutin contraignant, electif ou juridiquement
+opposable, ou l'organisateur pourrait avoir interet a fabriquer le resultat et
+ou la contestation doit pouvoir s'appuyer sur une preuve.
 
 L'integrite, dans le perimetre de VERA, repose sur des garanties
 ORGANISATIONNELLES et non cryptographiques : le nombre d'invitations generees

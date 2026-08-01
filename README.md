@@ -5,15 +5,24 @@
 VERA publie un résultat collectif (sondage sensible, consultation interne)
 sans jamais rendre lisible la contribution d'un individu — et le prouve.
 
-**Périmètre de la garantie.** VERA garantit l'**anonymat**, pas l'**intégrité du
-scrutin**. Le système ne dispose d'aucune liste de référence des personnes
-invitées — c'est ce qui protège l'anonymat — et ne peut donc pas attester que
-les jetons émis correspondent à de vraies personnes distinctes, ni qu'aucun n'a
-été utilisé par l'organisateur. Il n'y a ni reçu votant, ni urne publique, ni
-recomptage possible : la vérifiabilité de bout en bout exige un décompte exact,
-incompatible avec le décompte bruité qu'impose la confidentialité
-différentielle. VERA convient à une consultation d'opinion, pas à un scrutin
-contraignant ou juridiquement opposable. Détail complet : [LIMITS.md §13](LIMITS.md).
+**Ce que VERA garantit.** Aucune réponse ne peut être reliée à une personne — ni
+par l'organisateur, ni par l'hébergeur du serveur. Cette propriété est
+**structurelle** (signature aveugle RSABSSA, registres disjoints), pas une
+politique de confidentialité : le serveur ne stocke jamais le lien entre une
+identité et un vote. Les garanties statistiques sur les résultats publiés
+(confidentialité différentielle, ε=0.5) reposent sur des hypothèses documentées
+dans [LIMITS.md](LIMITS.md).
+
+**Ce qui reste de la responsabilité de l'organisation.** VERA ne connaît pas la
+liste de vos membres : c'est ce qui protège leur anonymat. La contrepartie est
+que VERA ne peut vérifier ni que les invitations sont parties aux bonnes
+personnes, ni qu'elles ne sont parties qu'à elles. La fiabilité des résultats
+repose donc sur l'intégrité de la liste de diffusion, qui est de votre ressort.
+Pour une consultation informelle, publier le nombre d'invitations envoyées et
+faire vérifier la liste par une seconde personne suffit généralement. Pour un
+scrutin contraignant ou juridiquement opposable, cette garantie manquante est
+rédhibitoire : VERA n'est pas conçu pour cet usage. Détail technique :
+[LIMITS.md §13](LIMITS.md).
 
 **Règle d'usage.** Le budget de confidentialité (ε=0.5) s'applique **par
 consultation**, et non par cohorte : il est remis à zéro à chaque clôture.
@@ -28,7 +37,7 @@ défendable). Barème complet et justification : [LIMITS.md §14](LIMITS.md).
 - *Modèle de menace complet (17 portes)* : [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md)
 - *Mécanisme de bruit en production* : [vera_dp_noise.py](vera_dp_noise.py) (OpenDP, Δ=2, scale=4, ε=0.5, bounds=(0,10000))
 - *Persistance chiffrée de l'état (Portes 11, 14)* : [vera_persistance.py](vera_persistance.py) (SQLite WAL, Fernet/AES-128)
-- *Porte 7 (signature aveugle, production)* : [vera_signature_manager.py](vera_signature_manager.py) — primitive RSABSSA RFC 9474 (standard audite). La *logique* de partition (un token par individu/epoque, anti-rejeu, blocage 49/1) est validee sur un prototype dans [archive/test_porte7.py](archive/test_porte7.py) ; ce prototype (archive/vera_token.py) n'est PAS la primitive de production et n'est pas utilise par le serveur.
+- *Porte 7 (signature aveugle, production)* : [vera_signature_manager.py](vera_signature_manager.py) — primitive RSABSSA RFC 9474 (standard audite). La *logique* de partition (un token par individu/epoque, anti-rejeu, blocage 49/1) a ete validee sur un prototype historique, retire du depot avec le dossier `archive/` le 01/08/2026 (toujours accessible dans l'historique git) ; ce prototype n'est PAS la primitive de production et n'est pas utilise par le serveur.
 
 ## Antériorité (DOI Zenodo)
 
