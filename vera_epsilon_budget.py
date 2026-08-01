@@ -44,6 +44,14 @@ class BudgetEpsilonParDepartement:
     degradation silencieuse.
     """
 
+    # Tolerance sur les comparaisons de budget. Les epsilon sont des flottants
+    # IEEE 754 : 0.5 - 0.4 vaut 0.09999999999999998, et 5 x 0.1 vaut
+    # 0.5000000000000001. Sans tolerance, une publication legitime est
+    # refusee, ou peut_publier et consommer se contredisent sur le meme etat.
+    # 1e-9 est un milliardieme d'epsilon : aucune sequence reelle ne peut
+    # l'exploiter pour depasser le plafond de facon significative.
+    TOLERANCE_FLOTTANTE = 1e-9
+
     def __init__(self, epsilon_total_autorise: float = 0.5):
         self._verrou = threading.Lock()
         self._epsilon_total_autorise = epsilon_total_autorise
@@ -62,7 +70,11 @@ class BudgetEpsilonParDepartement:
             return False
         with self._verrou:
             consomme = self._epsilon_consomme.get(departement, 0.0)
-            return (consomme + epsilon_requete) <= self._epsilon_total_autorise
+            # Meme forme et meme tolerance que consommer() : les deux methodes
+            # doivent repondre pareil a la meme question, y compris au bord.
+            return (consomme + epsilon_requete) <= (
+                self._epsilon_total_autorise + self.TOLERANCE_FLOTTANTE
+            )
 
     def consommer(self, departement: str, epsilon_requete: float) -> None:
         # Refus dur d'un cout <= 0 : un cout negatif rembourserait du budget
@@ -72,8 +84,27 @@ class BudgetEpsilonParDepartement:
             raise ValueError(f"Cout epsilon invalide (doit etre > 0) : {epsilon_requete}")
         with self._verrou:
             consomme = self._epsilon_consomme.get(departement, 0.0)
-            restant = self._epsilon_total_autorise - consomme
-            if epsilon_requete > restant:
+            # MEME FORME DE CALCUL QUE peut_publier, et meme tolerance.
+            # Les deux methodes repondent a la meme question ; elles doivent
+            # donc repondre pareil, y compris au bord.
+            #
+            # L'ancienne version comparait `epsilon_requete > total - consomme`.
+            # Mathematiquement equivalent, numeriquement non : en IEEE 754,
+            # 0.5 - 0.4 vaut 0.09999999999999998, donc une demande de 0.1
+            # etait refusee alors que peut_publier l'autorisait. Cinq
+            # consommations de 0.1 sur un budget de 0.5 echouaient a la
+            # cinquieme -- une publication legitime rejetee sans raison
+            # visible, et deux methodes en desaccord sur le meme etat.
+            #
+            # TOLERANCE_FLOTTANTE ne relache pas la garantie : elle vaut 1e-9,
+            # soit un milliardieme d'epsilon. Aucune sequence de publications
+            # reelles ne peut l'exploiter pour depasser le plafond de facon
+            # significative, alors qu'une comparaison stricte rejette des cas
+            # parfaitement valides.
+            if (consomme + epsilon_requete) > (
+                self._epsilon_total_autorise + self.TOLERANCE_FLOTTANTE
+            ):
+                restant = self._epsilon_total_autorise - consomme
                 raise BudgetEpuiseError(departement, epsilon_requete, restant)
 
             self._epsilon_consomme[departement] = consomme + epsilon_requete
