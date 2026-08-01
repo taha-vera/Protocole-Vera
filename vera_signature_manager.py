@@ -65,6 +65,11 @@ class GestionnaireSignature:
     def __init__(self):
         self._verrou = threading.Lock()
         self._cles = {}
+        # Cles PUBLIQUES d'une consultation expiree. Conservees apres
+        # destruction des privees pour que les votes deja signes puissent
+        # encore etre verifies et deposes (voir _detruire_cle_privee).
+        # Videes a la cloture explicite, qui met fin a la consultation.
+        self._cles_publiques_expirees = {}
         self._consultation_ouverte = False
         self._ouverture_ts = None
         self._timer_destruction = None
@@ -78,6 +83,8 @@ class GestionnaireSignature:
             if self._consultation_ouverte:
                 raise RuntimeError("Une consultation est deja active.")
             self._cles = {}
+            # Une nouvelle consultation ne doit rien heriter de la precedente.
+            self._cles_publiques_expirees = {}
             ts_recharge = None
             if _PERSISTANCE_DISPONIBLE:
                 toutes = _persistance.charger_toutes_cles_chiffrees()
@@ -119,10 +126,20 @@ class GestionnaireSignature:
 
 
     def fermer_consultation(self):
+        """Cloture EXPLICITE : detruit tout, privees ET publiques.
+
+        Difference avec l'expiration automatique : celle-ci conserve les cles
+        publiques pour laisser aboutir les votes deja signes. La cloture, elle,
+        met fin a la consultation -- plus rien ne doit pouvoir etre depose, et
+        le serveur ne doit plus rien conserver. C'est la garantie de
+        minimisation rendue verifiable.
+        """
         if self._timer_destruction:
             self._timer_destruction.cancel()
             self._timer_destruction = None
         self._detruire_cle_privee()
+        with self._verrou:
+            self._cles_publiques_expirees = {}
         if _PERSISTANCE_DISPONIBLE:
             _persistance.effacer_cle_rsa()
 
@@ -147,10 +164,35 @@ class GestionnaireSignature:
             _persistance.effacer_cle_rsa()
 
     def _detruire_cle_privee(self):
+        """Detruit les cles PRIVEES a l'expiration, conserve les PUBLIQUES.
+
+        La destruction de la partie privee a un objectif precis : plus aucune
+        signature ne peut etre emise apres l'echeance. Elle ne doit PAS
+        empecher de VERIFIER les signatures deja emises.
+
+        Le comportement precedent vidait `self._cles` en entier, publiques
+        comprises. Consequence : un votant ayant obtenu sa signature quelques
+        minutes avant l'echeance ne pouvait plus deposer son vote --
+        cle_publique_si_existe levait, la verification echouait, et sa voix
+        etait perdue alors que son credential etait parfaitement valide. Son
+        jeton d'autorisation, lui, avait bien ete consomme : il ne pouvait pas
+        recommencer.
+
+        Les publiques sont donc deplacees dans un registre dedie qui survit
+        jusqu'a la cloture explicite. Elles ne sont pas un secret -- elles sont
+        distribuees dans chaque lien de vote (empreinte en fragment) et servent
+        precisement a permettre a quiconque de verifier une signature.
+        """
         with self._verrou:
             for dep, (priv, pub) in list(self._cles.items()):
                 if priv is not None:
+                    # Ecrasement explicite avant liberation. Python ne garantit
+                    # pas l'effacement memoire immediat, mais on ne laisse pas
+                    # la reference intacte pour autant.
                     self._cles[dep] = (b"\x00" * len(priv), pub)
+                # La publique survit : elle seule permet de verifier les
+                # signatures deja en circulation.
+                self._cles_publiques_expirees[dep] = pub
             self._cles = {}
             self._consultation_ouverte = False
 
@@ -198,14 +240,27 @@ class GestionnaireSignature:
         cle_rsa_active par requete avec un nom de departement arbitraire :
         DoS CPU (keygen) + croissance illimitee de la DB. La cle d'un
         departement legitime existe toujours a ce stade, creee par le RH
-        lors de generer_autorisations."""
+        lors de generer_autorisations.
+
+        APRES EXPIRATION : la cle publique reste disponible via le registre
+        des publiques expirees, pour que les votes deja signes puissent
+        encore etre VERIFIES et deposes. Sans cela, un votant ayant obtenu sa
+        signature juste avant l'echeance perdait sa voix : son jeton
+        d'autorisation etait consomme, mais le depot echouait faute de cle
+        pour verifier. Emettre de NOUVELLES signatures reste impossible (la
+        cle privee, elle, est bien detruite) -- c'est la seule chose que
+        l'expiration doit empecher.
+        """
         with self._verrou:
+            if departement in self._cles:
+                _priv, pub = self._cles[departement]
+                return pub
+            # Consultation expiree : on peut encore verifier ce qui a ete signe.
+            if departement in self._cles_publiques_expirees:
+                return self._cles_publiques_expirees[departement]
             if not self._consultation_ouverte:
                 raise RuntimeError("Aucune consultation active.")
-            if departement not in self._cles:
-                raise KeyError(departement)
-            _priv, pub = self._cles[departement]
-        return pub
+            raise KeyError(departement)
 
     def signer_message_aveugle(self, departement, message_aveugle_bytes):
         """Signe a l'aveugle un message DEJA aveugle par le client (navigateur
