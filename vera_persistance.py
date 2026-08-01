@@ -509,22 +509,57 @@ def charger_toutes_cles_chiffrees() -> dict:
     """Charge et dechiffre TOUTES les cles de departement (rechargement au boot).
     Renvoie {departement: (cle_privee_der, cle_publique_der, ouverture_unix)}.
     Une cle sans salt (ancien format) est ignoree avec avertissement plutot que
-    de bloquer tout le rechargement."""
+    de bloquer tout le rechargement.
+
+    FAIL-CLOSED si AUCUNE cle ne se dechiffre alors que la table en contient.
+    Auparavant un echec de dechiffrement etait avale par un `continue`
+    silencieux : si VERA_DB_KEY etait erronee au redemarrage (typo dans l'unit
+    systemd, restauration sur une autre machine, rotation mal appliquee), les
+    cles existantes etaient ignorees sans le moindre signal et de NOUVELLES
+    cles etaient generees a la premiere demande. Consequence : tous les liens
+    deja distribues par SMS -- qui portent l'empreinte de l'ancienne cle dans
+    leur fragment #k= -- devenaient invalides en pleine consultation, et le
+    RH ne l'apprenait que par les plaintes des votants.
+
+    Refuser de demarrer est le comportement sur : l'operateur voit
+    immediatement l'erreur, corrige la cle, et redemarre sans avoir rien
+    detruit. Le cas legitime de rotation de VERA_DB_KEY passe par la cloture
+    de consultation, qui purge ces lignes -- la table est alors vide et ce
+    garde-fou ne se declenche pas.
+    """
     with _verrou_db:
         rows = _conn.execute(
             "SELECT departement, cle_privee_hex, cle_publique_hex, ouverture_unix, salt_hex FROM cle_rsa_active"
         ).fetchall()
     resultat = {}
+    echecs = 0
     for dep, priv_hex, pub_hex, ouverture, salt_hex in rows:
         if salt_hex is None:
-            continue  # ancien format sans salt : ignore
+            echecs += 1
+            print(f"ATTENTION : cle du departement '{dep}' en ancien format (sans salt), ignoree.")
+            continue
         salt = bytes.fromhex(salt_hex)
         f = _get_fernet(salt)
         try:
             cle_privee = f.decrypt(bytes.fromhex(priv_hex))
         except Exception:
-            continue  # dechiffrement impossible (VERA_DB_KEY changee) : ignore
+            echecs += 1
+            print(f"CRITIQUE : dechiffrement impossible pour le departement '{dep}' "
+                  f"-- VERA_DB_KEY ne correspond pas a cette cle.")
+            continue
         resultat[dep] = (cle_privee, bytes.fromhex(pub_hex), ouverture)
+
+    # Des cles existent en base mais AUCUNE n'est exploitable : la cle de
+    # chiffrement est presque certainement la mauvaise. Continuer reviendrait
+    # a regenerer des cles et a invalider tous les liens en circulation.
+    if rows and not resultat:
+        raise RuntimeError(
+            f"VERA REFUSE DE DEMARRER : {len(rows)} cle(s) RSA presente(s) en base, "
+            f"aucune dechiffrable ({echecs} echec(s)). VERA_DB_KEY ne correspond pas "
+            "aux cles stockees. Verifier la variable d'environnement dans l'unit "
+            "systemd. Demarrer malgre tout regenererait des cles et invaliderait "
+            "TOUS les liens de vote deja distribues."
+        )
     return resultat
 
 

@@ -890,13 +890,30 @@ def cloturer_consultation(session_vera: Optional[str] = Cookie(None)):
         pass
 
     # 6. Rouvrir une consultation neuve (nouvelle cle) pour un usage ulterieur.
-    gestionnaire_signature.ouvrir_consultation()
+    #    ISOLE DANS UN try : a ce stade les donnees sont DEJA detruites et les
+    #    resultats finaux n'existent plus que dans la variable locale ci-dessous.
+    #    Si ouvrir_consultation() levait, l'exception remontait en HTTP 500 et
+    #    le RH perdait definitivement des resultats irrecuperables -- pour une
+    #    panne qui ne concerne QUE la consultation SUIVANTE. On renvoie donc
+    #    les resultats dans tous les cas, en signalant l'anomalie a part.
+    avertissement_reouverture = None
+    try:
+        gestionnaire_signature.ouvrir_consultation()
+    except Exception as e:
+        avertissement_reouverture = (
+            "La consultation a bien ete cloturee et vos resultats sont ci-dessous, "
+            "mais la reouverture d'une nouvelle consultation a echoue ("
+            + str(e) + "). Redemarrez le service avant d'en lancer une nouvelle."
+        )
 
-    return {
+    reponse = {
         "statut": "consultation cloturee",
         "avertissement": "Sauvegardez ces resultats : le serveur ne les conserve plus.",
         "resultats_finaux": resultats_finaux,
     }
+    if avertissement_reouverture:
+        reponse["avertissement_reouverture"] = avertissement_reouverture
+    return reponse
 
 
 class QuestionRequete(BaseModel):
