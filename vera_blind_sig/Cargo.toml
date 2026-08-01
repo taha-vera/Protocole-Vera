@@ -1,0 +1,14 @@
+[workspace]
+
+[package]
+name = "vera_blind_sig"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "vera_blind_sig"
+crate-type = ["cdylib"]
+
+[dependencies]
+blind-rsa-signatures = "0.17"
+pyo3 = { version = "0.22", features = ["extension-module"] }
