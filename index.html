@@ -36,8 +36,8 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <h1>Publier le resultat d'une consultation sensible — sans jamais trahir une seule reponse.</h1>
 <p>VERA est un protocole open source qui publie un resultat collectif (sondage, consultation interne) sans rendre lisible la contribution d'un individu, et qui le PROUVE mathematiquement. Pas une promesse : une garantie verifiable.</p>
 <div class="cta">
-<a href="https://github.com/taha-vera/Protocole-Vera" class="btn btn-primary">Voir sur GitHub</a>
-<a href="https://github.com/taha-vera/Protocole-Vera/blob/main/VERA_THREAT_MODEL_COMPLETE.md" class="btn btn-secondary">Modele de menace</a>
+<a href="https://github.com/taha-vera/projet-vera-consultations-" class="btn btn-primary">Voir sur GitHub</a>
+<a href="https://github.com/taha-vera/projet-vera-consultations-/blob/main/VERA_THREAT_MODEL_COMPLETE.md" class="btn btn-secondary">Modele de menace</a>
 </div>
 </div>
 </header>
@@ -71,7 +71,7 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 </div>
 <div class="card">
 <h3>Non-persistance</h3>
-<p>La donnee brute est detruite a l'entree. Seul un resultat agrege et bruite est publie. Rien d'individuel ne survit.</p>
+<p>Aucune reponse individuelle n'est jamais stockee : seuls des compteurs agreges existent, et ils sont detruits a la cloture. Le serveur ne conserve alors plus rien.</p>
 </div>
 <div class="card">
 <h3>Protection du repondant atypique</h3>
@@ -92,7 +92,7 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <li>La donnee brute n'est jamais stockee ni exposee</li>
 <li>Les sorties sont des agregats statistiques bruites, irreversibles</li>
 <li>Confidentialite differentielle : budget epsilon plafonne et borne</li>
-<li>Seuil minimum de participants (K >= 100) : refus de publier en dessous</li>
+<li>Seuil minimum de participants (K = 240) : refus de publier en dessous</li>
 <li>Un token anonyme par individu et par consultation (anti double-reponse)</li>
 <li>Limites du modele de menace documentees, pas dissimulees</li>
 </ul>
@@ -104,15 +104,15 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <div class="grid">
 <div class="card" style="text-align:center">
 <div class="metric">0,5</div>
-<p>epsilon exact — garantie DP certifiee par OpenDP</p>
+<p>epsilon par consultation — garantie DP calculee par OpenDP</p>
 </div>
 <div class="card" style="text-align:center">
-<div class="metric">&ge; 100</div>
-<p>K minimum — pas de publication sous le seuil</p>
+<div class="metric">240</div>
+<p>K minimum — seuil MESURE, pas suppose. Aucune publication en dessous.</p>
 </div>
 <div class="card" style="text-align:center">
 <div class="metric">0</div>
-<p>donnee brute conservee apres agregation</p>
+<p>reponse individuelle stockee, a aucun moment</p>
 </div>
 <div class="card" style="text-align:center">
 <div class="metric">Open</div>
@@ -121,13 +121,40 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 </div>
 </div>
 </section>
+<section style="background:#f8fafc;">
+<div class="container">
+<h2>Ce que VERA ne garantit pas</h2>
+<p style="margin-bottom:1.5rem; color:#64748b;">Un outil qui ne dit que ses forces ne merite pas votre confiance. Voici ses limites, ecrites noir sur blanc.</p>
+<div class="grid">
+<div class="card">
+<h3>La liste des invites reste la votre</h3>
+<p>VERA ne connait pas vos membres — c'est ce qui protege leur anonymat. Il ne peut donc verifier ni que les invitations sont parties aux bonnes personnes, ni qu'elles ne sont parties qu'a elles. La fiabilite du resultat repose sur l'integrite de votre liste de diffusion.</p>
+</div>
+<div class="card">
+<h3>Consultation, pas scrutin</h3>
+<p>Il n'y a ni recu, ni urne publique, ni recomptage possible : un decompte verifiable trahirait les personnes que le bruit protege. Pour un scrutin contraignant ou juridiquement opposable, cette garantie manquante est redhibitoire — VERA n'est pas concu pour cet usage.</p>
+</div>
+<div class="card">
+<h3>L'hebergeur compte</h3>
+<p>La garantie tient contre un tiers et contre un operateur honnete-mais-curieux. Face a une organisation qui aurait interet a desanonymiser ET qui heberge elle-meme le serveur, un hebergement par un tiers de confiance est necessaire.</p>
+</div>
+<div class="card">
+<h3>Frequence des consultations</h3>
+<p>Interroger plusieurs fois les memes personnes erode la protection. Regle d'usage : pas plus de quatre consultations par an sur un meme groupe.</p>
+</div>
+</div>
+<p style="margin-top:2rem; padding:1.25rem; background:white; border-left:3px solid #2563eb; border-radius:4px;">
+<strong>Vous evaluez VERA pour votre organisation ?</strong> Le code, le modele de menace complet et les limites detaillees sont publics. Faites-les examiner par votre responsable informatique, votre DPO ou un auditeur externe — c'est precisement pour cela qu'ils sont publies.
+</p>
+</div>
+</section>
 <section>
 <div class="container">
 <h2>Comment ca marche</h2>
 <div class="grid">
 <div class="card"><h3>1. Ouverture</h3><p>L'organisateur ouvre une consultation. Chaque participant recoit un token anonyme a usage unique.</p></div>
 <div class="card"><h3>2. Reponses</h3><p>Les participants repondent une fois chacun. Le seuil minimum de participants est verifie.</p></div>
-<div class="card"><h3>3. Agregation + bruit</h3><p>Le resultat est agrege puis bruite par le mecanisme de Laplace (OpenDP). La donnee brute est detruite.</p></div>
+<div class="card"><h3>3. Agregation + bruit</h3><p>Les reponses alimentent un compteur agrege, jamais un enregistrement individuel. Le resultat est bruite par le mecanisme de Laplace (OpenDP).</p></div>
 <div class="card"><h3>4. Publication</h3><p>Seule la tendance bruitee est publiee. Le budget de confidentialite est decompte ; au-dela, publication refusee.</p></div>
 </div>
 </div>
@@ -137,8 +164,9 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <div class="container">
 <p>VERA n'est pas une entreprise. C'est un protocole open source. Chacun peut l'implementer, le verifier, l'auditer.</p>
 <p style="margin-top:1rem;">
-<a href="https://github.com/taha-vera/Protocole-Vera" style="color:#60a5fa;">GitHub</a> —
-<a href="https://github.com/taha-vera/Protocole-Vera/blob/main/VERA_THREAT_MODEL_COMPLETE.md" style="color:#60a5fa;">Modele de menace</a>
+<a href="https://github.com/taha-vera/projet-vera-consultations-" style="color:#60a5fa;">GitHub</a> —
+<a href="https://github.com/taha-vera/projet-vera-consultations-/blob/main/VERA_THREAT_MODEL_COMPLETE.md" style="color:#60a5fa;">Modele de menace</a> —
+<a href="https://github.com/taha-vera/projet-vera-consultations-/blob/main/LIMITS.md" style="color:#60a5fa;">Limites</a>
 </p>
 <p style="margin-top:1rem; font-size:0.9rem;">Contact : tahahouari@hotmail.fr</p>
 </div>
