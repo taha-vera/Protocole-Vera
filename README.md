@@ -34,7 +34,7 @@ une règle d'usage : **pas plus de 4 consultations par période de 12 mois
 glissants sur la même population** (ε cumulé = 2.0, dernier palier
 défendable). Barème complet et justification : [LIMITS.md §14](LIMITS.md).
 
-- *Modèle de menace complet (17 portes)* : [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md)
+- *Modèle de menace complet (26 portes)* : [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md)
 - *Mécanisme de bruit en production* : [vera_dp_noise.py](vera_dp_noise.py) (OpenDP, Δ=2, scale=4, ε=0.5, bounds=(0,10000))
 - *Persistance chiffrée de l'état (Portes 11, 14)* : [vera_persistance.py](vera_persistance.py) (SQLite WAL, Fernet/AES-128)
 - *Porte 7 (signature aveugle, production)* : [vera_signature_manager.py](vera_signature_manager.py) — primitive RSABSSA RFC 9474 (standard audite). La *logique* de partition (un token par individu/epoque, anti-rejeu, blocage 49/1) a ete validee sur un prototype historique, retire du depot avec le dossier `archive/` le 01/08/2026 (toujours accessible dans l'historique git) ; ce prototype n'est PAS la primitive de production et n'est pas utilise par le serveur.
@@ -44,44 +44,28 @@ défendable). Barème complet et justification : [LIMITS.md §14](LIMITS.md).
 - v1.0 (2026-06-12) : https://doi.org/10.5281/zenodo.20668681
 - v1.1 (2026-06-12, porte 7 fermée en prototype) : https://doi.org/10.5281/zenodo.20671969
 
-## État des portes (résumé, 1-17 -- table complète à 26 portes dans [VERA_AUDIT_REFERENCE.md](VERA_AUDIT_REFERENCE.md))
+## État des portes
 
-> Ce tableau n'a pas suivi toutes les mises à jour de sécurité. Pour l'état
-> complet et à jour (26 portes, dont 9 fermées après le 13/07/2026), se référer
-> à [VERA_AUDIT_REFERENCE.md](VERA_AUDIT_REFERENCE.md), tenu dans le dépôt et
-> poussé avec le code à chaque déploiement.
+Le modèle de menace couvre **26 portes** : 22 fermées avec preuve reproductible
+sur le serveur de production, 4 limites assumées et documentées.
 
-| Porte | État |
-|---|---|
-| 1. Mécanisme de bruit | Fermée — Δ=2, scale=4, ε=0.5 vérifié |
-| 2. MIA générale | Fermée — AUC=0.6209, IC95% [0.6185, 0.6232], borne théorique 0.6225 incluse (N=100 000, bootstrap) |
-| 3. Canal temporel | Fermée — fuite sub-microseconde (0.209µs), inexploitable via réseau |
-| 4. Composition séquentielle | Réouverte 17/07, limite assumée — le budget est remis à zéro à CHAQUE clôture (non par cohorte). Détail et règle d'usage : [LIMITS.md §14](LIMITS.md) |
-| 5. Observateur réseau | Hors-périmètre, assumé (VPN/Tor au choix utilisateur) |
-| 6. Coercition | Hors-périmètre, limite partagée par tout système de vote |
-| 7. Différenciation « 49/1 » | Fermée — primitive RSABSSA RFC 9474 + unlinkability EFFECTIVE depuis le refactor Modèle B (23/07/2026). L'aveuglement et la finalisation ont lieu dans le navigateur du votant (static/vote.html, lib auto-hébergée) : le serveur ne voit jamais le secret K ni la signature finale, et ne peut relier ni le jeton d'autorisation au vote, ni l'identité à la réponse. Une clé RSA par département, empreinte engagée dans le lien de participation et vérifiée côté client (parade substitution de clé). Vérifié bout-en-bout : chantier_crypto/test_vote_complet.mjs, test_brique7.mjs. LIMITE : garantie valable contre un tiers et un opérateur honnête-mais-curieux (Niveau 1 du modèle d'adversaire) ; contre un opérateur activement malveillant qui sert le JS et détient les clés, un hébergement tiers est nécessaire — voir la section Modèle d'adversaire du threat model. |
-| 8. Inférence outlier | Fermée — AUC=0.6209, IC95% [0.6185, 0.6232] (même mesure que Porte 2) |
-| 9. Collusion émetteur/agrégateur | Fermée — secret admin distinct, comptes séparés |
-| 10. Sondage binaire K_MIN | Fermée — effectif/fiable retirés de l'API |
-| 11. Accès direct SQLite / clé RSA | Fermée — chiffrement Fernet/AES-128, salt PBKDF2 aléatoire, crash-testée |
-| 12. Secret admin visible /proc | Limite assumée (contexte solo-root) |
-| 13. Soustraction d'agrégats | Limite irréductible DP, atténuée par budget ε PAR CONSULTATION uniquement (même réserve que Porte 4) |
-| 14. Non-persistance de l'état | Fermée — SQLite WAL, crash-testée (kill -9 réel) |
-| 15. Trafic en clair (HTTP) | Fermée — HTTPS via Nginx + Let's Encrypt, redirection automatique verifiee |
-| 16. Retention des logs applicatifs | Fermée — purge manuelle a cloture + logrotate 3 jours en filet de securite |
-| 17. Correlation temporelle (horodatage_unix) | Limite assumee — protection reelle via K_MIN=240, pas via masquage du timing |
+Le détail complet — vecteur, statut, preuve — est tenu dans deux documents,
+poussés avec le code à chaque déploiement :
 
-## Corrections suite à audit de code (13/07/2026)
+- [VERA_AUDIT_REFERENCE.md](VERA_AUDIT_REFERENCE.md) — synthèse et paramètres
+- [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md) — modèle de
+  menace détaillé, modèle d'adversaire, analyses
 
-Un audit du code réel (pas seulement de la documentation) a révélé et permis de corriger cinq points, tous vérifiés empiriquement :
+## Méthode de vérification
 
-- **Bug critique corrigé** : le résultat bruité est désormais figé après la première publication (table resultats_publies). Auparavant, chaque appel à /api/rh/resultats re-tirait du bruit, ce qui aurait permis de moyenner plusieurs tirages et de contourner la garantie ε. Vérifié : 5 appels successifs renvoient un résultat identique.
-- **Garde worker unique** : le service refuse de démarrer avec plusieurs workers (l'état DP en mémoire n'est pas partagé entre processus). Protège la composition ε (Porte 4) par construction.
-- Endpoints de test retirés de la production (ne consomment plus de tokens réels).
-- Anti-bruteforce corrigé pour lire l'IP réelle derrière le reverse proxy.
-- Schéma SQLite complété pour un déploiement propre from scratch.
+Le code est audité en lecture réelle, pas seulement sur description — plusieurs
+correctifs importants n'ont été trouvés que de cette façon, dont un bug qui
+invalidait la garantie ε. Chaque porte marquée « fermée » l'a été après
+vérification sur le serveur de production, avec une preuve reproductible.
 
-Détail complet et preuves dans VERA_THREAT_MODEL_COMPLETE.md et VERA_CHALLENGE_REGISTER.md.
+Une porte fermée peut être rouverte par une fonctionnalité ou une modification
+d'infrastructure ultérieure : les hypothèses des portes fermées sont
+re-vérifiées à chaque changement touchant les mêmes mécanismes.
 
 ## Précision réelle et seuil de publication (mesuré le 14/07/2026)
 
