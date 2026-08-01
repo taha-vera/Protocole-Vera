@@ -499,7 +499,23 @@
       if (!rPk.ok) throw new Error('cle publique indisponible');
       const { cle_publique_hex, empreinte_sha256 } = await rPk.json();
 
-      if (empreinteCleAttendue && empreinte_sha256 !== empreinteCleAttendue) {
+      // FAIL-CLOSED sur l'empreinte de cle. Cette verification est la SEULE
+      // defense du client contre une substitution de cle : un serveur qui
+      // signerait chaque votant avec une cle differente pourrait, au
+      // depouillement, tester quelle cle valide chaque signature et
+      // desanonymiser tout le monde sans casser la cryptographie.
+      //
+      // L'ancienne condition etait `if (empreinteCleAttendue && ...)` : quand
+      // le fragment #k= etait absent ou tronque (lien coupe par un client SMS),
+      // empreinteCleAttendue valait '' et la verification etait SILENCIEUSEMENT
+      // SAUTEE -- le client faisait alors confiance a la cle que le serveur lui
+      // renvoyait, exactement ce que l'empreinte existe pour empecher.
+      // Une defense de securite doit echouer en se fermant, pas en s'ouvrant.
+      if (!empreinteCleAttendue) {
+        showError("Ce lien est incomplet : l'empreinte de sécurité qui permet de vérifier le serveur est absente. Il a probablement été coupé lors de l'envoi. Demandez-en un nouveau à la personne qui vous l'a transmis.", 'Lien incomplet');
+        return;
+      }
+      if (empreinte_sha256 !== empreinteCleAttendue) {
         showError('La clé du serveur ne correspond pas à ce lien. Vote refusé par sécurité. Demandez un nouveau lien à la personne qui vous a transmis celui-ci.', 'Erreur de sécurité');
         return;
       }
