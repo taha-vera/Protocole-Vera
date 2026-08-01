@@ -508,7 +508,15 @@ def signer_aveugle_endpoint(payload: SignerAveugleRequete):
     try:
         sig_aveugle = gestionnaire_signature.signer_message_aveugle(departement, message_aveugle)
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        # Endpoint PUBLIC : le detail de l'exception reste cote serveur. Le
+        # renvoyer exposerait des internes du gestionnaire de signature a
+        # quiconque appelle la route, sans rien apporter au votant -- qui ne
+        # peut de toute facon qu'attendre ou demander un nouveau lien.
+        print(f"ERREUR : signature aveugle impossible pour '{departement}' : {e}")
+        raise HTTPException(
+            status_code=503,
+            detail="Le service de signature est momentanement indisponible. Reessayez dans quelques instants.",
+        )
 
     # 4. Renvoyer la signature aveugle + le departement (le client en a besoin
     #    pour construire son vote). Aucun lien jeton<->signature n'est stocke.
@@ -900,10 +908,16 @@ def cloturer_consultation(session_vera: Optional[str] = Cookie(None)):
     try:
         gestionnaire_signature.ouvrir_consultation()
     except Exception as e:
+        # Le detail technique reste cote serveur : le renvoyer au client
+        # exposerait des internes (chemins, structures, messages de
+        # bibliotheque) sans rien lui apporter d'actionnable. Le RH a besoin
+        # de savoir QUOI faire, pas POURQUOI ca a echoue -- et le diagnostic
+        # est dans le journal du service pour l'operateur.
+        print(f"ERREUR : reouverture de consultation impossible apres cloture : {e}")
         avertissement_reouverture = (
-            "La consultation a bien ete cloturee et vos resultats sont ci-dessous, "
-            "mais la reouverture d'une nouvelle consultation a echoue ("
-            + str(e) + "). Redemarrez le service avant d'en lancer une nouvelle."
+            "La consultation a bien ete cloturee et vos resultats sont ci-dessous. "
+            "En revanche, la reouverture d'une nouvelle consultation a echoue : "
+            "redemarrez le service avant d'en lancer une nouvelle."
         )
 
     reponse = {
