@@ -9,9 +9,19 @@ enonce porte sur ce que le code fait aujourd'hui.
 
 **Methode.** Un statut n'est marque « ferme » que s'il a ete verifie sur le
 serveur de production, avec une preuve reproductible. Une porte fermee peut
-etre rouverte par une fonctionnalite ou une modification d'infrastructure
-ulterieure : les hypotheses d'une porte fermee sont a re-verifier a chaque
-changement touchant les memes mecanismes.
+etre rouverte par une fonctionnalite ajoutee plus tard : c'est arrive deux fois
+sur ce projet, dont une fois sans etre detecte pendant quatorze jours. Toute
+modification touchant les mecanismes d'une porte fermee doit donc s'accompagner
+d'une re-verification de celle-ci.
+
+*Cette consigne s'adresse a qui modifie le code. Elle n'implique aucune
+verification de la part de l'organisation qui utilise VERA.*
+
+**A qui s'adresse ce document.** Il est destine a un auditeur, un delegue a la
+protection des donnees, ou un responsable informatique charge d'evaluer VERA.
+Une organisation qui souhaite simplement savoir ce que l'outil garantit peut
+s'en tenir au README. Un participant a une consultation n'a rien a lire ici :
+le lien qu'il a recu suffit.
 
 ---
 
@@ -187,7 +197,7 @@ consultation.
 | 20 | Publication declenchee par une lecture | Fermee | `GET /api/rh/resultats` est en lecture pure ; la publication est un `POST /api/rh/publier` explicite, avec confirmation. Ferme aussi le CSRF (le cookie `SameSite=Lax` laisse passer les GET de navigation) |
 | 21 | Bourrage sature sur departement long | Fermee | Cible portee a 200 octets : la taille du corps de vote ne distingue plus « abstention » de « oui », quelle que soit la longueur du nom de departement |
 | 22 | Saturation du threadpool | Fermee | La connexion RH declenche un PBKDF2 200 000 iterations a chaque appel et partage le threadpool avec le depot de vote. Rate-limit Nginx dedie (1 r/s, rafale 5) : verifie en production, 4 requetes passent puis 429 |
-| 23 | En-tetes de securite HTTP | Fermee | CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy `no-referrer` |
+| 23 | En-tetes de securite HTTP | Fermee | CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy `no-referrer`. `server_tokens off` : la version exacte du serveur n'est pas annoncee dans les reponses |
 | 24 | Vote accepte puis efface a la cloture | Fermee | Publication et effacement dans le meme verrou : un vote concurrent ne peut plus recevoir « enregistre » puis disparaitre |
 | 25 | Exposition de secrets par un canal hors-code | Fermee | Les trois secrets ont ete rotes apres exposition accidentelle. La rotation de la cle de chiffrement est verifiee de bout en bout |
 | 26 | IP des votants dans le journal applicatif | Fermee | `access_log off` cote Nginx ne coupait que Nginx : uvicorn journalisait en parallele l'IP reelle des votants sur les routes de vote. Corrige par `--no-access-log` ; journal vide apres trafic verifie |
@@ -229,6 +239,21 @@ GENERATION par le RH, pas de la consommation. Le passage a l'etat « utilise »
 ne reordonne rien. Il est donc impossible d'apparier « n-ieme jeton consomme »
 et « n-ieme vote insere ».
 
+### Deux invariants structurels
+
+Ces deux proprietes ne sont garanties par aucun test, seulement par la
+structure du code. Toute modification qui les romprait retablirait la liaison
+entre une personne et sa reponse, sans qu'aucune alerte ne se declenche.
+
+**Les deux registres ne sont jamais joints.** Le jeton d'autorisation (emission)
+et l'empreinte du secret depense (anti-rejeu) sont deux tables distinctes,
+sans cle commune. Les joindre recreerait le lien identite vers vote que tout le
+protocole existe pour empecher.
+
+**Un jeton d'autorisation donne droit a une seule signature, dans une seule
+epoque.** C'est ce qui empeche un votant d'obtenir plusieurs credentials
+valides a partir d'une meme invitation.
+
 ---
 
 ## 6. Ce que ce document ne prouve pas
@@ -246,6 +271,5 @@ et « n-ieme vote insere ».
 - `README.md` — presentation et perimetre
 - `LIMITS.md` — limites detaillees, sections 13 (integrite) et 14 (composition)
 - `VERA_AUDIT_REFERENCE.md` — synthese des portes et parametres
-- `AMELIORATIONS_FUTURES.md` — ce qui reste ouvert
 - `vera_blind_sig/README.md` — primitive cryptographique et procedure de
   verification

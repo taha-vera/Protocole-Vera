@@ -5,7 +5,7 @@
 | Version | Statut |
 |---|---|
 | Code actuel (branche main) | Supporte |
-| Toute version anterieure au 01/07/2026 (ere VERA Radio/ANCRE) | Non supporte, archive dans archive/vera_radio_era/ |
+| Toute version anterieure au 01/07/2026 | Non supporte |
 
 ## Signaler une vulnerabilite
 
@@ -29,10 +29,9 @@ Dans le perimetre :
 - vera_epsilon_budget.py -- composition sequentielle, budget par population
 - vera_signature_manager.py -- signature aveugle RSABSSA (RFC 9474)
 - vera_persistance.py -- persistance SQLite chiffree (Fernet/AES-128)
-- vera_signature_manager.py -- gestion des tokens de production (signature aveugle RSABSSA RFC 9474). NB : archive/vera_token.py est un ancien prototype (logique de partition uniquement, primitive forgeable, non utilise en production).
+- vera_blind_sig/ -- primitive de signature aveugle (Rust, RFC 9474)
 
 Hors perimetre :
-- Code archive dans archive/vera_radio_era/ (ere VERA Radio/ANCRE, non maintenu)
 - Infrastructure Hetzner (reseau, systeme d'exploitation) -- signaler separement si pertinent
 - Ingenierie sociale, acces physique au serveur
 - Deni de service par epuisement de ressources reseau (hors perimetre applicatif)
@@ -53,4 +52,4 @@ Pas de programme de prime pour le moment.
 ## Contact
 
 Taha Houari -- tahahouari@hotmail.fr
-Depot : https://github.com/taha-vera/Protocole-Vera
+Depot : https://github.com/taha-vera/projet-vera-consultations-

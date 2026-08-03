@@ -6,7 +6,7 @@
 **URL production :** https://vera-consultation.duckdns.org
 
 **Note sur cette version.** La version 1.0 (09/07/2026) pointait par erreur vers
-un autre depot (Protocole-Vera, celui d'ANCRE) et n'integrait pas trois semaines
+un depot obsolete et n'integrait pas trois semaines
 de travail : la fermeture des Portes 18-19, une reouverture de Porte non
 detectee, la purge complete d'un audit de securite externe (16 constats), et la
 rotation de trois secrets exposes. Cette version corrige les deux et fusionne

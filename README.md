@@ -3,7 +3,20 @@
 *Agrégation à confidentialité différentielle, non-persistante.*
 
 VERA publie un résultat collectif (sondage sensible, consultation interne)
-sans jamais rendre lisible la contribution d'un individu — et le prouve.
+sans jamais rendre lisible la contribution d'un individu.
+
+> **Vous participez à une consultation ?** Le lien que vous avez reçu suffit,
+> vous n'avez rien à faire ici. Cette page s'adresse à ceux qui évaluent ou
+> vérifient VERA.
+>
+> **Vous envisagez d'utiliser VERA dans votre organisation ?** Commencez par
+> la [présentation](https://taha-vera.github.io/projet-vera-consultations-/),
+> puis lisez « Ce que VERA garantit » ci-dessous.
+>
+> **Vous êtes DPO, responsable informatique ou auditeur ?** Le détail se trouve
+> dans [LIMITS.md](LIMITS.md) et le [modèle de menace](VERA_THREAT_MODEL_COMPLETE.md).
+> Le code est intégralement lisible, primitive cryptographique comprise
+> ([vera_blind_sig/](vera_blind_sig/)).
 
 **Ce que VERA garantit.** Aucune réponse ne peut être reliée à une personne — ni
 par l'organisateur, ni par l'hébergeur du serveur. Cette propriété est
@@ -37,7 +50,7 @@ défendable). Barème complet et justification : [LIMITS.md §14](LIMITS.md).
 - *Modèle de menace complet (26 portes)* : [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md)
 - *Mécanisme de bruit en production* : [vera_dp_noise.py](vera_dp_noise.py) (OpenDP, Δ=2, scale=4, ε=0.5, bounds=(0,10000))
 - *Persistance chiffrée de l'état (Portes 11, 14)* : [vera_persistance.py](vera_persistance.py) (SQLite WAL, Fernet/AES-128)
-- *Porte 7 (signature aveugle, production)* : [vera_signature_manager.py](vera_signature_manager.py) — primitive RSABSSA RFC 9474 (standard audite). La *logique* de partition (un token par individu/epoque, anti-rejeu, blocage 49/1) a ete validee sur un prototype historique, retire du depot avec le dossier `archive/` le 01/08/2026 (toujours accessible dans l'historique git) ; ce prototype n'est PAS la primitive de production et n'est pas utilise par le serveur.
+- *Porte 7 (signature aveugle, production)* : [vera_signature_manager.py](vera_signature_manager.py) et [vera_blind_sig/](vera_blind_sig/) — primitive RSABSSA RFC 9474. L'aveuglement et la finalisation ont lieu dans le navigateur du votant : le serveur ne voit ni le secret ni la signature finale.
 
 ## Antériorité (DOI Zenodo)
 
@@ -63,9 +76,14 @@ correctifs importants n'ont été trouvés que de cette façon, dont un bug qui
 invalidait la garantie ε. Chaque porte marquée « fermée » l'a été après
 vérification sur le serveur de production, avec une preuve reproductible.
 
-Une porte fermée peut être rouverte par une fonctionnalité ou une modification
-d'infrastructure ultérieure : les hypothèses des portes fermées sont
-re-vérifiées à chaque changement touchant les mêmes mécanismes.
+Une porte fermée peut être rouverte par une fonctionnalité ajoutée plus tard.
+Ce n'est pas une précaution théorique : c'est arrivé deux fois sur ce projet,
+dont une fois sans être détecté pendant quatorze jours. Toute modification
+touchant les mécanismes d'une porte fermée doit donc s'accompagner d'une
+re-vérification de celle-ci.
+
+*Cette consigne s'adresse à qui modifie le code. Elle n'implique aucune
+vérification de la part de l'organisation qui utilise VERA.*
 
 ## Précision réelle et seuil de publication (mesuré le 14/07/2026)
 
