@@ -64,7 +64,7 @@ votant (static/vote.html, bibliotheque auto-hebergee). Le serveur ne recoit
 qu'un message deja aveugle, ne voit jamais le secret K ni la signature finale,
 et les deux registres (jetons d'autorisation, empreintes de votes consommes)
 sont disjoints, sans horodatage, sans ordre d'insertion. Verifie bout-en-bout :
-chantier_crypto/test_vote_complet.mjs et test_brique7.mjs.
+chantier_crypto/test_pont_complet.mjs et test_brique7_v2.mjs.
 
 CE QUI SUBSISTE, et qui est la vraie limite : cette garantie vaut contre un
 tiers et contre un operateur honnete-mais-curieux -- Niveau 1 du modele

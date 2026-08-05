@@ -11,7 +11,9 @@ sans jamais rendre lisible la contribution d'un individu.
 >
 > **Vous envisagez d'utiliser VERA dans votre organisation ?** Commencez par
 > la [présentation](https://taha-vera.github.io/projet-vera-consultations-/),
-> puis lisez « Ce que VERA garantit » ci-dessous.
+> puis le [guide de déploiement](GUIDE_DEPLOIEMENT.md) — il contient les
+> conditions d'usage, la notice RGPD à joindre aux invitations, et ce qui
+> reste de votre responsabilité.
 >
 > **Vous êtes DPO, responsable informatique ou auditeur ?** Le détail se trouve
 > dans [LIMITS.md](LIMITS.md) et le [modèle de menace](VERA_THREAT_MODEL_COMPLETE.md).

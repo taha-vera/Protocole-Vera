@@ -1,5 +1,12 @@
 #!/bin/bash
 # crash_test.sh — Orchestration du crash test Modele B.
+#
+# AUCUN SECRET REEL DANS CE FICHIER. Les valeurs ci-dessous sont des
+# constantes de test, volontairement courtes et lisibles, utilisees contre
+# une base jetable (crash_test.db) sur le port 8020. Les secrets de
+# production sont dans l'unite systemd, permissions 600, jamais versionnes.
+# La passphrase doit etre FIXE et identique aux deux lancements : c'est ce
+# qui permet de prouver que les cles chiffrees se rechargent apres un kill -9.
 # DB FRAICHE dediee (crash_test.db), passphrase de test fixe (la meme aux
 # deux lancements : indispensable pour prouver le rechargement des cles),
 # port 8020, prod intouchee. kill -9 = panne electrique simulee cote
@@ -12,10 +19,10 @@ PIDF=/tmp/crash_test.pid
 
 lancer() {
   cd /root/vera_test
-  VERA_DB_KEY=cle_test_crash \
+  VERA_DB_KEY=CONSTANTE_DE_TEST_PAS_UN_SECRET \
   VERA_DB_PATH=/root/vera_test/crash_test.db \
-  VERA_ADMIN_USER=asso_acer \
-  VERA_ADMIN_PASS=test1234 \
+  VERA_ADMIN_USER=compte_de_test \
+  VERA_ADMIN_PASS=CONSTANTE_DE_TEST_PAS_UN_SECRET \
   nohup "$PY" -m uvicorn vera_consultation_api:app --host 127.0.0.1 --port 8020 >> "$LOG" 2>&1 &
   echo $! > "$PIDF"
   sleep 3
