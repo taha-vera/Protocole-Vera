@@ -62,13 +62,43 @@ l'infrastructure.
 
 **Condition pour un anonymat face a l'organisation consultante.** Si
 l'organisation qui consulte heberge elle-meme le serveur, elle est dans la base
-de confiance de Niveau 2. Un anonymat reel face a elle exige un hebergement par
-un tiers distinct (association neutre, prestataire independant), ou un client
-verifiable independamment (build reproductible, empreinte publiee).
+de confiance de Niveau 2 : l'adversaire dont ses membres se mefient est aussi
+celui qui opere le systeme. La garantie ne tient alors que contre un
+administrateur qui ne cherche pas activement a la contourner.
 
-Ce point doit etre explicite aupres de toute organisation : VERA rend la
-desanonymisation passive impossible, il ne remplace pas la confiance dans
-l'hebergeur face a un adversaire actif.
+**Cette condition est remplie : VERA opere l'hebergement.** Le serveur est
+administre par le mainteneur du protocole, distinct de l'organisation qui
+consulte. Celle-ci n'a acces ni au serveur, ni a la base, ni aux journaux ;
+elle dispose du seul tableau de bord, qui n'expose que des agregats. Elle passe
+donc de Niveau 2 a Niveau 1, ou la garantie est forte et prouvee.
+
+Ce deplacement n'est pas technique : aucune ligne de code n'a change. C'est la
+separation des roles qui deplace la frontiere. L'organisation qui a un interet
+au resultat n'est plus celle qui detient les moyens de le trahir.
+
+**Ce qui protege alors l'organisation de VERA lui-meme.** La question se
+retourne legitimement : l'operateur devient a son tour le Niveau 2 potentiel.
+Quatre elements y repondent, dont trois sont verifiables sans nous faire
+confiance :
+
+- Le code est integralement publie, primitive cryptographique comprise
+  (`vera_blind_sig/`, 91 lignes de liaison autour d'une bibliotheque publique).
+- `Cargo.lock` fige les dependances : une recompilation produit la meme chaine.
+- **Le client servi au votant est verifiable** : ses empreintes SHA-256 sont
+  publiees et comparables en deux commandes (`VERIFICATION_CLIENT.md`). C'est
+  la verification qui compte le plus, puisque le seul moyen de desanonymiser
+  sans casser la cryptographie serait de servir un JavaScript pige.
+- VERA n'a aucun interet dans le resultat d'une consultation, contrairement a
+  l'organisation qui la commande. Cet argument-la n'est pas verifiable ; il ne
+  vaut que ce que vaut une structure sans enjeu dans le sujet consulte.
+
+**Ce qui reste non prouve.** Que le serveur execute le Python publie. Le code
+serveur n'est pas transmis au visiteur, donc rien ne permet de le comparer.
+L'etablir exigerait une attestation materielle (SEV-SNP, TDX ou equivalent),
+dont VERA ne dispose pas. La consequence est bornee : un serveur modifie
+pourrait refuser des votes, en fabriquer ou alterer un resultat -- ce qui
+releve de l'integrite du scrutin, deja documentee comme non garantie -- mais il
+ne pourrait plus relier une reponse a une personne, le client etant verifiable.
 
 ---
 

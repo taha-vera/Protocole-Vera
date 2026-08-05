@@ -173,13 +173,27 @@ après.
 
 ## Deux questions à trancher avec votre DPO
 
-**Qui héberge le serveur ?** Si c'est votre organisation elle-même, l'anonymat
-tient contre un administrateur qui ne cherche pas activement à contourner le
-système — pas contre une organisation qui le voudrait vraiment. Pour une
-consultation à fort enjeu, ou si vos membres ont des raisons de se méfier, un
-hébergement par un tiers de confiance (association neutre, prestataire
-indépendant) change la nature de la garantie. Détail :
-`VERA_THREAT_MODEL_COMPLETE.md`, section 1.
+**Qui héberge le serveur ?** C'est la question la plus importante, et elle est
+souvent mal comprise.
+
+Si votre organisation héberge elle-même, l'anonymat tient contre un
+administrateur qui ne cherche pas activement à le contourner — pas contre une
+organisation qui le voudrait vraiment. Or c'est précisément l'organisation dont
+vos membres se méfient. La garantie que vous leur annoncez repose alors sur
+votre parole.
+
+**VERA propose l'hébergement.** Le serveur est alors administré par le
+mainteneur du protocole, distinct de vous : vous n'avez accès ni au serveur, ni
+à la base, ni aux journaux, seulement au tableau de bord qui n'affiche que des
+agrégats. Vous ne pouvez pas désanonymiser une réponse, et vos membres peuvent
+le vérifier — ce n'est plus une promesse que vous leur faites, c'est une
+propriété de l'architecture.
+
+Vos membres, ou leurs représentants, peuvent d'ailleurs vérifier eux-mêmes que
+le code exécuté sur leur téléphone est bien celui qui a été publié et audité :
+la procédure tient en deux commandes (`VERIFICATION_CLIENT.md`).
+
+Détail complet : `VERA_THREAT_MODEL_COMPLETE.md`, section 1.
 
 **Les sauvegardes.** L'effacement à la clôture porte sur la base active. Si
 votre hébergeur réalise des instantanés automatiques, une copie antérieure peut

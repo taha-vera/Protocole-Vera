@@ -18,7 +18,9 @@ sans jamais rendre lisible la contribution d'un individu.
 > **Vous êtes DPO, responsable informatique ou auditeur ?** Le détail se trouve
 > dans [LIMITS.md](LIMITS.md) et le [modèle de menace](VERA_THREAT_MODEL_COMPLETE.md).
 > Le code est intégralement lisible, primitive cryptographique comprise
-> ([vera_blind_sig/](vera_blind_sig/)).
+> ([vera_blind_sig/](vera_blind_sig/)), et vous pouvez vérifier en deux
+> commandes que le serveur sert bien ce code
+> ([VERIFICATION_CLIENT.md](VERIFICATION_CLIENT.md)).
 
 **Ce que VERA garantit.** Aucune réponse ne peut être reliée à une personne — ni
 par l'organisateur, ni par l'hébergeur du serveur. Cette propriété est
