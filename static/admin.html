@@ -1060,7 +1060,18 @@
           html += '<p>Aucun groupe n\'avait de résultat publiable.</p>';
         } else {
           html += '<pre style="white-space:pre-wrap; background:#fff; padding:12px; border-radius:6px;">';
-          html += (txtResultats || JSON.stringify(rf, null, 2));
+          // echapperHtml OBLIGATOIRE : txtResultats recopie les noms de
+          // departement bruts, et un nom est saisi librement par un compte RH
+          // (aucun filtrage de caracteres cote serveur, seulement une longueur
+          // max). Le <pre> preserve les espaces mais ne neutralise PAS le
+          // balisage : innerHTML parse le HTML quel que soit le conteneur.
+          // Sans cet echappement, un administrateur pouvait piéger un nom de
+          // departement et faire executer du script dans la session d'un AUTRE
+          // administrateur au moment de la cloture -- donc declencher une
+          // publication forcee ou alterer l'affichage des resultats definitifs
+          // a l'instant precis ou le RH les recopie, le serveur les ayant deja
+          // effaces. Seul chemin du fichier qui avait echappe a la regle.
+          html += echapperHtml(txtResultats || JSON.stringify(rf, null, 2));
           html += '</pre>';
           html += '<button class="copy-btn" id="cloture-copy">Copier les résultats</button>';
         }

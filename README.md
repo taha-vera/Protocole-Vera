@@ -22,11 +22,17 @@ sans jamais rendre lisible la contribution d'un individu.
 > commandes que le serveur sert bien ce code
 > ([VERIFICATION_CLIENT.md](VERIFICATION_CLIENT.md)).
 
-**Ce que VERA garantit.** Aucune réponse ne peut être reliée à une personne — ni
-par l'organisateur, ni par l'hébergeur du serveur. Cette propriété est
-**structurelle** (signature aveugle RSABSSA, registres disjoints), pas une
-politique de confidentialité : le serveur ne stocke jamais le lien entre une
-identité et un vote. Les garanties statistiques sur les résultats publiés
+**Ce que VERA garantit.** Aucune réponse ne peut être reliée à une personne par
+l'organisateur de la consultation, ni par un tiers, ni par un administrateur qui
+lirait la base. Cette propriété est **structurelle** (signature aveugle RSABSSA,
+registres disjoints) : le serveur ne stocke jamais le lien entre une identité et
+un vote.
+
+Face à un opérateur d'infrastructure qui chercherait **activement** à contourner
+le système — en servant un client modifié ou en corrélant ses propres journaux —
+la garantie ne tient plus : c'est pourquoi l'hébergement doit être assuré par un
+tiers distinct de l'organisation qui consulte. Détail :
+[modèle de menace](VERA_THREAT_MODEL_COMPLETE.md), section 1. Les garanties statistiques sur les résultats publiés
 (confidentialité différentielle, ε=0.5) reposent sur des hypothèses documentées
 dans [LIMITS.md](LIMITS.md).
 

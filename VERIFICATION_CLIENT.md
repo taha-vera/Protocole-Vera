@@ -1,8 +1,14 @@
 # Vérifier que le serveur sert bien le code publié
 
-Ce document permet à n'importe qui — sans autorisation, sans compte, sans nous
-prévenir — de vérifier que le code exécuté dans le navigateur d'un votant est
-exactement celui publié dans ce dépôt.
+Ce document permet de vérifier, sans autorisation ni compte, que le code servi
+par le serveur correspond exactement à celui publié dans ce dépôt.
+
+En pratique, cette vérification ne sera pas faite par les participants — elle
+demande deux commandes en ligne de commande. Elle s'adresse à un délégué du
+personnel, un délégué à la protection des données, un service informatique ou un
+auditeur externe : quelqu'un qui contrôle *pour* les participants. C'est cette
+possibilité de contrôle par un tiers qui a de la valeur, pas son exercice par
+chacun.
 
 ## Pourquoi cette vérification est la plus importante
 
@@ -60,6 +66,11 @@ Si une seule diffère, ne votez pas et signalez-le (voir `SECURITY.md`).
 
 ## Ce qu'elle n'établit pas
 
+**Ce qu'a reçu un autre visiteur.** La vérification établit ce que ce serveur a
+servi *à vous, à cet instant, depuis votre connexion*. Un serveur malveillant
+pourrait servir le code publié à qui vérifie et un code modifié aux navigateurs
+mobiles pendant la fenêtre de vote. Rien dans cette procédure ne l'exclut.
+
 **Que le serveur exécute le code Python publié.** Le code serveur n'est pas
 transmis au visiteur : il n'y a donc rien à comparer. Aucune empreinte ne peut
 le prouver.
@@ -69,14 +80,28 @@ du code en cours d'exécution, signée par le processeur (SEV-SNP, TDX ou
 équivalent). VERA ne dispose pas de ce dispositif aujourd'hui. Nous le disons
 plutôt que de laisser croire que la vérification est complète.
 
-**Ce que cela change en pratique, et pourquoi c'est acceptable :** la partie
-vérifiable est celle où le mal serait fait. Un serveur qui voudrait
-désanonymiser devrait obtenir le secret du votant *avant* son aveuglement,
-c'est-à-dire dans le navigateur. Une fois le client vérifié, ce vecteur est
-fermé. Un serveur modifié pourrait encore refuser des votes, en fabriquer, ou
-altérer un résultat — ce qui relève de l'intégrité du scrutin, limite déjà
-documentée dans `LIMITS.md` — mais il ne pourrait plus relier une réponse à une
-personne.
+**Ce que cela change en pratique : un vecteur sur trois.** Vérifier le client
+ferme la voie la plus directe — un JavaScript modifié qui recopierait le secret
+avant l'aveuglement. C'est réel, et c'est le vecteur le plus simple à exploiter.
+
+Ce n'est pas le seul. Deux autres restent ouverts à un opérateur malveillant,
+avec un client parfaitement conforme aux empreintes ci-dessus :
+
+- **La corrélation entre les deux requêtes du parcours.** La demande de
+  signature porte le jeton d'invitation, donc l'identité via la liste de
+  l'organisation. Le dépôt du vote porte la réponse. Les deux partent du même
+  appareil à quelques secondes d'intervalle. Un opérateur qui journalise leur
+  source relie les deux sans toucher au JavaScript ni à la cryptographie.
+- **La substitution de clé par votant.** L'empreinte `#k=` du lien est calculée
+  par le serveur lui-même. Un serveur modifié peut générer une clé distincte
+  par jeton et l'empreinte correspondante : le contrôle côté client passe, et
+  le serveur retrouve ensuite quel votant a produit quelle signature en
+  essayant ses clés. Un engagement n'a de valeur que s'il est émis par une
+  partie distincte de celle qu'il contraint ; ce n'est pas le cas ici.
+
+Ces deux vecteurs relèvent du Niveau 2 du modèle d'adversaire — un opérateur qui
+cherche activement à contourner le système — et sont documentés comme hors
+garantie. Aucune vérification côté client ne les ferme.
 
 ## Après chaque mise à jour
 

@@ -85,9 +85,13 @@ confiance :
   (`vera_blind_sig/`, 91 lignes de liaison autour d'une bibliotheque publique).
 - `Cargo.lock` fige les dependances : une recompilation produit la meme chaine.
 - **Le client servi au votant est verifiable** : ses empreintes SHA-256 sont
-  publiees et comparables en deux commandes (`VERIFICATION_CLIENT.md`). C'est
-  la verification qui compte le plus, puisque le seul moyen de desanonymiser
-  sans casser la cryptographie serait de servir un JavaScript pige.
+  publiees et comparables en deux commandes (`VERIFICATION_CLIENT.md`). Cela
+  ferme le vecteur le plus direct -- un JavaScript modifie qui recopierait le
+  secret avant l'aveuglement -- mais **pas les deux autres listes plus haut** :
+  la correlation entre les requetes de signature et de vote via des journaux
+  que l'operateur controle, et la substitution de cle par votant (l'empreinte
+  `#k=` etant calculee par le serveur lui-meme, elle ne l'engage pas). Un
+  vecteur sur trois, pas la totalite.
 - VERA n'a aucun interet dans le resultat d'une consultation, contrairement a
   l'organisation qui la commande. Cet argument-la n'est pas verifiable ; il ne
   vaut que ce que vaut une structure sans enjeu dans le sujet consulte.
@@ -221,11 +225,11 @@ consultation.
 | 14 | Persistance de l'etat de confidentialite | Fermee | SQLite WAL write-through. Verifie par `kill -9` et par reboot systeme complet. Complete par un effacement ACTIF a la cloture : compteurs, effectifs, jetons, budget, resultats publies et cle de signature detruits en une transaction, suivie de `wal_checkpoint(TRUNCATE)` et `VACUUM` |
 | 15 | Trafic en clair | Fermee | HTTPS via Nginx + Let's Encrypt, redirection 301, renouvellement automatique |
 | 16 | Retention des journaux | Fermee | Purge manuelle a la cloture + logrotate 3 jours. L'access log applicatif est desactive (voir porte 26) |
-| 17 | Correlation temporelle en base | Fermee | Horodatage retire de la table anti-rejeu, table passee en `WITHOUT ROWID` : elle est ordonnee par empreinte SHA-256 pseudo-aleatoire, l'ordre d'insertion des votes n'existe plus |
+| 17 | Correlation temporelle en base | **Fermee au niveau de la table, bornee au niveau du journal** | Horodatage retire, table anti-rejeu en `WITHOUT ROWID` : ordonnee par empreinte SHA-256 pseudo-aleatoire, l'ordre d'insertion n'existe plus DANS LA TABLE. Le fichier journal, lui, est un autre sujet -- voir ci-dessous |
 | 18 | Generation de cles a la volee (DoS keygen) | Fermee | Les endpoints publics sont en lecture seule (404 si le departement n'existe pas) ; la creation de cle est reservee au flux RH authentifie |
 | 19 | API exposee hors TLS | Fermee | uvicorn ecoute sur `127.0.0.1` ; Nginx est l'unique chemin d'acces |
 | 20 | Publication declenchee par une lecture | Fermee | `GET /api/rh/resultats` est en lecture pure ; la publication est un `POST /api/rh/publier` explicite, avec confirmation. Ferme aussi le CSRF (le cookie `SameSite=Lax` laisse passer les GET de navigation) |
-| 21 | Bourrage sature sur departement long | Fermee | Cible portee a 200 octets : la taille du corps de vote ne distingue plus « abstention » de « oui », quelle que soit la longueur du nom de departement |
+| 21 | Bourrage a longueur constante | **Fermee sur le depot et la signature, ouverte sur une requete** | Le corps du vote est bourre a 200 octets : « abstention » ne se distingue plus de « oui » a la taille. La reponse de `/api/signer_aveugle` est bourree a son tour (06/08), sa taille ne trahit plus le departement. **Reste ouverte** : `GET /api/cle_publique?departement=<nom>` porte le nom dans l'URL, dont la longueur varie -- un observateur passif peut donc classer les votants par service, une requete avant que le bourrage n'agisse. Corriger exigerait de passer ce parametre en POST. Le departement n'est pas la reponse, et l'observateur reseau est hors-perimetre (section 2), mais la defense ne doit pas etre presentee comme fermant ce canal entierement |
 | 22 | Saturation du threadpool | Fermee | La connexion RH declenche un PBKDF2 200 000 iterations a chaque appel et partage le threadpool avec le depot de vote. Rate-limit Nginx dedie (1 r/s, rafale 5) : verifie en production, 4 requetes passent puis 429 |
 | 23 | En-tetes de securite HTTP | Fermee | CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy `no-referrer`. `server_tokens off` : la version exacte du serveur n'est pas annoncee dans les reponses |
 | 24 | Vote accepte puis efface a la cloture | Fermee | Publication et effacement dans le meme verrou : un vote concurrent ne peut plus recevoir « enregistre » puis disparaitre |
@@ -268,6 +272,37 @@ La table des jetons d'autorisation, elle, conserve un ordre — mais celui de la
 GENERATION par le RH, pas de la consommation. Le passage a l'etat « utilise »
 ne reordonne rien. Il est donc impossible d'apparier « n-ieme jeton consomme »
 et « n-ieme vote insere ».
+
+### Le journal d'ecriture, limite bornee et non fermee
+
+La table ne conserve aucun ordre. Le fichier journal, si -- pendant un temps.
+
+SQLite fonctionne en mode WAL : chaque validation ecrit une image ordonnee de
+la page modifiee. Comme un vote incremente la ligne (departement, reponse) qui
+lui correspond, comparer deux images successives revele quelle case a bouge,
+donc ce qu'a repondu le n-ieme votant. Verifie empiriquement : sur une sequence
+oui/non/oui/abstention/oui/non, le journal restitue l'ordre exact.
+
+`secure_delete=ON` n'y change rien -- il ecrase les octets d'une ligne
+supprimee, il ne rembobine pas un journal. Et le `wal_checkpoint(TRUNCATE)` de
+la cloture ferme le cas APRES, pas PENDANT : or c'est pendant la consultation
+qu'un instantane d'hebergeur ou une copie de diagnostic sont pris.
+
+**Ce qui est fait :** le journal est tronque toutes les 20 ecritures. Mesure sur
+201 votes : la taille du journal ne depend plus du nombre de votes mais de
+l'intervalle de troncature, avec un maximum de 354 Ko atteint au 19e vote et
+jamais depasse.
+
+**Ce qui reste :** au plus 20 votes recents restent ordonnes a tout instant.
+La fenetre est bornee, pas supprimee. La supprimer exigerait
+`journal_mode=DELETE`, qui n'ecrit aucun journal persistant entre transactions
+mais reecrit le fichier principal a chaque validation. L'arbitrage a ete pose
+en faveur de la troncature ; il reste ouvert.
+
+**Consequence pour l'hebergement.** Un instantane pris PENDANT une consultation
+est plus revelateur qu'un instantane pris apres. Le guide de deploiement doit
+le dire dans ce sens, et pas seulement mettre en garde contre la survivance
+d'une copie anterieure.
 
 ### Deux invariants structurels
 

@@ -28,6 +28,55 @@ if _script.startswith("test_") and "VERA_DB_PATH" not in os.environ:
 _verrou_db = threading.Lock()
 _conn = None
 
+# --- Troncature periodique du journal WAL ---
+#
+# La Porte 17 retire l'horodatage et passe tokens_consommes en WITHOUT ROWID
+# pour que l'ordre des votes n'existe plus DANS LA TABLE. C'est vrai de la
+# table, et faux du fichier : en mode WAL, chaque commit ecrit une frame
+# ordonnee contenant l'image de la page modifiee. Comme un vote incremente la
+# ligne (departement, reponse) qui lui correspond, comparer deux frames
+# successives revele quelle case a bouge -- donc ce qu'a repondu le n-ieme
+# votant. Verifie empiriquement le 06/08/2026 : sur une sequence
+# oui/non/oui/abstention/oui/non, le WAL restitue l'ordre exact.
+#
+# secure_delete=ON n'y change rien : il ecrase les octets d'une ligne
+# supprimee, il ne rembobine pas un journal. Le wal_checkpoint(TRUNCATE) de la
+# cloture ferme le cas APRES, pas PENDANT -- or c'est pendant la consultation
+# qu'un instantane d'hebergeur ou une copie de diagnostic sont pris.
+#
+# Tronquer tous les N votes borne la fenetre a N votes au lieu de la
+# consultation entiere. Cela ne la SUPPRIME pas : les N derniers votes restent
+# ordonnes dans le journal. La supprimer exigerait journal_mode=DELETE, plus
+# lent. Cet arbitrage est documente dans VERA_THREAT_MODEL_COMPLETE.md,
+# Porte 17, qui n'est donc pas declaree fermee sans reserve.
+_ecritures_depuis_checkpoint = 0
+INTERVALLE_CHECKPOINT_WAL = 20
+
+
+def _tronquer_wal_si_necessaire():
+    """Tronque le WAL toutes les INTERVALLE_CHECKPOINT_WAL ecritures.
+
+    A appeler SOUS _verrou_db, juste apres un commit() du chemin de vote.
+    Le cout est un fsync supplementaire tous les 20 votes, negligeable devant
+    le synchronous=FULL deja impose a chaque commit.
+
+    TRUNCATE (et non PASSIVE) est deliberement choisi : PASSIVE recopie les
+    frames dans la base mais laisse le fichier WAL a sa taille, donc son
+    contenu lisible. Seul TRUNCATE le remet a zero.
+    """
+    global _ecritures_depuis_checkpoint
+    _ecritures_depuis_checkpoint += 1
+    if _ecritures_depuis_checkpoint >= INTERVALLE_CHECKPOINT_WAL:
+        _ecritures_depuis_checkpoint = 0
+        try:
+            _conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception as e:
+            # Un checkpoint qui echoue (lecteur concurrent) ne doit jamais
+            # faire echouer un vote deja commite : la voix est enregistree,
+            # c'est ce qui compte. La prochaine tentative retronquera.
+            print(f"ATTENTION : troncature du WAL impossible ({e}). "
+                  "L'ordre des votes recents reste lisible dans le journal.")
+
 _SQL_TABLES = [
     "CREATE TABLE IF NOT EXISTS budget_epsilon (departement TEXT PRIMARY KEY, epsilon_consomme REAL NOT NULL DEFAULT 0.0, nb_publications INTEGER NOT NULL DEFAULT 0)",
     # P-B : PAS d'horodatage ici. Un instant de consommation stocke a cote de
@@ -298,6 +347,9 @@ def enregistrer_vote_atomique(departement, reponse, empreinte_k):
                 (departement,),
             ).fetchone()[0]
             _conn.commit()
+            # Le vote est persiste : on peut tronquer le journal sans risque.
+            # Apres le commit, jamais avant.
+            _tronquer_wal_si_necessaire()
             return compte_reel, effectif_reel
         except sqlite3.IntegrityError:
             _conn.rollback()

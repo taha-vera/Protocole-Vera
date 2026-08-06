@@ -112,11 +112,36 @@ fichier `.db` sans la clé `VERA_DB_KEY` ne donne pas accès à la clé de
 signature. En revanche, les données **agrégées** sont stockées en clair : noms
 des départements, libellés des réponses, et compteurs cumulés par option.
 
-Ce qui reste protégé, et c'est l'essentiel : **aucun vote individuel n'existe
-en base.** Les votes sont agrégés à l'écriture (compteur `département → réponse
-→ total`), jamais stockés ligne par ligne. Un accès au fichier révélerait donc
-« le département X a 45 oui / 30 non », mais jamais qui a voté quoi. L'anonymat
-des participants — l'invariant central de VERA — n'est pas affecté.
+Ce qui reste protégé : **aucun vote individuel n'existe en base.** Les votes
+sont agrégés à l'écriture (compteur `département → réponse → total`), jamais
+stockés ligne par ligne. Un accès **ponctuel** au fichier révélerait donc « le
+département X a 45 oui / 30 non », mais pas qui a voté quoi.
+
+**Cette sécurité vaut pour une lecture, pas pour deux.** Les compteurs sont
+incrémentés en temps réel, un vote à la fois. La différence entre deux lectures
+successives donne la réponse exacte du votant intervenu entre les deux. Aucun
+bruit ne s'y oppose : le mécanisme de confidentialité différentielle agit à la
+publication, pas à l'écriture.
+
+Le risque naît de la **composition** avec deux autres limites de ce document,
+chacune acceptable prise isolément :
+
+- §4 admet qu'un observateur réseau voit qui vote et quand ;
+- §8 admet que le tableau de bord affiche la participation en temps réel, donc
+  l'instant de chaque vote ;
+- la présente section décrit des compteurs lisibles et incrémentés en direct.
+
+Un adversaire disposant de l'une de ces sources temporelles **et** d'une lecture
+répétée du fichier reconstitue des votes individuels. Chiffrer les compteurs n'y
+changerait rien : c'est la modification d'une ligne qui porte l'information, pas
+son contenu — et le journal d'écriture conserve chaque version successive
+(voir `VERA_THREAT_MODEL_COMPLETE.md`, section sur le journal).
+
+Le modèle de menace exclut donc non seulement le vol du fichier, mais **toute
+lecture répétée** : sauvegardes incrémentales, réplication, instantanés
+d'hyperviseur, agent de supervision lisant `/root`. C'est une condition
+d'exploitation, pas une propriété du code — elle doit figurer dans les
+engagements pris avec l'hébergeur.
 
 Cette exposition des agrégats en clair est acceptable dans le modèle de menace
 retenu : le fichier est déjà protégé par le système d'exploitation et l'accès

@@ -197,8 +197,16 @@ Détail complet : `VERA_THREAT_MODEL_COMPLETE.md`, section 1.
 
 **Les sauvegardes.** L'effacement à la clôture porte sur la base active. Si
 votre hébergeur réalise des instantanés automatiques, une copie antérieure peut
-subsister. Vérifiez leur politique de rétention, et faites-la coïncider avec
-votre engagement auprès des participants.
+subsister — vérifiez sa politique de rétention et faites-la coïncider avec
+l'engagement pris auprès des participants.
+
+Un point mérite d'être compris, car il est contre-intuitif : **un instantané
+pris pendant la consultation est plus sensible qu'un instantané pris après.**
+Après clôture, il ne reste que des données effacées. Pendant, le journal
+d'écriture de la base conserve la trace des derniers votes enregistrés, dans
+l'ordre. VERA le tronque toutes les vingt écritures pour borner cette fenêtre,
+mais elle n'est pas nulle. Si votre hébergeur prend des instantanés fréquents,
+c'est le moment de la consultation qu'il faut protéger en priorité.
 
 ---
 

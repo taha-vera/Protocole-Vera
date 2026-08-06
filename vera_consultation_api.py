@@ -324,11 +324,18 @@ def question_courante():
     }
 
 
-# K_MIN = 240 : seuil MESURE (14/07/2026), pas choisi arbitrairement.
+# K_MIN = 240
+
+# K_MIN : seuil MESURE (14/07/2026), pas choisi arbitrairement.
 # A eps=0.5 avec projection sur le simplexe, l'erreur max sur les 3 options
 # reste sous 5% de l'effectif dans 95% des publications a partir de n=240.
 # En dessous (n=100 : 9%, n=200 : 6%), la promesse de precision ne tient pas.
 K_MIN = 240
+
+# Cible de bourrage des reponses portant un nom de departement. Doit depasser
+# la longueur maximale autorisee (Field max_length=100) pour que la taille de
+# la reponse reste constante quel que soit le departement.
+LONGUEUR_PAD_REPONSE = 120
 
 
 # --------------------------------------------------------------------------
@@ -520,7 +527,20 @@ def signer_aveugle_endpoint(payload: SignerAveugleRequete):
 
     # 4. Renvoyer la signature aveugle + le departement (le client en a besoin
     #    pour construire son vote). Aucun lien jeton<->signature n'est stocke.
-    return {"signature_aveugle_hex": sig_aveugle.hex(), "departement": departement}
+    # Bourrage a longueur constante, meme raison que le pad du depot de vote :
+    # sans lui, la TAILLE de cette reponse varie avec la longueur du nom de
+    # departement, et un observateur passif classe les votants par service a la
+    # simple taille du paquet TLS -- une requete avant que le bourrage du depot
+    # n'entre en jeu. Le pad du client fermait la derniere requete du parcours,
+    # celui-ci ferme celle-ci.
+    # departement est renvoye parce que le client en a besoin pour finaliser
+    # (static/vote.html) : on ne peut pas simplement l'omettre.
+    pad = "x" * max(0, LONGUEUR_PAD_REPONSE - len(departement))
+    return {
+        "signature_aveugle_hex": sig_aveugle.hex(),
+        "departement": departement,
+        "pad": pad,
+    }
 
 
 # ============================================================================
@@ -563,7 +583,21 @@ def cle_publique_endpoint(departement: str):
 # numeros de telephone.
 # ============================================================================
 class GenererAutorisationsRequete(BaseModel):
-    departement: str = Field(min_length=1, max_length=100)
+    # Le motif restreint le nom aux caracteres qu'un service porte legitimement :
+    # lettres (accents compris), chiffres, espace, tiret, apostrophe, parentheses,
+    # point. Il exclut < > " & / et tout le reste.
+    #
+    # Ce n'est PAS la defense porteuse contre l'injection -- c'est l'echappement
+    # a l'affichage qui l'est, et il est applique partout dans admin.html. Mais
+    # un nom de departement n'a aucune raison legitime de contenir du balisage,
+    # et fermer la classe entiere vaut mieux que de dependre d'un echappement
+    # exhaustif : il a suffi d'UN chemin oublie (celui de la cloture) pour
+    # rouvrir le vecteur.
+    #
+    # Le nom transite jusqu'au SMS et jusqu'a l'ecran de resultats : il est
+    # recopie a plusieurs endroits, ce qui multiplie les occasions d'oubli.
+    departement: str = Field(min_length=1, max_length=100,
+                             pattern=r"^[\w \-'()\.À-ÿ]+$")
     quantite: int = Field(ge=1, le=1000)
 
 
