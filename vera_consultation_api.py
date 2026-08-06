@@ -76,15 +76,35 @@ def _verifier_worker_unique():
 
 _verifier_worker_unique()
 
-# Compte RH de démarrage, créé une seule fois si les variables d'environnement
-# VERA_ADMIN_USER et VERA_ADMIN_PASS sont fournies -- pratique pour le premier
-# déploiement, à remplacer par un vrai flux de création de compte si plusieurs
-# organisations doivent un jour cohabiter sur la même instance.
+# Compte RH de démarrage, créé une seule fois au lancement du service.
+#
+# Deux voies, par ordre de préférence :
+#
+#   VERA_ADMIN_HASH  — une empreinte "sel_hex$hash_hex" calculée hors ligne.
+#                      Le mot de passe n'apparaît alors nulle part sur le
+#                      serveur. C'est la voie à utiliser.
+#   VERA_ADMIN_PASS  — le mot de passe en clair. Conservée pour ne pas casser
+#                      un déploiement existant, mais il vit alors en
+#                      permanence dans l'unité systemd, lisible par
+#                      `systemctl cat` et recopié dans toute sauvegarde de
+#                      configuration. C'est par ce canal que les secrets ont
+#                      fuité le 31/07/2026.
+#
+# Pour basculer :
+#   python3 -c "import vera_admin_auth as a; print(a.generer_empreinte('MDP'))"
+# puis remplacer VERA_ADMIN_PASS par VERA_ADMIN_HASH dans l'unité systemd.
 import os
 _admin_user = os.environ.get("VERA_ADMIN_USER")
+_admin_hash = os.environ.get("VERA_ADMIN_HASH")
 _admin_pass = os.environ.get("VERA_ADMIN_PASS")
-if _admin_user and _admin_pass:
+
+if _admin_user and _admin_hash:
+    auth.creer_compte_depuis_empreinte(_admin_user, _admin_hash)
+elif _admin_user and _admin_pass:
     auth.creer_compte(_admin_user, _admin_pass)
+    print("ATTENTION : compte d'amorçage créé depuis VERA_ADMIN_PASS. Le mot "
+          "de passe vit en clair dans l'unité systemd. Préférez "
+          "VERA_ADMIN_HASH (voir vera_admin_auth.generer_empreinte).")
 
 # CORS restreint au domaine de VERA. allow_origins=["*"] etait inutilement
 # large : tout le client (page de vote, tableau de bord) est servi depuis ce

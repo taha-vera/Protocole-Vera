@@ -52,6 +52,60 @@ def creer_compte(identifiant: str, mot_de_passe: str) -> bool:
         return True
 
 
+def creer_compte_depuis_empreinte(identifiant: str, empreinte: str) -> bool:
+    """Cree un compte a partir d'une empreinte pre-calculee, jamais du mot de
+    passe en clair. Format attendu : "sel_hex$hash_hex".
+
+    POURQUOI CETTE VOIE EXISTE
+    Le compte d'amorçage etait cree depuis VERA_ADMIN_PASS, donc le mot de
+    passe vivait en clair et en permanence dans l'unite systemd -- lisible par
+    `systemctl cat`, recopie dans toute sauvegarde de configuration, visible
+    sur la moindre capture d'ecran de diagnostic. C'est exactement par ce canal
+    que les secrets ont fuite le 31/07/2026 : pas une faille du code, un
+    fichier de configuration affiche au mauvais moment.
+
+    Avec une empreinte, ce fichier ne contient plus rien d'utilisable. Un
+    lecteur obtient PBKDF2-SHA256 a 200 000 iterations sur un sel aleatoire :
+    inversible seulement par force brute, ce qui est le but d'un hachage.
+
+    CE QUE CELA NE PROTEGE PAS
+    Un attaquant qui a deja root detient VERA_DB_KEY et peut modifier le code :
+    il n'a pas besoin du mot de passe. Cette mesure ferme la fuite
+    accidentelle, pas la compromission. C'est le canal qui a reellement servi.
+
+    Genere l'empreinte avec :
+        python3 -c "import vera_admin_auth as a; print(a.generer_empreinte('MOT_DE_PASSE'))"
+    """
+    with _verrou:
+        if identifiant in _comptes_rh:
+            return False
+    try:
+        sel_hex, hash_hex = empreinte.split("$", 1)
+        sel = bytes.fromhex(sel_hex)
+        hash_mdp = bytes.fromhex(hash_hex)
+    except (ValueError, AttributeError) as e:
+        raise ValueError(
+            "Empreinte de compte mal formee. Format attendu : sel_hex$hash_hex. "
+            f"Detail : {e}"
+        )
+    if len(sel) != 16 or len(hash_mdp) != 32:
+        raise ValueError(
+            f"Empreinte invalide : sel de {len(sel)} octets (16 attendus), "
+            f"hash de {len(hash_mdp)} octets (32 attendus)."
+        )
+    with _verrou:
+        _comptes_rh[identifiant] = {"hash_mdp": hash_mdp, "sel": sel}
+    return True
+
+
+def generer_empreinte(mot_de_passe: str) -> str:
+    """Calcule l'empreinte a placer dans VERA_ADMIN_HASH. A executer une fois,
+    hors ligne. Le mot de passe n'est jamais ecrit nulle part : seule
+    l'empreinte l'est."""
+    sel = secrets.token_bytes(16)
+    return f"{sel.hex()}${_hacher_mot_de_passe(mot_de_passe, sel).hex()}"
+
+
 def verifier_identifiants(identifiant: str, mot_de_passe: str) -> bool:
     """Verifie un mot de passe en temps constant (hmac.compare_digest)
     pour eviter les attaques par mesure de timing."""
