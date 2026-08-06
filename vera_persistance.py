@@ -102,7 +102,7 @@ _SQL_TABLES = [
     # Une seule ligne (id=1). Les OPTIONS ne sont pas stockees : elles restent
     # a trois (oui/non/abstention) car toute la calibration DP en depend --
     # DELTA_INT=2 et K_MIN=240 ont ete mesures sur trois options.
-    "CREATE TABLE IF NOT EXISTS question_active (id INTEGER PRIMARY KEY CHECK (id = 1), intitule TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS question_active (id INTEGER PRIMARY KEY CHECK (id = 1), intitule TEXT NOT NULL, ouverture_depots_unix REAL)",
     "CREATE TABLE IF NOT EXISTS jetons_autorisation (jeton TEXT PRIMARY KEY, departement TEXT NOT NULL, utilise INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS cle_rsa_active (departement TEXT PRIMARY KEY, cle_privee_hex TEXT NOT NULL, cle_publique_hex TEXT NOT NULL, ouverture_unix REAL NOT NULL, salt_hex TEXT)",
 ]
@@ -210,6 +210,27 @@ def _migrer_jetons_vers_empreintes(conn):
     conn.execute("VACUUM")
 
 
+def _migrer_ouverture_depots(conn):
+    """Ajoute la date d'ouverture des depots a la question active.
+
+    Separer l'emission des depots ferme une correlation temporelle : sans
+    cela, le serveur voit un jeton consomme a 14h02 puis un vote depose a
+    14h02:47, et rapproche les deux registres que tout le protocole existe
+    pour tenir disjoints. Dans un petit groupe, cela suffit a desanonymiser.
+
+    La date vit dans question_active plutot que dans une table dediee : elle
+    suit ainsi le cycle de vie de la consultation et disparait avec elle a la
+    cloture, sans ajouter de surface a effacer.
+
+    Migration idempotente : PRAGMA table_info avant ALTER.
+    """
+    colonnes = [c[1] for c in conn.execute("PRAGMA table_info(question_active)")]
+    if "ouverture_depots_unix" not in colonnes:
+        conn.execute("ALTER TABLE question_active ADD COLUMN ouverture_depots_unix REAL")
+        conn.commit()
+        print("Migration : colonne ouverture_depots_unix ajoutee a question_active.")
+
+
 def _migrer_tokens_sans_rowid(conn):
     """Migration idempotente : tokens_consommes AVEC rowid -> WITHOUT ROWID.
     Le rowid implicite restituait l'ordre d'insertion des votes (SELECT rowid
@@ -247,6 +268,11 @@ def initialiser():
         for sql in _SQL_TABLES:
             _conn.execute(sql)
         _conn.commit()
+        # APRES la creation des tables : cette migration ajoute une colonne a
+        # question_active, qui n'existe pas encore sur une base neuve. Les
+        # migrations ci-dessus, elles, transforment des tables preexistantes
+        # et doivent donc passer avant.
+        _migrer_ouverture_depots(_conn)
 
 
 def charger_budget_epsilon():
@@ -475,6 +501,36 @@ def charger_question():
     with _verrou_db:
         row = _conn.execute("SELECT intitule FROM question_active WHERE id = 1").fetchone()
     return row[0] if row else None
+
+
+def charger_ouverture_depots():
+    """Instant a partir duquel les votes sont acceptes, ou None si non fixe.
+
+    None signifie « depots ouverts immediatement » : c'est le comportement
+    des consultations creees avant cette fonctionnalite, qu'on ne casse pas
+    retroactivement.
+    """
+    with _verrou_db:
+        row = _conn.execute(
+            "SELECT ouverture_depots_unix FROM question_active WHERE id = 1"
+        ).fetchone()
+    return row[0] if row and row[0] is not None else None
+
+
+def persister_ouverture_depots(instant_unix):
+    """Fige l'instant d'ouverture des depots.
+
+    Ecrit sur la ligne de question_active, creee au besoin : le RH peut fixer
+    la date avant d'avoir saisi sa question.
+    """
+    with _verrou_db:
+        _conn.execute(
+            "INSERT INTO question_active (id, intitule, ouverture_depots_unix) "
+            "VALUES (1, '', ?) "
+            "ON CONFLICT(id) DO UPDATE SET ouverture_depots_unix = excluded.ouverture_depots_unix",
+            (instant_unix,),
+        )
+        _conn.commit()
 
 
 def persister_question(intitule):

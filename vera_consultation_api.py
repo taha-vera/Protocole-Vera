@@ -515,6 +515,19 @@ class SignerAveugleRequete(BaseModel):
 
 @app.post("/api/signer_aveugle")
 def signer_aveugle_endpoint(payload: SignerAveugleRequete):
+    # 0. Refuser AVANT de consommer le jeton si les depots ne sont pas ouverts.
+    #    Sans ce controle, un votant arrivant en avance brulerait son jeton
+    #    pour un credential qu'il ne pourrait pas deposer : sa voix serait
+    #    perdue sans recours, puisqu'un jeton ne se consomme qu'une fois.
+    #    L'ordre compte : ce test precede la consommation, jamais l'inverse.
+    ouverture = persistance.charger_ouverture_depots()
+    if ouverture is not None and time.time() < ouverture:
+        raise HTTPException(
+            status_code=425,
+            detail="La consultation n'a pas encore commence. Votre lien reste "
+                   "valable : revenez a la date indiquee dans votre invitation.",
+        )
+
     # 1. Consommer le jeton d'autorisation (registre 1, ATOMIQUE). Renvoie le
     #    departement si valide et non utilise, sinon None. On consomme AVANT de
     #    signer : protege contre le double-vote par requetes simultanees (un
@@ -1014,6 +1027,76 @@ def definir_question(payload: QuestionRequete, session_vera: Optional[str] = Coo
     return {"statut": "question definie", "question": intitule}
 
 
+class OuvertureRequete(BaseModel):
+    # Instant Unix a partir duquel les votes sont acceptes. Le client envoie
+    # une date choisie dans le tableau de bord.
+    ouverture_unix: float = Field(gt=0)
+
+
+@app.post("/api/rh/ouverture")
+def definir_ouverture(payload: OuvertureRequete, session_vera: Optional[str] = Cookie(None)):
+    """Fixe la date a partir de laquelle les votes sont acceptes.
+
+    POURQUOI CETTE DATE EXISTE
+    L'anonymat repose sur le fait que le registre des jetons emis et celui des
+    votes deposes ne peuvent pas etre rapproches. La cryptographie l'assure sur
+    le CONTENU : le serveur ne voit jamais le secret qu'il signe. Elle ne
+    l'assure pas sur le TEMPS : si un votant obtient son credential a 14h02:11
+    et depose a 14h02:47, la proximite suffit a joindre les deux registres,
+    sans rien casser. Dans un petit groupe, c'est une desanonymisation.
+
+    Fixer l'ouverture apres la fin de l'envoi des invitations garantit qu'entre
+    l'emission d'un credential et son depot, beaucoup d'autres se sont
+    intercales. C'est ce qui rend l'ensemble d'anonymat egal au groupe, et non
+    a une fenetre de quelques secondes.
+
+    L'emission peut donc s'etaler sur plusieurs jours -- ce qui correspond a la
+    realite d'un envoi de SMS lisse pour ne pas declencher les filtres
+    anti-spam des operateurs. Seuls les DEPOTS attendent.
+
+    Modifiable tant que la date n'est pas passee : un RH dont l'envoi prend du
+    retard doit pouvoir repousser l'ouverture.
+    """
+    exiger_session(session_vera)
+    maintenant = time.time()
+
+    ouverture_actuelle = persistance.charger_ouverture_depots()
+    if ouverture_actuelle is not None and maintenant >= ouverture_actuelle:
+        raise HTTPException(
+            status_code=409,
+            detail="Les votes sont deja ouverts : la date ne peut plus etre modifiee. "
+                   "La repousser invaliderait les voix deja deposees.",
+        )
+
+    if payload.ouverture_unix <= maintenant:
+        raise HTTPException(
+            status_code=422,
+            detail="La date d'ouverture doit etre dans le futur. Une ouverture "
+                   "immediate ne separerait pas l'emission des depots.",
+        )
+
+    persistance.persister_ouverture_depots(payload.ouverture_unix)
+    return {
+        "ouverture_unix": payload.ouverture_unix,
+        "secondes_avant_ouverture": int(payload.ouverture_unix - maintenant),
+    }
+
+
+@app.get("/api/rh/ouverture")
+def obtenir_ouverture(session_vera: Optional[str] = Cookie(None)):
+    """Etat de l'ouverture des depots, pour le tableau de bord."""
+    exiger_session(session_vera)
+    ouverture = persistance.charger_ouverture_depots()
+    if ouverture is None:
+        return {"ouverture_unix": None, "depots_ouverts": True, "date_fixee": False}
+    return {
+        "ouverture_unix": ouverture,
+        "depots_ouverts": time.time() >= ouverture,
+        "date_fixee": True,
+        "secondes_avant_ouverture": max(0, int(ouverture - time.time())),
+    }
+
+
 @app.get("/api/rh/echeance")
 def echeance_consultation(session_vera: Optional[str] = Cookie(None)):
     """Date de fin de la consultation en cours.
@@ -1133,6 +1216,31 @@ def repondre(payload: ReponseModeleB):
     # Le serveur verifie la signature sous la cle publique du departement, puis
     # marque K comme consomme (anti-rejeu) et compte le vote, EN UNE transaction
     # atomique. Aucun lien entre K et le jeton d'autorisation : unlinkability.
+
+    # SEPARATION DES PHASES -- avant toute autre chose.
+    #
+    # L'unlinkability cryptographique ne suffit pas si les deux registres
+    # peuvent etre rapproches par le temps. Sans ce controle, le serveur voit
+    # un jeton consomme a 14h02:11 (donc une identite, via la liste de
+    # l'organisation) puis un vote depose a 14h02:47. Il n'a rien a casser :
+    # la proximite temporelle joint les deux registres que tout le protocole
+    # existe pour tenir disjoints. Dans un groupe de douze personnes, cela
+    # suffit a savoir qui a repondu quoi.
+    #
+    # Fixer une date d'ouverture posterieure a la fin de l'emission garantit
+    # qu'entre l'obtention d'un credential et son depot, des dizaines ou des
+    # centaines d'autres evenements se sont intercales. L'ensemble d'anonymat
+    # redevient le groupe entier au lieu d'une fenetre de quelques secondes.
+    #
+    # None = pas de date fixee : depots ouverts immediatement. C'est le
+    # comportement des consultations anterieures, qu'on ne casse pas.
+    ouverture = persistance.charger_ouverture_depots()
+    if ouverture is not None and time.time() < ouverture:
+        raise HTTPException(
+            status_code=425,  # Too Early
+            detail="La consultation n'a pas encore commence. Votre lien reste "
+                   "valable : revenez a la date indiquee dans votre invitation.",
+        )
 
     try:
         K = bytes.fromhex(payload.K_hex)

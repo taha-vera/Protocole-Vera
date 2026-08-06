@@ -348,6 +348,29 @@
           <p id="question-etat" style="font-size:14px; margin-top:10px;"></p>
         </div>
 
+        <div class="section-title">Ouverture du vote</div>
+        <div style="margin-bottom:18px; padding:14px; background:#f5f7f6; border-left:3px solid #2D5240; border-radius:4px;">
+          <p style="font-size:13px; color:#2D5240; line-height:1.55; margin:0 0 12px 0;">
+            <strong>Fixez la date à laquelle les votes seront acceptés.</strong> Elle doit être
+            postérieure à votre dernier envoi d'invitations. Tant qu'elle n'est pas atteinte, les
+            liens sont valables mais inactifs : personne ne peut voter.
+            <span style="display:block; margin-top:8px;">Cette séparation protège vos membres.
+            Si quelqu'un votait dans la minute suivant la réception de son lien, le rapprochement
+            des deux moments pourrait révéler qui a répondu quoi. En imposant un délai, chaque
+            réponse se fond dans l'ensemble.</span>
+          </p>
+          <div class="field-row">
+            <div>
+              <label for="ouverture-input">Date et heure d'ouverture</label>
+              <input type="datetime-local" id="ouverture-input">
+            </div>
+            <div style="display:flex; align-items:flex-end;">
+              <button class="btn-primary" id="ouverture-btn" style="margin:0;">Enregistrer</button>
+            </div>
+          </div>
+          <p id="ouverture-etat" style="font-size:13px; margin:10px 0 0 0;"></p>
+        </div>
+
         <div class="section-title">Préparer des invitations</div>
         <div class="field-row">
           <div>
@@ -450,6 +473,9 @@
   const logoutBtn = document.getElementById('logout-btn');
 
   const generateBtn = document.getElementById('generate-btn');
+  const ouvertureInput = document.getElementById('ouverture-input');
+  const ouvertureBtn = document.getElementById('ouverture-btn');
+  const ouvertureEtat = document.getElementById('ouverture-etat');
   const deptList = document.getElementById('dept-list');
   const resultsArea = document.getElementById('results-area');
 
@@ -462,6 +488,10 @@
     loginScreen.style.display = 'none';
     dashboardScreen.style.display = 'block';
     rafraichirEtat();
+    // Apres la connexion, jamais avant : l'endpoint exige une session, et un
+    // appel premature recevait un 401 puis sortait silencieusement -- le bloc
+    // restait vide sans que rien ne le signale.
+    rafraichirOuverture();
   }
 
   loginForm.addEventListener('submit', async (e) => {
@@ -501,6 +531,77 @@
     await fetch(`${API_BASE}/rh/deconnexion`, { method: 'POST', credentials: 'include' });
     dashboardScreen.style.display = 'none';
     loginScreen.style.display = 'block';
+  });
+
+  // --- Ouverture des depots ---
+  // La date separe l'emission des votes. Sans elle, un jeton consomme et un
+  // vote depose a quelques secondes d'intervalle permettent de rapprocher
+  // l'identite et la reponse -- ce que la cryptographie seule n'empeche pas.
+  function formaterDate(ts) {
+    return new Date(ts * 1000).toLocaleString('fr-FR', {
+      weekday: 'long', day: 'numeric', month: 'long',
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+
+  async function rafraichirOuverture() {
+    try {
+      const r = await fetch(`${API_BASE}/rh/ouverture`, { credentials: 'include' });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (!d.date_fixee) {
+        ouvertureEtat.textContent = "Aucune date fixée : les votes sont acceptés dès maintenant. Fixez une date pour protéger vos membres.";
+        ouvertureEtat.style.color = '#8a6d3b';
+        // Proposition par defaut : demain a 9h, apres un envoi termine la veille.
+        const demain = new Date();
+        demain.setDate(demain.getDate() + 1);
+        demain.setHours(9, 0, 0, 0);
+        if (!ouvertureInput.value) {
+          ouvertureInput.value = new Date(demain.getTime() - demain.getTimezoneOffset() * 60000)
+            .toISOString().slice(0, 16);
+        }
+      } else if (d.depots_ouverts) {
+        ouvertureEtat.textContent = "Les votes sont ouverts depuis le " + formaterDate(d.ouverture_unix) + ". La date ne peut plus être modifiée.";
+        ouvertureEtat.style.color = '#2D5240';
+        ouvertureInput.disabled = true;
+        ouvertureBtn.disabled = true;
+      } else {
+        ouvertureEtat.textContent = "Les votes s'ouvriront le " + formaterDate(d.ouverture_unix) + ". D'ici là, les liens sont valables mais inactifs : terminez vos envois.";
+        ouvertureEtat.style.color = '#2D5240';
+        ouvertureInput.value = new Date(d.ouverture_unix * 1000 - new Date().getTimezoneOffset() * 60000)
+          .toISOString().slice(0, 16);
+      }
+    } catch (e) { /* l'etat reste vide, sans bloquer le reste */ }
+  }
+
+  ouvertureBtn.addEventListener('click', async () => {
+    if (!ouvertureInput.value) {
+      ouvertureEtat.textContent = "Choisissez une date et une heure.";
+      ouvertureEtat.style.color = '#a94442';
+      return;
+    }
+    const ts = new Date(ouvertureInput.value).getTime() / 1000;
+    ouvertureBtn.disabled = true;
+    try {
+      const r = await fetch(`${API_BASE}/rh/ouverture`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ouverture_unix: ts })
+      });
+      if (!r.ok) {
+        let msg = "Cette date n'a pas pu être enregistrée.";
+        try { const d = await r.json(); if (d && d.detail) msg = d.detail; } catch (e) {}
+        ouvertureEtat.textContent = msg;
+        ouvertureEtat.style.color = '#a94442';
+      } else {
+        await rafraichirOuverture();
+      }
+    } catch (e) {
+      ouvertureEtat.textContent = "Connexion impossible. Réessayez.";
+      ouvertureEtat.style.color = '#a94442';
+    } finally {
+      ouvertureBtn.disabled = false;
+    }
   });
 
   generateBtn.addEventListener('click', async () => {

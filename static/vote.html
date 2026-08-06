@@ -453,6 +453,10 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(votePayload)
       });
+      if (rVote.status === 425) {
+        showError("La consultation n'a pas encore commencé. Votre lien reste valable : revenez à la date indiquée dans votre invitation.", "Ce n'est pas encore ouvert");
+        return;
+      }
       if (rVote.status === 409) { votePayloadEnAttente = null; await effacerPendingLocal(); await marquerVoteLocal(); showSuccess(); return; }
       if (!rVote.ok) throw new Error('vote refuse (' + rVote.status + ')');
       votePayloadEnAttente = null;
@@ -531,6 +535,19 @@
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jeton_autorisation: jetonAutorisation, message_aveugle_hex: toHex(blindedMsg) })
       });
+      // 425 Too Early : la consultation n'a pas encore commence. Le serveur
+      // refuse AVANT de consommer le jeton, donc le lien reste entierement
+      // valable -- c'est ce qu'il faut dire au votant, sinon il croit son
+      // lien perdu et en redemande un.
+      if (rSig.status === 425) {
+        let quand = '';
+        try {
+          const d = await rSig.json();
+          if (d && d.detail) quand = d.detail;
+        } catch (e) { /* message par defaut ci-dessous */ }
+        showError(quand || "La consultation n'a pas encore commencé. Votre lien reste valable : revenez à la date indiquée dans votre invitation.", "Ce n'est pas encore ouvert");
+        return;
+      }
       if (rSig.status === 403) { showError("Ce lien a déjà servi. Si vous avez déjà voté, votre réponse est enregistrée : il n'y a rien d'autre à faire. Si vous n'avez PAS pu voter (page fermée trop tôt, connexion perdue), demandez un nouveau lien à la personne qui vous a envoyé celui-ci.", "Ce lien a déjà été utilisé"); return; }
       if (!rSig.ok) throw new Error('signature refusee');
       const { signature_aveugle_hex, departement } = await rSig.json();
