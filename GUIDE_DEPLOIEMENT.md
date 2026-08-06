@@ -223,6 +223,44 @@ c'est le moment de la consultation qu'il faut protéger en priorité.
 
 ---
 
+## Si le service devient indisponible pendant une consultation
+
+Ce cas doit être anticipé avant qu'il ne survienne, pas découvert au mauvais
+moment.
+
+**Ce qui se passe.** Les liens de participation portent une clé de signature
+valable sept jours. Si le service ne redémarre pas dans ce délai, ils expirent :
+les personnes qui n'avaient pas encore voté ne le peuvent plus, et les réponses
+non publiées sont perdues. Il faut alors relancer la consultation avec de
+nouveaux liens.
+
+**Ce que cela signifie pour vous.** Sauvegardez les résultats dès qu'un groupe
+devient publiable, sans attendre la clôture. Le tableau de bord vous le signale.
+Et prévoyez, dans votre communication interne, qu'une consultation puisse être
+relancée — plutôt que de l'annoncer comme un événement unique.
+
+**Ce qui rend une reprise possible, et ses limites.** Le service ne peut
+redémarrer qu'avec la clé de chiffrement qui protège les clés de signature en
+base. Sans elle, les données existantes sont définitivement illisibles — c'est
+une protection voulue, pas un défaut : elle garantit qu'une copie volée de la
+base ne révèle rien.
+
+Cette clé est aujourd'hui conservée par le mainteneur, hors du serveur. Cela
+couvre une panne matérielle ou la perte du serveur. Cela ne couvre pas
+l'indisponibilité prolongée du mainteneur lui-même.
+
+**Pour une consultation à enjeu, exigez davantage.** Le dépôt de cette clé chez
+un tiers — votre service informatique, un notaire, un séquestre — avec une
+procédure de reprise écrite. C'est la seule façon de rendre la continuité
+indépendante d'une personne. Tant que ce n'est pas fait, considérez qu'une
+consultation interrompue devra être relancée.
+
+**Un point mineur, mais qui surprend.** Un redémarrage du service déconnecte la
+session de l'organisateur : les sessions ne sont pas conservées. Il suffit de se
+reconnecter, rien n'est perdu.
+
+---
+
 ## En cas de problème
 
 Signalement de sécurité : voir `SECURITY.md`.

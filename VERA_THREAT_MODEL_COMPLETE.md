@@ -175,6 +175,26 @@ dont l'effectif attendu approche ou passe sous K_MIN. Non seulement le resultat
 ne sera pas publiable, mais les comptes existent en base pendant toute la
 consultation.
 
+### Continuite de service : une dependance non technique
+
+La cle de chiffrement de la base (`VERA_DB_KEY`) conditionne tout redemarrage.
+Le fail-closed refuse de demarrer sans elle -- comportement voulu, puisqu'il
+evite de regenerer des cles et d'invalider silencieusement les liens en
+circulation. Consequence : sans cette cle, les donnees persistees sont
+definitivement illisibles.
+
+Elle est conservee hors du serveur par le mainteneur. Cela couvre la perte du
+serveur ; cela ne couvre pas l'indisponibilite du mainteneur. Si le service
+s'arrete pendant une consultation et n'est pas redemarre sous sept jours, les
+cles de signature expirent : les liens deviennent inutilisables et les resultats
+non publies sont perdus.
+
+**Ce qui manque :** un depot de cette cle chez un tiers, avec une procedure de
+reprise ecrite. C'est la principale dependance non technique du systeme, et la
+seule facon de rendre la continuite independante d'une personne. Toute
+organisation dont la consultation a un enjeu reel devrait l'exiger avant
+deploiement (voir `GUIDE_DEPLOIEMENT.md`).
+
 ### Hors perimetre
 
 - Observateur reseau (IP, timing en transit) — delegue a VPN/Tor
