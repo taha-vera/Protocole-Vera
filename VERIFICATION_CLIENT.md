@@ -33,6 +33,36 @@ Version du 5 août 2026 :
 08e678cc5d64e9996cfe3cf54eb1220a1bb032c54d0c4351651f8aee057baa66  static/blindrsa-bundle.js
 ```
 
+## Vérification automatique par le navigateur
+
+Indépendamment de la procédure manuelle ci-dessous, la page de vote déclare
+l'empreinte du module cryptographique dans son balisage :
+
+```
+sha384-4jktfX/6Te6VIvYazstBWp17I3D5qjmxcdjI90IvrsSiWOndrmmEB1nlJGOfHDNq
+```
+
+Le navigateur du votant calcule lui-même l'empreinte du fichier reçu et
+**refuse de l'exécuter** si elle ne correspond pas. Aucun serveur n'intervient
+dans ce contrôle : ni le nôtre, ni un intermédiaire réseau ne peut le
+contourner.
+
+C'est le seul mécanisme de cette page qui protège le votant sans qu'il ait
+quoi que ce soit à faire. Il ferme la substitution du module en transit —
+cache empoisonné, proxy, erreur de déploiement — et sa substitution sur le
+serveur.
+
+Il ne ferme pas la modification de la page elle-même, puisque c'est elle qui
+porte l'empreinte : un serveur qui modifie la page retire aussi l'attribut.
+Voir « Ce qu'elle n'établit pas » plus bas.
+
+Vérifier vous-même cette empreinte :
+
+```bash
+curl -s https://vera-consultation.duckdns.org/static/blindrsa-bundle.js \
+  | openssl dgst -sha384 -binary | openssl base64 -A
+```
+
 ## Procédure
 
 Deux commandes suffisent. Elles n'exigent aucun accès particulier.

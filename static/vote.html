@@ -231,7 +231,33 @@
 
   </div>
 
-<script src="/static/blindrsa-bundle.js"></script>
+<!-- Sous-ressource intègre (SRI). Le navigateur calcule lui-meme l'empreinte
+     du fichier recu et refuse de l'executer si elle ne correspond pas. C'est
+     le seul controle de cette page qui ne dependance d'aucun serveur : ni le
+     notre, ni un intermediaire reseau ne peut le contourner, puisqu'il est
+     applique par le navigateur du votant avant toute execution.
+
+     Ce que cela protege : une substitution du fichier cryptographique en
+     transit (cache empoisonne, proxy, erreur de deploiement) ou sur le
+     serveur. Le bundle contient l'aveuglement RSABSSA -- c'est lui qui garantit
+     que le secret du votant n'est jamais visible du serveur. Un bundle modifie
+     pourrait le recopier avant l'aveuglement.
+
+     Ce que cela ne protege PAS : une modification de CETTE page. C'est elle
+     qui porte l'attribut ci-dessous ; un serveur qui la modifie retire aussi
+     l'attribut. Fermer ce cas exigerait une attestation materielle, dont VERA
+     ne dispose pas -- c'est ecrit dans VERIFICATION_CLIENT.md.
+
+     A REGENERER a chaque modification du bundle :
+       openssl dgst -sha384 -binary static/blindrsa-bundle.js | openssl base64 -A
+     Une empreinte perimee empeche la page de fonctionner : c'est voulu, un
+     echec bruyant valant mieux qu'une protection silencieusement absente. -->
+<!-- Pas de crossorigin : le bundle est servi par la meme origine que cette
+     page. L'attribut forcerait une requete CORS, qui echouerait faute
+     d'en-tete Access-Control-Allow-Origin cote nginx -- et bloquerait tous
+     les votes. SRI fonctionne en same-origin sans lui. -->
+<script src="/static/blindrsa-bundle.js"
+        integrity="sha384-4jktfX/6Te6VIvYazstBWp17I3D5qjmxcdjI90IvrsSiWOndrmmEB1nlJGOfHDNq"></script>
 <script>
 (function() {
   // TOUT le credential de vote est dans le FRAGMENT (#), jamais dans la query.
@@ -496,6 +522,15 @@
     document.getElementById('avertissement-envoi').style.display = 'block';
     let votePayload = null;
     try {
+      // Si SRI a bloque le bundle -- empreinte ne correspondant pas, fichier
+      // altere en transit, deploiement incomplet -- window.RSABSSA n'existe
+      // pas. Sans ce controle, le votant recevrait une erreur JavaScript
+      // opaque et croirait a une panne. Il doit savoir que son vote a ete
+      // interrompu POUR SA PROTECTION, et qu'il ne doit pas insister.
+      if (!window.RSABSSA) {
+        showError("Le module de sécurité n'a pas pu être chargé, ou il a été refusé par votre navigateur parce qu'il ne correspondait pas à la version attendue. Votre vote n'a pas été enregistré et votre lien reste valable. Réessayez plus tard ; si le problème persiste, signalez-le à la personne qui vous a envoyé ce lien.", "Vote interrompu par sécurité");
+        return;
+      }
       const suite = window.RSABSSA.SHA384.PSS.Randomized();
 
       const rPk = await fetch(`${API_BASE}/cle_publique?departement=${encodeURIComponent(departementVote)}`);
