@@ -1027,6 +1027,30 @@ def definir_question(payload: QuestionRequete, session_vera: Optional[str] = Coo
     return {"statut": "question definie", "question": intitule}
 
 
+@app.get("/api/engagement_cles")
+def engagement_cles():
+    """Liste des cles publiques et leur empreinte agregee. PUBLIC.
+
+    Permet a un votant -- ou plus realistement au delegue du personnel, au DPO
+    ou au service informatique qui verifie pour lui -- de recalculer
+    l'empreinte de l'ensemble des cles et de la comparer a la valeur publiee
+    hors de ce serveur.
+
+    L'interet est la : une empreinte publiee PAR le serveur ne l'engage pas.
+    Publiee ailleurs -- depot de code, page servie par une autre
+    infrastructure -- elle l'engage, car il ne peut plus ajouter une cle
+    fabriquee pour un votant particulier sans que l'agregat change.
+
+    Rien de sensible n'est expose : ces cles sont publiques par construction et
+    deja distribuees une par une. Leur liste ne revele que les departements
+    consultes, deja deductibles des liens en circulation.
+    """
+    return {
+        "agregat_sha256": gestionnaire_signature.agregat_cles(),
+        "cles": gestionnaire_signature.cles_publiques_toutes(),
+    }
+
+
 class OuvertureRequete(BaseModel):
     # Instant Unix a partir duquel les votes sont acceptes. Le client envoie
     # une date choisie dans le tableau de bord.

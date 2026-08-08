@@ -232,6 +232,68 @@ class GestionnaireSignature:
             _priv, pub = self._obtenir_ou_creer_cle(departement)
         return pub
 
+    def agregat_cles(self):
+        """Empreinte de l'ENSEMBLE des cles publiques de la consultation.
+
+        A QUOI SERT CETTE VALEUR
+        L'empreinte `#k=` de chaque lien est calculee par le serveur. Elle ne
+        l'engage donc pas : un serveur malveillant peut generer une cle par
+        votant et l'empreinte correspondante, le controle cote client passe, et
+        au depot il retrouve quel votant a produit quelle signature en essayant
+        ses cles. Desanonymisation complete sans rien casser.
+
+        L'agregat ferme ce vecteur A CONDITION d'etre publie AILLEURS que sur
+        ce serveur -- depot de code, page servie par une autre infrastructure,
+        message d'un representant du personnel. Le client recupere alors la
+        liste complete des cles, recalcule l'agregat, et le compare a la valeur
+        publiee. Le serveur ne peut plus fabriquer de cle supplementaire : leur
+        NOMBRE et leur CONTENU sont engages par une valeur qu'il ne controle
+        pas.
+
+        Publie par le serveur lui-meme, cet agregat ne vaudrait rien. C'est
+        pourquoi il est affiche au RH pour publication manuelle, et non pousse
+        automatiquement.
+
+        CONSTRUCTION
+        SHA-256 sur la concatenation des couples (departement, cle publique)
+        tries par nom de departement. Le tri rend la valeur reproductible quel
+        que soit l'ordre de creation. La longueur de chaque champ precede le
+        champ lui-meme, pour qu'aucune paire de listes distinctes ne produise
+        la meme concatenation.
+
+        Renvoie None si aucune cle n'existe encore.
+        """
+        import hashlib
+        with self._verrou:
+            if not self._cles:
+                return None
+            h = hashlib.sha256()
+            for dep in sorted(self._cles):
+                _priv, pub = self._cles[dep]
+                nom = dep.encode("utf-8")
+                # Longueur avant contenu : sans cela, ("AB", "C") et ("A", "BC")
+                # produiraient la meme suite d'octets.
+                h.update(len(nom).to_bytes(4, "big"))
+                h.update(nom)
+                h.update(len(pub).to_bytes(4, "big"))
+                h.update(bytes(pub))
+            return h.hexdigest()
+
+    def cles_publiques_toutes(self):
+        """Liste (departement, cle publique hex) triee, pour que le client
+        recalcule l'agregat lui-meme.
+
+        Aucune information sensible : ces cles sont publiques par nature, et
+        deja distribuees une par une via /api/cle_publique. Les exposer
+        ensemble ne revele que la liste des departements consultes -- deja
+        deductible des liens en circulation.
+        """
+        with self._verrou:
+            return [
+                {"departement": dep, "cle_publique_hex": bytes(self._cles[dep][1]).hex()}
+                for dep in sorted(self._cles)
+            ]
+
     def cle_publique_si_existe(self, departement):
         """Lecture SEULE : renvoie la cle publique du departement si elle
         existe deja, leve KeyError sinon. Obligatoire sur les endpoints NON

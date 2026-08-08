@@ -559,6 +559,67 @@
         return;
       }
 
+      // ENGAGEMENT SUR L'ENSEMBLE DES CLES
+      //
+      // Le controle ci-dessus compare la cle recue a l'empreinte du lien. Mais
+      // cette empreinte est calculee par le serveur : elle ne l'engage pas. Un
+      // serveur malveillant genere une cle par votant AVEC son empreinte, le
+      // controle passe, et au depouillement il retrouve qui a produit quelle
+      // signature en essayant ses cles.
+      //
+      // La constante ci-dessous vient du DEPOT, pas de la base. Elle est
+      // inscrite dans cette page au moment du deploiement. Consequence : tout
+      // changement du jeu de cles exige de modifier un fichier servi, donc un
+      // commit horodate et diffable -- au lieu de quelques lignes en base,
+      // invisibles a un audit de code. Ce n'est pas une garantie contre un
+      // operateur qui controle le code servi : aucune verification executee
+      // dans le navigateur ne peut l'etre. C'est de la production de preuve.
+      //
+      // Une valeur recuperee a distance serait STRICTEMENT MOINS BONNE :
+      // l'operateur pourrait la modifier a la source, alors qu'une constante
+      // compilee laisse une trace dans l'historique du depot.
+      //
+      // Chaine vide = aucun engagement publie pour cette consultation. On vote
+      // quand meme : l'organisation n'a pas fait la demarche, ce n'est pas au
+      // votant d'en patir. Presente et divergente = refus.
+      const ENGAGEMENT_PUBLIE = '';
+
+      if (ENGAGEMENT_PUBLIE) {
+        try {
+          const rEng = await fetch(`${API_BASE}/engagement_cles`);
+          const eng = await rEng.json();
+
+          // 1. L'agregat correspond-il a ce qui a ete publie ?
+          if (eng.agregat_sha256 !== ENGAGEMENT_PUBLIE) {
+            showError("La configuration du serveur ne correspond pas a celle qui a ete publiee. Votre vote est interrompu par securite : ne reessayez pas, signalez-le a la personne qui vous a envoye ce lien.", 'Erreur de securite');
+            return;
+          }
+
+          // 2. CONTROLE STRUCTUREL -- indispensable, et que le hachage seul ne
+          //    fait pas. Un serveur peut publier 500 couples
+          //    (Marketing, cle_i) : l'agregat est valide, l'engagement tient,
+          //    et la desanonymisation aussi. Ce qui tue l'attaque, c'est de
+          //    verifier qu'un departement n'a QU'UNE cle.
+          const noms = eng.cles.map(c => c.departement);
+          if (noms.length !== new Set(noms).size) {
+            showError("Le serveur declare plusieurs cles pour un meme groupe, ce qui n'est jamais legitime. Votre vote est interrompu par securite : signalez-le a la personne qui vous a envoye ce lien.", 'Erreur de securite');
+            return;
+          }
+
+          // 3. La cle utilisee ici figure-t-elle bien dans l'ensemble engage ?
+          //    Sans ce controle, le serveur pourrait servir une cle hors liste
+          //    tout en presentant un agregat correct.
+          const inscrite = eng.cles.some(c => c.cle_publique_hex === cle_publique_hex);
+          if (!inscrite) {
+            showError("La cle utilisee pour votre vote ne figure pas parmi celles qui ont ete publiees. Votre vote est interrompu par securite : signalez-le a la personne qui vous a envoye ce lien.", 'Erreur de securite');
+            return;
+          }
+        } catch (e) {
+          showError("La verification de securite n'a pas pu aboutir. Votre lien reste valable : reessayez plus tard.", 'Verification impossible');
+          return;
+        }
+      }
+
       const publicKey = await crypto.subtle.importKey(
         'spki', fromHex(cle_publique_hex), { name: 'RSA-PSS', hash: 'SHA-384' }, true, ['verify']);
 

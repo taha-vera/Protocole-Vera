@@ -101,6 +101,25 @@ servi *à vous, à cet instant, depuis votre connexion*. Un serveur malveillant
 pourrait servir le code publié à qui vérifie et un code modifié aux navigateurs
 mobiles pendant la fenêtre de vote. Rien dans cette procédure ne l'exclut.
 
+**La limite de fond, à lire avant le reste.** Aucune vérification exécutée
+dans le navigateur d'un votant ne protège contre un opérateur qui contrôle le
+code servi. Il sert la page qui contient le contrôle : il peut la modifier.
+La récursion s'arrête toujours là.
+
+Ce que ces mécanismes produisent n'est donc pas une garantie, c'est une
+**trace**. Sans eux, un serveur qui marquerait ses votants n'aurait qu'à
+modifier quelques lignes en base : invisible à tout audit de code. Avec eux, il
+doit modifier un fichier servi — donc laisser un écart avec le dépôt, diffable
+et horodaté.
+
+La garantie réelle repose sur deux choses : la publication de l'engagement
+**avant** la distribution des liens, et sa vérification par un tiers. Si
+l'engagement est publié avant que les jetons n'existent, une clé par votant
+devient impossible — les clés existaient avant les votants. C'est un ancrage
+temporel, pas organisationnel.
+
+Un script est fourni pour ce tiers : `verifier_engagement.py`.
+
 **Que le serveur exécute le code Python publié.** Le code serveur n'est pas
 transmis au visiteur : il n'y a donc rien à comparer. Aucune empreinte ne peut
 le prouver.
