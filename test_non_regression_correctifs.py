@@ -28,6 +28,27 @@ import vera_signature_manager as vsm
 import vera_consultation_api  # noqa: F401  (charge la garde worker-unique)
 from vera_epsilon_budget import BudgetEpsilonParDepartement
 
+def _preparer_cle(g, timeout=90):
+    """Prepare la cle maitresse et attend qu'elle soit prete.
+
+    En production, preparer_cle_maitresse() est declenchee a la definition de
+    la question et la generation se fait en arriere-plan pendant que le RH
+    prepare ses lots. Un test n'a pas cette fenetre : il doit attendre.
+
+    La generation prend une vingtaine de secondes -- davantage depuis qu'on
+    rejette les modulus de 2047 bits, qui font echouer le client JavaScript.
+    """
+    import time as _t
+    g.preparer_cle_maitresse()
+    debut = _t.time()
+    while _t.time() - debut < timeout:
+        prete, _en_cours = g.etat_cle_maitresse()
+        if prete:
+            return
+        _t.sleep(0.5)
+    raise RuntimeError(f"cle maitresse non prete apres {timeout} s")
+
+
 
 class Echec(Exception):
     pass
@@ -52,11 +73,17 @@ def main():
         vsm.DUREE_VIE_CLE_SECONDES = 2
         g = vsm.GestionnaireSignature()
         g.ouvrir_consultation()
+        _preparer_cle(g)
         g.cle_publique("DeptExpire")
-        if p.charger_cle_rsa_chiffree("DeptExpire") is None:
-            raise Echec("la cle n'a pas ete persistee, test invalide")
+        # Depuis RSAPBSSA, les cles de departement ne sont plus persistees :
+        # elles se DERIVENT de la maitresse, seule stockee (sous un nom
+        # reserve). Le correctif du 24/07 reste le meme -- verifier que
+        # l'expiration purge la BASE et pas seulement la RAM -- mais il porte
+        # desormais sur la cle maitresse.
+        if p.charger_cle_rsa_chiffree(vsm.NOM_CLE_MAITRESSE) is None:
+            raise Echec("la cle maitresse n'a pas ete persistee, test invalide")
         time.sleep(3)
-        if p.charger_cle_rsa_chiffree("DeptExpire") is not None:
+        if p.charger_cle_rsa_chiffree(vsm.NOM_CLE_MAITRESSE) is not None:
             raise Echec("la cle chiffree SURVIT en base apres expiration "
                         "-- le timer ne purge que la memoire")
         if g.consultation_active():

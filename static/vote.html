@@ -554,8 +554,45 @@
         showError("Ce lien est incomplet : l'empreinte de sécurité qui permet de vérifier le serveur est absente. Il a probablement été coupé lors de l'envoi. Demandez-en un nouveau à la personne qui vous l'a transmis.", 'Lien incomplet');
         return;
       }
-      if (empreinte_sha256 !== empreinteCleAttendue) {
-        showError('La clé du serveur ne correspond pas à ce lien. Vote refusé par sécurité. Demandez un nouveau lien à la personne qui vous a transmis celui-ci.', 'Erreur de sécurité');
+      // L'empreinte du lien couvre desormais l'ENSEMBLE des cles, pas la
+      // seule cle de ce groupe. Trois consequences :
+      //
+      //  - elle est IDENTIQUE pour tous les votants, donc comparable entre
+      //    collegues de services differents. Une divergence devient anormale,
+      //    alors qu'elle etait auparavant le comportement normal entre groupes.
+      //  - elle couvre le NOMBRE de cles : en fabriquer une par personne la
+      //    change, ce qu'une empreinte de cle isolee ne detectait pas.
+      //  - elle peut etre publiee hors de ce serveur AVANT l'envoi des liens.
+      //
+      // Trois controles, dans cet ordre.
+      const rEng = await fetch(`${API_BASE}/engagement_cles`);
+      if (!rEng.ok) {
+        showError("La vérification de sécurité n'a pas pu aboutir. Votre lien reste valable : réessayez plus tard.", 'Vérification impossible');
+        return;
+      }
+      const eng = await rEng.json();
+
+      // 1. L'ensemble des cles correspond-il a ce qui est inscrit dans le lien ?
+      if (eng.agregat_sha256 !== empreinteCleAttendue) {
+        showError("La configuration du serveur ne correspond pas à ce lien. Vote refusé par sécurité : ne réessayez pas, signalez-le à la personne qui vous a envoyé ce lien.", 'Erreur de sécurité');
+        return;
+      }
+
+      // 2. Un groupe n'a qu'UNE cle. Sans ce controle, le serveur pourrait
+      //    publier cinquante cles pour un meme groupe : l'empreinte serait
+      //    valide et la desanonymisation aussi. C'est le comptage qui tue
+      //    l'attaque, pas le hachage.
+      const noms = eng.cles.map(c => c.departement);
+      if (noms.length !== new Set(noms).size) {
+        showError("Le serveur déclare plusieurs clés pour un même groupe, ce qui n'est jamais légitime. Vote refusé par sécurité : signalez-le à la personne qui vous a envoyé ce lien.", 'Erreur de sécurité');
+        return;
+      }
+
+      // 3. La cle qu'on vient de recevoir figure-t-elle dans cet ensemble ?
+      //    Sans ce controle, le serveur pourrait servir une cle hors liste
+      //    tout en presentant un agregat correct.
+      if (!eng.cles.some(c => c.cle_publique_hex === cle_publique_hex)) {
+        showError("La clé utilisée pour votre vote ne figure pas parmi celles qui ont été publiées. Vote refusé par sécurité : signalez-le à la personne qui vous a envoyé ce lien.", 'Erreur de sécurité');
         return;
       }
 

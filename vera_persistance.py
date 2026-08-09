@@ -102,7 +102,7 @@ _SQL_TABLES = [
     # Une seule ligne (id=1). Les OPTIONS ne sont pas stockees : elles restent
     # a trois (oui/non/abstention) car toute la calibration DP en depend --
     # DELTA_INT=2 et K_MIN=240 ont ete mesures sur trois options.
-    "CREATE TABLE IF NOT EXISTS question_active (id INTEGER PRIMARY KEY CHECK (id = 1), intitule TEXT NOT NULL, ouverture_depots_unix REAL)",
+    "CREATE TABLE IF NOT EXISTS question_active (id INTEGER PRIMARY KEY CHECK (id = 1), intitule TEXT NOT NULL, ouverture_depots_unix REAL, groupes_declares TEXT)",
     "CREATE TABLE IF NOT EXISTS jetons_autorisation (jeton TEXT PRIMARY KEY, departement TEXT NOT NULL, utilise INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS cle_rsa_active (departement TEXT PRIMARY KEY, cle_privee_hex TEXT NOT NULL, cle_publique_hex TEXT NOT NULL, ouverture_unix REAL NOT NULL, salt_hex TEXT)",
 ]
@@ -229,6 +229,10 @@ def _migrer_ouverture_depots(conn):
         conn.execute("ALTER TABLE question_active ADD COLUMN ouverture_depots_unix REAL")
         conn.commit()
         print("Migration : colonne ouverture_depots_unix ajoutee a question_active.")
+    if "groupes_declares" not in colonnes:
+        conn.execute("ALTER TABLE question_active ADD COLUMN groupes_declares TEXT")
+        conn.commit()
+        print("Migration : colonne groupes_declares ajoutee a question_active.")
 
 
 def _migrer_tokens_sans_rowid(conn):
@@ -501,6 +505,37 @@ def charger_question():
     with _verrou_db:
         row = _conn.execute("SELECT intitule FROM question_active WHERE id = 1").fetchone()
     return row[0] if row else None
+
+
+def charger_groupes_declares():
+    """Liste des groupes declares, ou None si aucune declaration.
+
+    Les groupes sont figes AVANT tout envoi de liens, pour que l'empreinte de
+    l'ensemble des cles -- inscrite dans chaque lien -- ne change plus. Sans
+    cela, generer un groupe supplementaire modifierait l'empreinte et
+    invaliderait tous les liens deja distribues.
+    """
+    with _verrou_db:
+        row = _conn.execute(
+            "SELECT groupes_declares FROM question_active WHERE id = 1"
+        ).fetchone()
+    if not row or not row[0]:
+        return None
+    import json as _json
+    return _json.loads(row[0])
+
+
+def persister_groupes_declares(groupes):
+    """Fige la liste des groupes. Ecrit sur la ligne de question_active."""
+    import json as _json
+    with _verrou_db:
+        _conn.execute(
+            "INSERT INTO question_active (id, intitule, groupes_declares) "
+            "VALUES (1, '', ?) "
+            "ON CONFLICT(id) DO UPDATE SET groupes_declares = excluded.groupes_declares",
+            (_json.dumps(groupes, ensure_ascii=False),),
+        )
+        _conn.commit()
 
 
 def charger_ouverture_depots():

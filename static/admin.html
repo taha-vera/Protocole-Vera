@@ -371,6 +371,43 @@
           <p id="ouverture-etat" style="font-size:13px; margin:10px 0 0 0;"></p>
         </div>
 
+        <div class="section-title">Groupes consultés</div>
+        <div id="groupes-bloc" style="margin-bottom:18px; padding:14px; background:#f5f7f6; border-left:3px solid #2D5240; border-radius:4px;">
+          <p style="font-size:13px; color:#2D5240; line-height:1.55; margin:0 0 12px 0;">
+            <strong>Déclarez tous les groupes que vous allez consulter, en une seule fois.</strong>
+            Séparez-les par des virgules. Leurs clés seront créées ensemble.
+            <span style="display:block; margin-top:8px;">Chaque lien de participation porte une
+            empreinte de sécurité qui couvre l'ensemble des clés. Elle est donc identique pour tous
+            vos membres, quel que soit leur groupe — deux collègues peuvent comparer leurs liens et
+            constater qu'ils portent la même valeur. C'est ce qui leur permet de vérifier que le
+            serveur ne les traite pas différemment les uns des autres.</span>
+            <span style="display:block; margin-top:8px; color:#8a6d3b;"><strong>Cette déclaration
+            est définitive.</strong> Ajouter un groupe ensuite changerait cette empreinte et
+            rendrait inutilisables tous les liens déjà envoyés. Prenez le temps de vérifier votre
+            liste.</span>
+          </p>
+          <div class="field-row">
+            <div style="flex:1;">
+              <label for="groupes-input">Liste des groupes</label>
+              <input type="text" id="groupes-input" placeholder="Ex. Atelier, Direction, Administratif">
+            </div>
+            <div style="display:flex; align-items:flex-end;">
+              <button class="btn-primary" id="groupes-btn" style="margin:0;">Déclarer</button>
+            </div>
+          </div>
+          <p id="groupes-etat" style="font-size:13px; margin:10px 0 0 0;"></p>
+          <div id="empreinte-bloc" style="display:none; margin-top:14px; padding:12px; background:#fff; border-radius:4px;">
+            <p style="font-size:13px; margin:0 0 8px 0; color:#2D5240;">
+              <strong>À publier avant d'envoyer vos liens.</strong> Déposez cette empreinte à un
+              endroit que vos membres peuvent consulter indépendamment de ce serveur — un message
+              aux représentants du personnel, un affichage interne, une page de votre intranet.
+              Publiée à l'avance, elle prouve que la configuration n'a pas changé depuis.
+            </p>
+            <code id="empreinte-valeur" style="display:block; font-size:12px; word-break:break-all; background:#f2f2f2; padding:8px; border-radius:3px;"></code>
+            <button class="copy-btn" id="empreinte-copy" style="margin-top:8px;">Copier l'empreinte</button>
+          </div>
+        </div>
+
         <div class="section-title">Préparer des invitations</div>
         <div class="field-row">
           <div>
@@ -473,6 +510,12 @@
   const logoutBtn = document.getElementById('logout-btn');
 
   const generateBtn = document.getElementById('generate-btn');
+  const groupesInput = document.getElementById('groupes-input');
+  const groupesBtn = document.getElementById('groupes-btn');
+  const groupesEtat = document.getElementById('groupes-etat');
+  const empreinteBloc = document.getElementById('empreinte-bloc');
+  const empreinteValeur = document.getElementById('empreinte-valeur');
+  const empreinteCopy = document.getElementById('empreinte-copy');
   const ouvertureInput = document.getElementById('ouverture-input');
   const ouvertureBtn = document.getElementById('ouverture-btn');
   const ouvertureEtat = document.getElementById('ouverture-etat');
@@ -492,6 +535,7 @@
     // appel premature recevait un 401 puis sortait silencieusement -- le bloc
     // restait vide sans que rien ne le signale.
     rafraichirOuverture();
+    rafraichirGroupes();
   }
 
   loginForm.addEventListener('submit', async (e) => {
@@ -531,6 +575,75 @@
     await fetch(`${API_BASE}/rh/deconnexion`, { method: 'POST', credentials: 'include' });
     dashboardScreen.style.display = 'none';
     loginScreen.style.display = 'block';
+  });
+
+  // --- Declaration des groupes ---
+  // Les cles naissent ensemble pour que l'empreinte inscrite dans les liens ne
+  // change plus. Generer un groupe apres coup la modifierait et invaliderait
+  // tous les liens deja distribues.
+  async function rafraichirGroupes() {
+    try {
+      const r = await fetch(`${API_BASE}/rh/groupes_declares`, { credentials: 'include' });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.declares) {
+        groupesInput.value = d.groupes.join(', ');
+        groupesInput.disabled = true;
+        groupesBtn.disabled = true;
+        groupesEtat.textContent = d.groupes.length + ' groupe(s) déclaré(s). La liste est figée pour cette consultation.';
+        groupesEtat.style.color = '#2D5240';
+        if (d.empreinte_ensemble) {
+          empreinteValeur.textContent = d.empreinte_ensemble;
+          empreinteBloc.style.display = 'block';
+        }
+      } else {
+        groupesEtat.textContent = "Aucun groupe déclaré : vous ne pouvez pas encore générer de liens.";
+        groupesEtat.style.color = '#8a6d3b';
+      }
+    } catch (e) { /* etat vide, sans bloquer le reste */ }
+  }
+
+  groupesBtn.addEventListener('click', async () => {
+    const brut = groupesInput.value.split(',').map(s => s.trim()).filter(Boolean);
+    if (!brut.length) {
+      groupesEtat.textContent = "Saisissez au moins un groupe.";
+      groupesEtat.style.color = '#a94442';
+      return;
+    }
+    // Confirmation explicite : l'operation est irreversible et son cout, en cas
+    // d'oubli, est de recommencer la consultation entiere.
+    const liste = brut.join('\n  · ');
+    if (!confirm("Déclarer définitivement ces " + brut.length + " groupe(s) ?\n\n  · " + liste +
+                 "\n\nAprès validation, aucun groupe ne pourra être ajouté : il faudrait clôturer et recommencer.")) {
+      return;
+    }
+    groupesBtn.disabled = true;
+    try {
+      const r = await fetch(`${API_BASE}/rh/declarer_groupes`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupes: brut })
+      });
+      if (!r.ok) {
+        let msg = "Cette déclaration n'a pas pu être enregistrée.";
+        try { const d = await r.json(); if (d && d.detail) msg = d.detail; } catch (e) {}
+        groupesEtat.textContent = msg;
+        groupesEtat.style.color = '#a94442';
+        groupesBtn.disabled = false;
+        return;
+      }
+      await rafraichirGroupes();
+    } catch (e) {
+      groupesEtat.textContent = "Connexion impossible. Réessayez.";
+      groupesEtat.style.color = '#a94442';
+      groupesBtn.disabled = false;
+    }
+  });
+
+  empreinteCopy.addEventListener('click', async () => {
+    const ok = await copierTexte(empreinteValeur.textContent);
+    empreinteCopy.textContent = ok ? 'Copiée' : 'Copie impossible';
+    setTimeout(() => { empreinteCopy.textContent = "Copier l'empreinte"; }, 2000);
   });
 
   // --- Ouverture des depots ---

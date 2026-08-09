@@ -61,6 +61,17 @@ class SignatureInvalideError(Exception):
     pass
 
 
+# Nom reserve sous lequel la cle maitresse RSAPBSSA est persistee dans
+# cle_rsa_active. Le caractere NUL ne peut apparaitre dans aucun nom de
+# departement : le motif de validation cote API l'exclut.
+NOM_CLE_MAITRESSE = "\x00__MAITRESSE__"
+
+
+class ClePasEncorePreteError(Exception):
+    """La cle maitresse est en cours de generation. Situation transitoire et
+    normale, a traduire en message d'attente et non en erreur."""
+
+
 class GestionnaireSignature:
     def __init__(self):
         self._verrou = threading.Lock()
@@ -70,6 +81,10 @@ class GestionnaireSignature:
         # encore etre verifies et deposes (voir _detruire_cle_privee).
         # Videes a la cloture explicite, qui met fin a la consultation.
         self._cles_publiques_expirees = {}
+        # Cle maitresse RSAPBSSA : une seule pour toute la consultation, les
+        # cles de departement s'en derivent. None tant qu'elle n'est pas prete.
+        self._cle_maitresse = None
+        self._generation_en_cours = False
         self._consultation_ouverte = False
         self._ouverture_ts = None
         self._timer_destruction = None
@@ -88,6 +103,11 @@ class GestionnaireSignature:
             ts_recharge = None
             if _PERSISTANCE_DISPONIBLE:
                 toutes = _persistance.charger_toutes_cles_chiffrees()
+                # La cle maitresse est rangee dans la meme table sous un nom
+                # reserve : on la sort du lot avant de traiter les autres.
+                if NOM_CLE_MAITRESSE in toutes:
+                    priv_m, pub_m, _ouv = toutes.pop(NOM_CLE_MAITRESSE)
+                    self._cle_maitresse = (bytes(priv_m), bytes(pub_m))
                 for dep, (priv, pub, ouv) in toutes.items():
                     if time.time() - ouv < DUREE_VIE_CLE_SECONDES:
                         self._cles[dep] = (priv, pub)
@@ -140,6 +160,16 @@ class GestionnaireSignature:
         self._detruire_cle_privee()
         with self._verrou:
             self._cles_publiques_expirees = {}
+            # La cle MAITRESSE aussi : sans cela, elle survivrait en memoire
+            # jusqu'au prochain redemarrage et le serveur continuerait de
+            # servir des cles derivees apres la cloture. La promesse « le
+            # serveur ne conserve plus rien » serait fausse.
+            if self._cle_maitresse is not None:
+                priv, _pub = self._cle_maitresse
+                # Ecrasement explicite avant liberation, meme demarche que
+                # pour les cles de departement.
+                self._cle_maitresse = None
+                del priv
         if _PERSISTANCE_DISPONIBLE:
             _persistance.effacer_cle_rsa()
 
@@ -205,22 +235,119 @@ class GestionnaireSignature:
         ecoule = time.time() - self._ouverture_ts
         return max(0.0, DUREE_VIE_CLE_SECONDES - ecoule)
 
+    # --- Cle maitresse RSAPBSSA, preparee en arriere-plan --------------------
+    #
+    # RSAPBSSA exige des nombres premiers SURS : il faut trouver p tel que
+    # (p-1)/2 soit lui-meme premier. C'est bien plus rare, donc bien plus lent
+    # -- 21,6 secondes mesurees contre 0,07 pour RSABSSA, un facteur 300.
+    #
+    # En contrepartie il n'y a qu'UNE cle pour toute la consultation au lieu
+    # d'une par departement : le cout total ne depend plus du nombre de
+    # groupes. Mais ces 21 secondes tomberaient au moment ou le RH demande ses
+    # premiers liens, et il attendrait devant son ecran sans comprendre.
+    #
+    # On lance donc la generation des que la question est definie. Le RH
+    # prepare ensuite ses lots ; quand il demande ses liens, la cle est prete.
+    # L'attente existe toujours, elle est simplement placee la ou personne ne
+    # la voit.
+
+    def preparer_cle_maitresse(self):
+        """Lance la generation de la cle maitresse en arriere-plan.
+
+        Idempotente : plusieurs appels ne declenchent qu'une generation. Sans
+        cela, deux definitions de question successives lanceraient deux calculs
+        de 21 secondes en parallele pour rien.
+        """
+        with self._verrou:
+            if self._cle_maitresse is not None or self._generation_en_cours:
+                return
+            self._generation_en_cours = True
+
+        def _generer():
+            try:
+                priv, pub = vbs.pb_generer_cles()
+                with self._verrou:
+                    self._cle_maitresse = (bytes(priv), bytes(pub))
+                    if self._ouverture_ts is None:
+                        self._ouverture_ts = time.time()
+                        self._armer_expiration()
+                    ts = self._ouverture_ts
+                # Persistee sous un nom reserve, dans la table existante : pas
+                # de migration de schema sur une base de production. Le prefixe
+                # NUL rend toute collision impossible avec un nom saisi par un
+                # RH (le motif de validation refuse ce caractere).
+                if _PERSISTANCE_DISPONIBLE:
+                    _persistance.persister_cle_rsa_chiffree(
+                        NOM_CLE_MAITRESSE, bytes(priv), bytes(pub), ts)
+                print("Cle maitresse RSAPBSSA prete.")
+            except Exception as e:
+                # Un echec ne doit pas laisser le drapeau leve : sinon plus
+                # aucune tentative ne serait possible jusqu'au redemarrage.
+                print(f"ERREUR : generation de la cle maitresse impossible : {e}")
+            finally:
+                with self._verrou:
+                    self._generation_en_cours = False
+
+        threading.Thread(target=_generer, daemon=True).start()
+
+    def cle_maitresse_publique(self):
+        """(privee, publique) de la cle maitresse. Leve si elle n'est pas prete.
+
+        Utilisee par la verification au depot : elle derive la cle du
+        departement a la volee au lieu de la lire en base.
+        """
+        with self._verrou:
+            if self._cle_maitresse is None:
+                raise ClePasEncorePreteError("Cle maitresse indisponible.")
+            return self._cle_maitresse
+
+    def etat_cle_maitresse(self):
+        """(prete, en_cours) -- pour informer le RH et le votant.
+
+        Trois etats possibles, et chacun merite un message distinct :
+        prete, en cours de preparation, ou pas encore demandee.
+        """
+        with self._verrou:
+            return (self._cle_maitresse is not None, self._generation_en_cours)
+
     def _obtenir_ou_creer_cle(self, departement):
-        """Renvoie (priv, pub) du departement, generee a la volee si absente.
-        DOIT etre appelee sous self._verrou."""
+        """Renvoie (priv, pub) du departement, DERIVEE de la cle maitresse.
+
+        Ce n'est plus une generation mais une derivation : la cle publique du
+        departement est une fonction deterministe de (modulus maitre, nom du
+        departement). Consequence directe -- le votant peut la RECALCULER au
+        lieu de faire confiance a celle que le serveur lui envoie.
+
+        C'est ce qui ferme l'attaque par marquage : un serveur ne peut plus
+        fabriquer une cle par personne, puisqu'une cle ne vaut que si elle
+        correspond a une metadonnee legitime.
+
+        La derivation coute quelques millisecondes ; c'est la GENERATION de la
+        maitresse qui prend une vingtaine de secondes, et elle a lieu une seule
+        fois, en arriere-plan, des la definition de la question.
+
+        DOIT etre appelee sous self._verrou.
+        """
         if departement in self._cles:
             return self._cles[departement]
-        # PREMIERE cle de la consultation : c'est maintenant qu'elle commence.
-        if self._ouverture_ts is None:
-            self._ouverture_ts = time.time()
-            self._armer_expiration()
-        priv, pub = vbs.generer_cles()
-        priv = bytes(priv)
-        pub = bytes(pub)
-        self._cles[departement] = (priv, pub)
-        if _PERSISTANCE_DISPONIBLE:
-            _persistance.persister_cle_rsa_chiffree(departement, priv, pub, self._ouverture_ts)
-        return priv, pub
+
+        if self._cle_maitresse is None:
+            # Le RH a demande des liens avant que la cle soit prete. L'appelant
+            # traduit cela en message d'attente : c'est une situation normale,
+            # pas une panne.
+            raise ClePasEncorePreteError(
+                "La cle de la consultation est en cours de preparation. "
+                "Reessayez dans quelques secondes."
+            )
+
+        # On renvoie la cle MAITRESSE, pas la derivee : le client derive
+        # lui-meme a l'interieur de blind(). Lui envoyer la derivee produit
+        # « number does not fit in 255 bytes ».
+        # Consequence heureuse : tous les votants recoivent la MEME cle, donc
+        # la meme empreinte dans leur lien -- deux collegues peuvent comparer.
+        priv_m, pub_m = self._cle_maitresse
+        self._cles[departement] = (priv_m, pub_m)
+        return priv_m, pub_m
 
     def cle_publique(self, departement):
         """CREATRICE si absente. A reserver aux flux AUTHENTIFIES (RH,
@@ -320,6 +447,19 @@ class GestionnaireSignature:
             # Consultation expiree : on peut encore verifier ce qui a ete signe.
             if departement in self._cles_publiques_expirees:
                 return self._cles_publiques_expirees[departement]
+            # RSAPBSSA : la cle d'un departement se DERIVE de la maitresse. Il
+            # n'y a donc plus de « departement inconnu » a memoriser -- si la
+            # maitresse existe, toute metadonnee est servable. Sans cela, un
+            # redemarrage du service renverrait 404 aux votants dont le lien
+            # est en circulation, alors que leur cle est parfaitement calculable.
+            # La cloture met _cle_maitresse a None : ce test suffit donc a
+            # distinguer « consultation vivante » de « consultation close ».
+            # Sans lui, le serveur continuerait de servir des cles apres la
+            # cloture, contredisant sa promesse de ne plus rien conserver.
+            if self._cle_maitresse is not None and self._consultation_ouverte:
+                _priv, pub_m = self._cle_maitresse
+                self._cles[departement] = (_priv, pub_m)
+                return pub_m
             if not self._consultation_ouverte:
                 raise RuntimeError("Aucune consultation active.")
             raise KeyError(departement)
@@ -335,8 +475,16 @@ class GestionnaireSignature:
         with self._verrou:
             if not self._consultation_ouverte:
                 raise RuntimeError("Impossible de signer: aucune consultation active.")
-            priv, _pub = self._obtenir_ou_creer_cle(departement)
-            sig_aveugle = bytes(vbs.signer_aveugle(list(priv), list(message_aveugle_bytes)))
+            # _obtenir_ou_creer_cle renvoie desormais (privee MAITRESSE, publique
+            # DERIVEE). La signature se fait avec la cle secrete derivee pour ce
+            # departement, que pb_signer_aveugle recalcule a partir de la paire
+            # maitresse -- la derivation exige les facteurs premiers, donc les
+            # deux moities.
+            priv_m, _pub_derivee = self._obtenir_ou_creer_cle(departement)
+            _priv, pub_m = self._cle_maitresse
+            meta = list(departement.encode("utf-8"))
+            sig_aveugle = bytes(vbs.pb_signer_aveugle(
+                list(priv_m), list(pub_m), list(message_aveugle_bytes), meta))
         return sig_aveugle
 
     def generer_token_signe(self, departement):

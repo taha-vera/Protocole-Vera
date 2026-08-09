@@ -13,6 +13,7 @@ de ce systeme.
 """
 
 import hmac
+import re
 import secrets
 from urllib.parse import quote
 import threading
@@ -645,7 +646,53 @@ def generer_autorisations(payload: GenererAutorisationsRequete, session_vera: Op
         pk_der = gestionnaire_signature.cle_publique(payload.departement)
     except RuntimeError:
         raise HTTPException(status_code=503, detail="Aucune consultation active.")
-    empreinte_cle = hashlib.sha256(pk_der).hexdigest()
+    # Le groupe doit avoir ete declare AVANT. Sans ce controle, generer des
+    # liens pour un groupe nouveau creerait une cle de plus, changerait
+    # l'empreinte de l'ensemble, et invaliderait tous les liens deja
+    # distribues -- exactement ce que la declaration prealable existe pour
+    # empecher.
+    declares = persistance.charger_groupes_declares()
+    if declares is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Declarez d'abord la liste des groupes consultes. Les cles "
+                   "sont creees ensemble pour que l'empreinte inscrite dans les "
+                   "liens ne change plus.",
+        )
+    if payload.departement not in declares:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Le groupe « {payload.departement} » n'a pas ete declare. "
+                   f"Groupes declares : {', '.join(declares)}. En ajouter un "
+                   "maintenant invaliderait les liens deja distribues.",
+        )
+
+    # Le lien porte l'empreinte de l'ENSEMBLE des cles, pas celle du seul
+    # groupe concerne.
+    #
+    # POURQUOI CE CHANGEMENT
+    # L'empreinte d'une cle de groupe est calculee par le serveur et differe
+    # d'un groupe a l'autre. Elle ne l'engage donc pas : il peut fabriquer une
+    # cle par personne avec l'empreinte correspondante, le controle cote client
+    # passe, et au depouillement il retrouve qui a produit quelle signature.
+    # Et deux collegues de services differents ne pouvaient rien conclure d'une
+    # divergence : elle etait NORMALE entre groupes.
+    #
+    # L'agregat change les deux choses a la fois. Il couvre le nombre ET le
+    # contenu de toutes les cles, et il est IDENTIQUE pour tous les votants --
+    # donc comparable entre collegues, quel que soit leur service.
+    #
+    # Surtout, il peut etre publie HORS BANDE avant l'envoi des liens : un
+    # commit horodate dans le depot, qui n'est pas sur cette machine. Un
+    # operateur qui forgerait des cles devrait alors servir une liste
+    # divergente de celle publiee ET de celle que voient les autres votants.
+    # On passe d'une trace a une trace anterieure, horodatee par un tiers.
+    empreinte_cle = gestionnaire_signature.agregat_cles()
+    if empreinte_cle is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Les cles de la consultation ne sont pas encore pretes.",
+        )
 
     base_url = "https://vera-consultation.duckdns.org/vote"
     autorisations = []
@@ -1025,6 +1072,99 @@ def definir_question(payload: QuestionRequete, session_vera: Optional[str] = Coo
         raise HTTPException(status_code=422, detail="Intitule vide.")
     persistance.persister_question(intitule)
     return {"statut": "question definie", "question": intitule}
+
+
+class DeclarerGroupesRequete(BaseModel):
+    groupes: list[str] = Field(min_length=1, max_length=200)
+
+
+@app.post("/api/rh/declarer_groupes")
+def declarer_groupes(payload: DeclarerGroupesRequete,
+                     session_vera: Optional[str] = Cookie(None)):
+    """Fige la liste des groupes et cree toutes leurs cles d'un coup.
+
+    POURQUOI CETTE ETAPE EXISTE
+    Chaque lien porte l'empreinte de l'ENSEMBLE des cles, et non celle du seul
+    groupe concerne : c'est ce qui la rend identique pour tous les votants,
+    donc comparable entre collegues de services differents, et publiable hors
+    de ce serveur avant l'envoi.
+
+    Mais cette empreinte change des qu'une cle s'ajoute. Si le RH generait ses
+    groupes l'un apres l'autre, les liens du premier porteraient une empreinte
+    perimee des la creation du second -- et tous ses votants seraient refuses.
+
+    D'ou cette declaration prealable : les cles naissent ensemble, l'empreinte
+    est figee, et les liens peuvent partir.
+
+    IRREVERSIBLE. Ajouter un groupe apres coup invaliderait les liens deja
+    distribues. L'interface doit le dire avant de valider.
+    """
+    exiger_session(session_vera)
+
+    if persistance.charger_groupes_declares() is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Les groupes ont deja ete declares pour cette consultation. "
+                   "Les modifier invaliderait les liens deja distribues. "
+                   "Cloturez et recommencez si la liste etait incomplete.",
+        )
+
+    # Nettoyage : espaces superflus, doublons, entrees vides. Le tri rend
+    # l'empreinte reproductible independamment de l'ordre de saisie.
+    vus = set()
+    groupes = []
+    for g in payload.groupes:
+        nom = g.strip()
+        if not nom or nom in vus:
+            continue
+        if len(nom) > 100:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Nom de groupe trop long : « {nom[:40]}... »",
+            )
+        if not re.match(r"^[\w \-'()\.À-ÿ]+$", nom):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Le nom « {nom} » contient des caracteres non autorises. "
+                       "Lettres, chiffres, espace, tiret, apostrophe, parentheses "
+                       "et point uniquement.",
+            )
+        vus.add(nom)
+        groupes.append(nom)
+
+    if not groupes:
+        raise HTTPException(status_code=422, detail="Aucun groupe valide.")
+
+    groupes.sort()
+
+    # Creer toutes les cles MAINTENANT, pour que l'empreinte soit complete.
+    try:
+        for nom in groupes:
+            gestionnaire_signature.cle_publique(nom)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+
+    persistance.persister_groupes_declares(groupes)
+    agregat = gestionnaire_signature.agregat_cles()
+
+    return {
+        "groupes": groupes,
+        "empreinte_ensemble": agregat,
+        "message": "Publiez cette empreinte hors de ce serveur AVANT d'envoyer "
+                   "les liens : elle sera inscrite dans chacun d'eux.",
+    }
+
+
+@app.get("/api/rh/groupes_declares")
+def obtenir_groupes_declares(session_vera: Optional[str] = Cookie(None)):
+    """Liste figee et empreinte associee, pour le tableau de bord."""
+    exiger_session(session_vera)
+    groupes = persistance.charger_groupes_declares()
+    return {
+        "groupes": groupes,
+        "declares": groupes is not None,
+        "empreinte_ensemble": gestionnaire_signature.agregat_cles(),
+    }
 
 
 @app.get("/api/engagement_cles")
