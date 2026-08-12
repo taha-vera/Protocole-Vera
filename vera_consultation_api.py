@@ -205,17 +205,12 @@ except Exception as e:
         "Verifiez que le venv est active : source /root/vera_blind_sig/.venv/bin/activate"
     )
 
-# code_court (4 chiffres) -> token complet
-# Permet d'envoyer "4827" plutot que le token long, sans jamais exposer
-# le vrai token tant que le code n'a pas ete verifie cote serveur.
-registre_codes_courts: dict[str, str] = {}
-# Rechargement au demarrage : sans cela, un redemarrage pendant une
-# consultation active invaliderait tous les codes courts deja distribues.
-try:
-    registre_codes_courts.update(persistance.charger_codes_courts())
-except Exception as _e:
-    import logging
-    logging.warning("Impossible de recharger les codes courts au demarrage: %s", _e)
+# Le mecanisme de "code court" (4 chiffres au lieu du jeton complet) a ete
+# retire le 12/08. Il n'etait plus alimente par aucun endpoint, mais sa table
+# conservait le jeton EN CLAIR -- exactement ce que la migration vers les
+# empreintes avait ferme, un lecteur de base pouvant rejouer un jeton et priver
+# son titulaire de son vote. Table vide, donc aucune fuite, mais un piege arme :
+# tout retablissement de ce chemin aurait rouvert la porte.
 
 # Protection anti-brute-force : avec seulement 10000 combinaisons a 4
 # chiffres, il faut limiter les tentatives. IP -> {"echecs": int, "bloque_jusqu_a": float}
@@ -283,9 +278,6 @@ def _reinitialiser_echecs(ip: str) -> None:
     with verrou:
         _tentatives_par_ip.pop(ip, None)
 
-
-CAPACITE_CODES = 10000
-SEUIL_SATURATION_CODES = 9000  # au-dela, on refuse de generer
 
 # Valeur par DEFAUT. L'intitule reel est defini par l'organisation via
 # POST /api/rh/question, tant qu'aucune cle n'existe (donc avant la generation
@@ -1046,7 +1038,6 @@ def cloturer_consultation(session_vera: Optional[str] = Cookie(None)):
         # 4. Vider les registres memoire.
         compteurs_par_departement.clear()
         effectif_par_departement.clear()
-        registre_codes_courts.clear()
 
     # 5. Vider le set des tokens consommes du gestionnaire.
     try:

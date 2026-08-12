@@ -82,18 +82,11 @@ def main():
     except Echec as e:
         print(f"FAIL 2. {e}"); ok = False
 
-    # 3. Round-trip codes courts + suppression
-    try:
-        p.persister_code_court("1234", "token_abc")
-        codes = p.charger_codes_courts()
-        if codes.get("1234") != "token_abc":
-            raise Echec(f"code court non retrouve: {codes}")
-        p.supprimer_code_court("1234")
-        if "1234" in p.charger_codes_courts():
-            raise Echec("le code court aurait du etre supprime")
-        _ok("3. round-trip codes courts + suppression")
-    except Echec as e:
-        print(f"FAIL 3. {e}"); ok = False
+    # 3. (retire le 12/08) Le mecanisme de code court a ete supprime : sa table
+    #    conservait le jeton EN CLAIR, alors que le reste du systeme etait passe
+    #    aux empreintes precisement pour qu'un lecteur de base ne puisse pas
+    #    rejouer un jeton et priver son titulaire de son vote. Aucun endpoint ne
+    #    l'alimentait plus ; seul ce test l'exercait encore.
 
     # 4. Round-trip resultat publie
     try:
@@ -140,8 +133,6 @@ def main():
         compteurs, effectifs = p.charger_compteurs()
         if compteurs or effectifs:
             raise Echec("compteurs/effectifs auraient du etre vides")
-        if p.charger_codes_courts():
-            raise Echec("codes courts auraient du etre vides")
         if p.charger_budget_epsilon():
             raise Echec("budget aurait du etre vide")
         # la cle RSA n'est PAS touchee par effacer_etat_consultation

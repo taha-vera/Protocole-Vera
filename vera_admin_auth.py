@@ -76,9 +76,13 @@ def creer_compte_depuis_empreinte(identifiant: str, empreinte: str) -> bool:
     Genere l'empreinte avec :
         python3 -c "import vera_admin_auth as a; print(a.generer_empreinte('MOT_DE_PASSE'))"
     """
-    with _verrou:
-        if identifiant in _comptes_rh:
-            return False
+    # Le decodage se fait AVANT de prendre le verrou : il ne touche a aucun
+    # etat partage, et le faire sous verrou allongerait inutilement la section
+    # critique. Le test d'existence et l'ecriture, eux, sont sous UN SEUL
+    # verrou -- les separer laissait deux appels concurrents ecraser le premier
+    # compte. Non exploitable en pratique (appel unique au demarrage), corrige
+    # par principe : une section critique en deux morceaux finit toujours par
+    # etre appelee d'une facon qu'on n'avait pas prevue.
     try:
         sel_hex, hash_hex = empreinte.split("$", 1)
         sel = bytes.fromhex(sel_hex)
@@ -94,6 +98,8 @@ def creer_compte_depuis_empreinte(identifiant: str, empreinte: str) -> bool:
             f"hash de {len(hash_mdp)} octets (32 attendus)."
         )
     with _verrou:
+        if identifiant in _comptes_rh:
+            return False
         _comptes_rh[identifiant] = {"hash_mdp": hash_mdp, "sel": sel}
     return True
 

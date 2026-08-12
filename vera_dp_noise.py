@@ -35,6 +35,23 @@ _mecanisme_laplace = dp.m.make_laplace(_domaine, _metrique, scale=SCALE)
 
 
 def appliquer_bruit_dp(valeur_brute: int) -> int:
+    """Ajoute le bruit de Laplace calibre a un comptage.
+
+    REFUS AU-DELA DE LA BORNE, plutot qu'ecretage silencieux.
+    L'ecretage a BOUNDS[1] ne compromettait pas la garantie DP -- il est
+    1-lipschitzien, donc n'augmente pas la sensibilite. Mais il produisait un
+    resultat FAUX sans que rien ne le signale : les comptages etaient tronques
+    a 10 000, puis projetes sur une somme N superieure, donnant un histogramme
+    arbitraire publie comme s'il etait juste.
+    Pour un systeme dont l'objet est de dire la verite sur une opinion, un
+    resultat faux publie en silence est pire qu'un refus de publier.
+    """
+    if valeur_brute > BOUNDS[1]:
+        raise ValueError(
+            f"Comptage de {valeur_brute} au-dela de la borne DP ({BOUNDS[1]}). "
+            "Publier l'ecreterait silencieusement et fausserait le resultat. "
+            "Relever BOUNDS exige de reverifier la calibration du bruit."
+        )
     valeur_bornee = max(BOUNDS[0], min(BOUNDS[1], valeur_brute))
     valeur_bruitee = _mecanisme_laplace(valeur_bornee)
     return max(0, valeur_bruitee)

@@ -97,7 +97,6 @@ _SQL_TABLES = [
     "CREATE TABLE IF NOT EXISTS compteurs_votes (departement TEXT NOT NULL, reponse TEXT NOT NULL, compte INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (departement, reponse))",
     "CREATE TABLE IF NOT EXISTS effectifs (departement TEXT PRIMARY KEY, effectif INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS resultats_publies (departement TEXT PRIMARY KEY, resultat_json TEXT NOT NULL)",
-    "CREATE TABLE IF NOT EXISTS codes_courts (code TEXT PRIMARY KEY, token TEXT NOT NULL)",
     # Intitule de la question, fige a l'ouverture de la consultation.
     # Une seule ligne (id=1). Les OPTIONS ne sont pas stockees : elles restent
     # a trois (oui/non/abstention) car toute la calibration DP en depend --
@@ -388,42 +387,6 @@ def enregistrer_vote_atomique(departement, reponse, empreinte_k):
             _conn.rollback()
             raise
 
-
-def charger_codes_courts():
-    """Recharge le mapping {code_court: token} au demarrage. Sans cela, un
-    redemarrage pendant une consultation active invaliderait tous les codes
-    a 4 chiffres deja distribues aux participants."""
-    with _verrou_db:
-        rows = _conn.execute("SELECT code, token FROM codes_courts").fetchall()
-    return {row[0]: row[1] for row in rows}
-
-
-def persister_code_court(code, token):
-    """Enregistre un code court a sa generation."""
-    with _verrou_db:
-        _conn.execute(
-            "INSERT INTO codes_courts (code, token) VALUES (?, ?) "
-            "ON CONFLICT(code) DO UPDATE SET token = excluded.token",
-            (code, token),
-        )
-        _conn.commit()
-
-
-def supprimer_code_court(code):
-    """Supprime un code court une fois le token consomme. Libere l'espace des
-    codes (evite la saturation a long terme) et empeche toute reutilisation."""
-    with _verrou_db:
-        _conn.execute("DELETE FROM codes_courts WHERE code = ?", (code,))
-        _conn.commit()
-
-
-# ============================================================================
-# REGISTRE 1 -- Jetons d'autorisation (credentials d'emission, refactor crypto)
-# Ces jetons prouvent le DROIT de demander une signature aveugle (Temps 1).
-# Ils sont distribues par le RH (SMS). Usage unique. Ce registre est SEPARE du
-# registre des tokens de vote consommes (tokens_consommes / Temps 2) et ne doit
-# JAMAIS etre joint a lui -- c'est ce qui garantit la non-liaison identite<->vote.
-# ============================================================================
 
 def _empreinte_jeton(jeton):
     """SHA-256 du jeton d'autorisation. La base ne stocke JAMAIS le jeton en
@@ -719,10 +682,18 @@ def effacer_etat_consultation():
     serveur apres cloture ne revele rien de la consultation passee.
     Operation atomique (une seule transaction)."""
     with _verrou_db:
-        for table in ("compteurs_votes", "effectifs", "codes_courts",
+        for table in ("compteurs_votes", "effectifs",
                       "tokens_consommes", "budget_epsilon", "resultats_publies", "question_active",
                       "jetons_autorisation"):
             _conn.execute(f"DELETE FROM {table}")
+        # codes_courts n'est plus creee depuis le 12/08 (elle conservait le
+        # jeton en clair, alors que le reste du systeme etait passe aux
+        # empreintes). Les bases anterieures en ont une, vide : on la purge si
+        # elle existe, sans echouer sur les bases neuves qui ne l'ont pas.
+        try:
+            _conn.execute("DELETE FROM codes_courts")
+        except sqlite3.OperationalError:
+            pass
         _conn.commit()
     # Le cache memoire des signatures aussi : il contient le lien
     # (jeton -> message aveugle), donnee de correlation la plus sensible du
