@@ -235,7 +235,7 @@ deploiement (voir `GUIDE_DEPLOIEMENT.md`).
 | 4 | Composition sequentielle | **Limite assumee** | Le budget vaut par consultation, pas par cohorte — voir section 2. Regle d'usage : 4 consultations/an max |
 | 5 | Observateur reseau | Limite assumee | Hors-perimetre |
 | 6 | Coercition | Limite assumee | Hors-perimetre |
-| 7 | Differenciation « 49/1 » | Fermee | RSABSSA RFC 9474. Aveuglement et finalisation dans le navigateur du votant : le serveur ne voit ni le secret K ni la signature finale. Une cle RSA par departement, empreinte engagee dans le lien et verifiee cote client (parade substitution de cle) |
+| 7 | Differenciation « 49/1 » | Fermee | RSABSSA RFC 9474. Aveuglement et finalisation dans le navigateur du votant : le serveur ne voit ni le secret K ni la signature finale. Une cle RSA par departement, ce qui empeche de deplacer une voix d'une urne a l'autre. Le lien porte l'empreinte de l'ENSEMBLE des cles -- identique pour tous les votants, donc comparable entre collegues -- et le client verifie trois choses : concordance avec le lien, unicite de la cle par groupe, appartenance de la cle recue a l'ensemble |
 | 8 | Inference sur le repondant atypique | Fermee | Meme mesure que porte 2. TPR@1%FPR = 1.6 % |
 | 9 | Collusion emetteur / agregateur | Fermee | Secret admin distinct, comptes separes, isolation testee |
 | 10 | Sondage binaire (seuil) | Fermee | Refus de publier sous K_MIN=240, verifie avant toute consommation de budget. Effectif exact des petites cohortes non expose |
@@ -292,6 +292,20 @@ La table des jetons d'autorisation, elle, conserve un ordre — mais celui de la
 GENERATION par le RH, pas de la consommation. Le passage a l'etat « utilise »
 ne reordonne rien. Il est donc impossible d'apparier « n-ieme jeton consomme »
 et « n-ieme vote insere ».
+
+### Le controle d'unicite, garantie peu visible mais decisive
+
+Le client ne se contente pas de comparer l'empreinte de l'ensemble des cles a
+celle inscrite dans son lien. Il verifie aussi qu'un groupe n'a **qu'une** cle.
+
+Ce second controle est celui qui compte. Un serveur malveillant pourrait
+publier cinq cents couples (Marketing, cle_i) : l'empreinte agregee serait
+parfaitement valide, et la desanonymisation aussi -- chaque votant recevrait sa
+propre cle, et le depouillement dirait qui a produit quelle signature. C'est le
+COMPTAGE qui ferme l'attaque, pas le hachage.
+
+Cette propriete est mentionnee ici parce qu'elle ne se devine pas : l'empreinte
+agregee a l'air de suffire, et elle ne suffit pas.
 
 ### Correlation entre les deux requetes du parcours, limite assumee
 

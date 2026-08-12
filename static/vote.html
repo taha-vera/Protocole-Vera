@@ -434,14 +434,30 @@
   }
 
   // Reprise apres fermeture d'onglet (gap audit A1/A2/A3). Une fois la signature
-  // finalisee, le jeton est CONSOMME : si l'onglet ferme avant le depot, la voix
-  // est perdue et re-signer est impossible. On persiste donc le votePayload
-  // complet en sessionStorage (cloisonne a l'onglet, efface a sa fermeture) pour
-  // pouvoir RE-DEPOSER a la reouverture. Le payload contient la reponse choisie :
-  // stockage transitoire, sur l'appareil du votant, jamais transmis au serveur ni
-  // au RH, et la signature reste non-reliable a l'identite par construction.
+  // finalisee, le jeton est CONSOMME. On persiste donc le votePayload complet
+  // en sessionStorage, pour pouvoir re-deposer sans re-signer.
+  //
+  // CE QUE CELA COUVRE, EXACTEMENT
+  // Le rechargement de la page et la navigation arriere-avant. Cela ne couvre
+  // PAS la fermeture de l'onglet, sessionStorage etant efface a ce moment --
+  // un commentaire anterieur affirmait le contraire, c'etait faux.
+  //
+  // CE QUI COUVRE LE RESTE
+  // Depuis l'idempotence de la signature (12/08), un votant qui a ferme son
+  // onglet peut rouvrir son lien : sa demande de signature, identique, lui
+  // renvoie LA MEME signature au lieu d'un refus. Il refait son choix et
+  // depose. Valable une heure ; au-dela, il lui faut un nouveau lien.
+  //
+  // POURQUOI PAS localStorage
+  // Il survivrait a la fermeture de l'onglet, mais ferait persister la reponse
+  // choisie sur l'appareil jusqu'au depot -- lisible par le suivant sur un
+  // poste partage. Le cas etant deja couvert cote serveur, ce n'est pas la
+  // peine de laisser une trace de plus sur la machine du votant.
+  //
+  // Le payload contient la reponse choisie : stockage transitoire, sur
+  // l'appareil du votant, jamais transmis ni au serveur ni a l'organisation.
   // Efface des que le depot reussit. Best-effort : si sessionStorage est
-  // indisponible, on degrade (comportement identique a avant ce correctif).
+  // indisponible, on degrade sans bloquer le vote.
   async function clePendingLocal() {
     const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(jetonAutorisation || ''));
     return 'vera_pending:' + toHex(new Uint8Array(h));

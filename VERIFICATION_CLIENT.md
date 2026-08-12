@@ -86,6 +86,33 @@ le dépôt contient, ce qui est annoncé ici.
 
 Si une seule diffère, ne votez pas et signalez-le (voir `SECURITY.md`).
 
+## Le contrôle que le navigateur exécute sur les clés
+
+Outre l'intégrité du module cryptographique, la page de vote vérifie trois
+choses sur les clés que le serveur lui présente. Elles ne se devinent pas à la
+lecture, et la troisième est la plus importante.
+
+**L'empreinte de l'ensemble des clés correspond à celle inscrite dans le lien.**
+Cette empreinte est identique pour tous les participants, quel que soit leur
+groupe — deux collègues de services différents peuvent comparer leurs liens et
+constater qu'ils portent la même valeur. Publiée par l'organisation avant l'envoi
+des invitations, elle devient un engagement daté.
+
+**La clé reçue figure bien dans cet ensemble.** Sans quoi le serveur pourrait
+présenter une empreinte correcte tout en servant une clé qui n'en fait pas
+partie.
+
+**Un groupe n'a qu'une seule clé.** C'est le contrôle décisif, et il est
+contre-intuitif : un serveur qui publierait cinq cents clés pour un même groupe
+produirait une empreinte agrégée parfaitement valide. Chaque participant
+recevrait alors sa propre clé, et le dépouillement dirait qui a produit quelle
+signature. C'est le **comptage** qui ferme cette attaque, pas le calcul
+d'empreinte.
+
+Le script `verifier_engagement.py` effectue les mêmes contrôles depuis
+l'extérieur, pour un délégué du personnel ou un service informatique qui
+vérifierait au nom des participants.
+
 ## Ce que cette vérification établit
 
 - Le code exécuté dans le navigateur du votant est celui qui a été publié et
