@@ -102,6 +102,7 @@ _SQL_TABLES = [
     # Une seule ligne (id=1). Les OPTIONS ne sont pas stockees : elles restent
     # a trois (oui/non/abstention) car toute la calibration DP en depend --
     # DELTA_INT=2 et K_MIN=240 ont ete mesures sur trois options.
+    "CREATE TABLE IF NOT EXISTS signatures_emises (empreinte_jeton TEXT NOT NULL, empreinte_message TEXT NOT NULL, signature_hex TEXT NOT NULL, departement TEXT NOT NULL, emise_unix REAL NOT NULL, PRIMARY KEY (empreinte_jeton, empreinte_message)) WITHOUT ROWID",
     "CREATE TABLE IF NOT EXISTS question_active (id INTEGER PRIMARY KEY CHECK (id = 1), intitule TEXT NOT NULL, ouverture_depots_unix REAL, groupes_declares TEXT)",
     "CREATE TABLE IF NOT EXISTS jetons_autorisation (jeton TEXT PRIMARY KEY, departement TEXT NOT NULL, utilise INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS cle_rsa_active (departement TEXT PRIMARY KEY, cle_privee_hex TEXT NOT NULL, cle_publique_hex TEXT NOT NULL, ouverture_unix REAL NOT NULL, salt_hex TEXT)",
@@ -507,6 +508,74 @@ def charger_question():
     return row[0] if row else None
 
 
+# Duree de conservation des signatures emises, pour l'idempotence.
+#
+# Cette table contient le lien (jeton -> message aveugle) : exactement ce que
+# le protocole existe pour ne pas conserver. On la garde donc le minimum --
+# assez pour qu'un votant dont le navigateur a echoue puisse recharger sa page
+# et retrouver SA signature, pas davantage.
+#
+# Une heure couvre un rechargement, un retour en arriere, une perte de reseau.
+# Elle ne couvre pas un votant qui reviendrait le lendemain : celui-la devra
+# demander un nouveau lien. C'est l'arbitrage retenu -- une voix perdue est
+# rattrapable par l'organisation, une donnee de correlation conservee sept
+# jours ne l'est pas.
+RETENTION_SIGNATURES_SECONDES = 3600
+
+
+def signature_deja_emise(empreinte_jeton, empreinte_message):
+    """Signature deja emise pour ce couple exact, ou None.
+
+    Le couple porte sur le jeton ET le message aveugle. Un rejeu a l'identique
+    -- meme jeton, meme message -- retrouve sa signature. Un message DIFFERENT
+    avec le meme jeton ne trouve rien : c'est une tentative d'obtenir un second
+    credential, et l'appelant la refuse.
+    """
+    seuil = time.time() - RETENTION_SIGNATURES_SECONDES
+    with _verrou_db:
+        row = _conn.execute(
+            "SELECT signature_hex, departement FROM signatures_emises "
+            "WHERE empreinte_jeton = ? AND empreinte_message = ? AND emise_unix > ?",
+            (empreinte_jeton, empreinte_message, seuil),
+        ).fetchone()
+    return (row[0], row[1]) if row else None
+
+
+def jeton_a_deja_signe(empreinte_jeton):
+    """True si ce jeton a deja obtenu une signature, quel qu'en soit le message.
+
+    Sert a distinguer deux cas que le simple echec de consommation confond :
+    un jeton rejoue a l'identique (rattrapable) et un jeton qui tente un
+    SECOND message aveugle (refus).
+    """
+    seuil = time.time() - RETENTION_SIGNATURES_SECONDES
+    with _verrou_db:
+        row = _conn.execute(
+            "SELECT 1 FROM signatures_emises WHERE empreinte_jeton = ? AND emise_unix > ? LIMIT 1",
+            (empreinte_jeton, seuil),
+        ).fetchone()
+    return row is not None
+
+
+def enregistrer_signature_emise(empreinte_jeton, empreinte_message, signature_hex, departement):
+    """Memorise une signature pour permettre le rejeu identique.
+
+    Purge au passage les entrees expirees : pas de tache de fond a maintenir,
+    et la table reste bornee.
+    """
+    maintenant = time.time()
+    with _verrou_db:
+        _conn.execute(
+            "INSERT OR REPLACE INTO signatures_emises "
+            "(empreinte_jeton, empreinte_message, signature_hex, departement, emise_unix) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (empreinte_jeton, empreinte_message, signature_hex, departement, maintenant),
+        )
+        _conn.execute("DELETE FROM signatures_emises WHERE emise_unix <= ?",
+                      (maintenant - RETENTION_SIGNATURES_SECONDES,))
+        _conn.commit()
+
+
 def charger_groupes_declares():
     """Liste des groupes declares, ou None si aucune declaration.
 
@@ -622,9 +691,12 @@ def effacer_etat_consultation():
     serveur apres cloture ne revele rien de la consultation passee.
     Operation atomique (une seule transaction)."""
     with _verrou_db:
+        # signatures_emises contient le lien (jeton -> message aveugle) : c'est
+        # la donnee de correlation la plus sensible du systeme. Elle expire
+        # d'elle-meme au bout d'une heure, mais la cloture ne doit pas attendre.
         for table in ("compteurs_votes", "effectifs", "codes_courts",
                       "tokens_consommes", "budget_epsilon", "resultats_publies", "question_active",
-                      "jetons_autorisation"):
+                      "jetons_autorisation", "signatures_emises"):
             _conn.execute(f"DELETE FROM {table}")
         _conn.commit()
     # Checkpoint + VACUUM APRES le commit, hors transaction (SQLite l'exige).

@@ -516,6 +516,7 @@ class SignerAveugleRequete(BaseModel):
 
 @app.post("/api/signer_aveugle")
 def signer_aveugle_endpoint(payload: SignerAveugleRequete):
+    import hashlib
     # 0. Refuser AVANT de consommer le jeton si les depots ne sont pas ouverts.
     #    Sans ce controle, un votant arrivant en avance brulerait son jeton
     #    pour un credential qu'il ne pourrait pas deposer : sa voix serait
@@ -535,15 +536,56 @@ def signer_aveugle_endpoint(payload: SignerAveugleRequete):
     #    seul appelant peut consommer un jeton donne). Le cas ou la signature
     #    echoue apres consommation est extremement rare (consultation fermee
     #    pile entre les deux) et prefere a un risque de double-vote.
-    departement = persistance.consommer_jeton_autorisation(payload.jeton_autorisation)
-    if departement is None:
-        raise HTTPException(status_code=403, detail="Jeton d'autorisation invalide ou deja utilise.")
-
-    # 2. Decoder le message aveugle. Le serveur ne manipule QUE de l'aveugle.
+    # 1bis. IDEMPOTENCE -- avant de consommer.
+    #
+    # LE PROBLEME QUE CELA RESOUT
+    # Le jeton etait consomme AVANT la signature, pour qu'un meme jeton ne
+    # puisse pas produire deux credentials differents. Consequence : si le
+    # navigateur echouait apres que le serveur avait signe -- reseau coupe,
+    # onglet ferme, page rechargee -- la voix etait perdue sans recours. Le
+    # jeton etait brule, et rien ne permettait de retrouver la signature.
+    #
+    # LA SOLUTION
+    # Le serveur memorise le couple (jeton, message aveugle) avec la signature
+    # emise. Un rejeu A L'IDENTIQUE retrouve SA signature. Un message
+    # DIFFERENT avec le meme jeton est refuse : c'est une tentative d'obtenir
+    # un second credential, donc un double vote.
+    #
+    # POURQUOI C'EST SUR
+    # Deux credentials distincts ne peuvent pas naitre d'un meme jeton,
+    # puisque seul un rejeu identique est accepte. La garantie anti-double-vote
+    # est preservee, et la voix cesse d'etre perdue sur un incident reseau.
+    #
+    # CE QUE CELA COUTE
+    # La table conserve le lien (jeton -> message aveugle) : exactement ce que
+    # le protocole existe pour ne pas conserver. D'ou une retention d'une heure
+    # seulement, et un effacement a la cloture.
     try:
         message_aveugle = bytes.fromhex(payload.message_aveugle_hex)
     except ValueError:
         raise HTTPException(status_code=422, detail="message_aveugle_hex n'est pas de l'hexadecimal valide.")
+
+    emp_jeton = hashlib.sha384(payload.jeton_autorisation.encode("utf-8")).hexdigest()
+    emp_message = hashlib.sha384(message_aveugle).hexdigest()
+
+    deja = persistance.signature_deja_emise(emp_jeton, emp_message)
+    if deja is not None:
+        sig_hex, dep = deja
+        pad = "x" * max(0, LONGUEUR_PAD_REPONSE - len(dep))
+        return {"signature_aveugle_hex": sig_hex, "departement": dep, "pad": pad}
+
+    # Meme jeton, message different : refus. C'est la garantie anti-double-vote.
+    if persistance.jeton_a_deja_signe(emp_jeton):
+        raise HTTPException(
+            status_code=403,
+            detail="Ce lien a deja servi a obtenir une signature. Si votre vote "
+                   "n'a pas abouti, rouvrez le lien tel quel sans recharger la "
+                   "page : votre signature vous sera renvoyee.",
+        )
+
+    departement = persistance.consommer_jeton_autorisation(payload.jeton_autorisation)
+    if departement is None:
+        raise HTTPException(status_code=403, detail="Jeton d'autorisation invalide ou deja utilise.")
 
     # 3. Signer a l'aveugle (seule etape serveur du protocole RSABSSA).
     try:
@@ -558,6 +600,12 @@ def signer_aveugle_endpoint(payload: SignerAveugleRequete):
             status_code=503,
             detail="Le service de signature est momentanement indisponible. Reessayez dans quelques instants.",
         )
+
+    # Memoriser AVANT de repondre : si le client n'a jamais recu la reponse,
+    # il pourra rejouer sa requete a l'identique et retrouver cette signature.
+    # L'ordre compte -- memoriser apres l'envoi laisserait la fenetre ouverte.
+    persistance.enregistrer_signature_emise(
+        emp_jeton, emp_message, sig_aveugle.hex(), departement)
 
     # 4. Renvoyer la signature aveugle + le departement (le client en a besoin
     #    pour construire son vote). Aucun lien jeton<->signature n'est stocke.
