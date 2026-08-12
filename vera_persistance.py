@@ -102,7 +102,6 @@ _SQL_TABLES = [
     # Une seule ligne (id=1). Les OPTIONS ne sont pas stockees : elles restent
     # a trois (oui/non/abstention) car toute la calibration DP en depend --
     # DELTA_INT=2 et K_MIN=240 ont ete mesures sur trois options.
-    "CREATE TABLE IF NOT EXISTS signatures_emises (empreinte_jeton TEXT NOT NULL, empreinte_message TEXT NOT NULL, signature_hex TEXT NOT NULL, departement TEXT NOT NULL, emise_unix REAL NOT NULL, PRIMARY KEY (empreinte_jeton, empreinte_message)) WITHOUT ROWID",
     "CREATE TABLE IF NOT EXISTS question_active (id INTEGER PRIMARY KEY CHECK (id = 1), intitule TEXT NOT NULL, ouverture_depots_unix REAL, groupes_declares TEXT)",
     "CREATE TABLE IF NOT EXISTS jetons_autorisation (jeton TEXT PRIMARY KEY, departement TEXT NOT NULL, utilise INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS cle_rsa_active (departement TEXT PRIMARY KEY, cle_privee_hex TEXT NOT NULL, cle_publique_hex TEXT NOT NULL, ouverture_unix REAL NOT NULL, salt_hex TEXT)",
@@ -523,57 +522,86 @@ def charger_question():
 RETENTION_SIGNATURES_SECONDES = 3600
 
 
+# Cache MEMOIRE des signatures emises. Deliberement pas en base.
+#
+# POURQUOI PAS EN BASE
+# La premiere version persistait ce cache dans une table SQLite. Consequence
+# mesuree : ses commits s'intercalaient, dans le MEME fichier journal WAL, avec
+# ceux des compteurs de votes. Le journal donnait alors
+#
+#     empreinte_jeton_d_ALICE  ->  compteur "oui" +1
+#     empreinte_jeton_de_BOB   ->  compteur "non" +1
+#
+# L'empreinte du jeton identifie la personne : l'organisation detient la liste
+# (personne -> jeton) et n'a qu'a calculer le SHA-384 de chacun. Un instantane
+# du seul fichier journal attribuait donc nommement les dernieres reponses --
+# exactement ce que tout le protocole existe pour empecher.
+#
+# Le compteur de troncature du WAL n'y changeait rien : il ne compte que les
+# ecritures de vote, les commits de signature s'intercalaient sans etre comptes.
+#
+# CE QUE COUTE LE CACHE MEMOIRE
+# Un redemarrage du service vide le cache : un votant dont la finalisation a
+# echoue juste avant perd sa voix. C'est exactement le mode de defaillance qui
+# existait AVANT l'idempotence, donc aucune regression -- et le cas courant
+# (rechargement de page, coupure reseau breve) reste couvert.
+#
+# Le service tourne en worker unique par construction (_verifier_worker_unique
+# refuse de demarrer autrement), donc un dictionnaire de processus suffit : il
+# n'y a pas d'autre processus avec qui partager cet etat.
+RETENTION_SIGNATURES_SECONDES = 3600
+_signatures_emises = {}
+
+
 def signature_deja_emise(empreinte_jeton, empreinte_message):
     """Signature deja emise pour ce couple exact, ou None.
 
     Le couple porte sur le jeton ET le message aveugle. Un rejeu a l'identique
-    -- meme jeton, meme message -- retrouve sa signature. Un message DIFFERENT
-    avec le meme jeton ne trouve rien : c'est une tentative d'obtenir un second
-    credential, et l'appelant la refuse.
+    retrouve sa signature. Un message DIFFERENT avec le meme jeton ne trouve
+    rien : c'est une tentative d'obtenir un second credential, et l'appelant
+    la refuse.
     """
     seuil = time.time() - RETENTION_SIGNATURES_SECONDES
     with _verrou_db:
-        row = _conn.execute(
-            "SELECT signature_hex, departement FROM signatures_emises "
-            "WHERE empreinte_jeton = ? AND empreinte_message = ? AND emise_unix > ?",
-            (empreinte_jeton, empreinte_message, seuil),
-        ).fetchone()
-    return (row[0], row[1]) if row else None
+        entree = _signatures_emises.get((empreinte_jeton, empreinte_message))
+        if entree is None or entree[2] <= seuil:
+            return None
+        return (entree[0], entree[1])
 
 
 def jeton_a_deja_signe(empreinte_jeton):
     """True si ce jeton a deja obtenu une signature, quel qu'en soit le message.
 
-    Sert a distinguer deux cas que le simple echec de consommation confond :
-    un jeton rejoue a l'identique (rattrapable) et un jeton qui tente un
-    SECOND message aveugle (refus).
+    Distingue deux cas que l'echec de consommation confond : un rejeu identique
+    (rattrapable) et une tentative de SECOND message aveugle (refus).
     """
     seuil = time.time() - RETENTION_SIGNATURES_SECONDES
     with _verrou_db:
-        row = _conn.execute(
-            "SELECT 1 FROM signatures_emises WHERE empreinte_jeton = ? AND emise_unix > ? LIMIT 1",
-            (empreinte_jeton, seuil),
-        ).fetchone()
-    return row is not None
+        for (jeton, _msg), (_sig, _dep, ts) in _signatures_emises.items():
+            if jeton == empreinte_jeton and ts > seuil:
+                return True
+    return False
 
 
 def enregistrer_signature_emise(empreinte_jeton, empreinte_message, signature_hex, departement):
     """Memorise une signature pour permettre le rejeu identique.
 
-    Purge au passage les entrees expirees : pas de tache de fond a maintenir,
-    et la table reste bornee.
+    Purge les entrees expirees au passage : pas de tache de fond, et le cache
+    reste borne par le nombre de signatures d'une heure.
     """
     maintenant = time.time()
+    seuil = maintenant - RETENTION_SIGNATURES_SECONDES
     with _verrou_db:
-        _conn.execute(
-            "INSERT OR REPLACE INTO signatures_emises "
-            "(empreinte_jeton, empreinte_message, signature_hex, departement, emise_unix) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (empreinte_jeton, empreinte_message, signature_hex, departement, maintenant),
-        )
-        _conn.execute("DELETE FROM signatures_emises WHERE emise_unix <= ?",
-                      (maintenant - RETENTION_SIGNATURES_SECONDES,))
-        _conn.commit()
+        _signatures_emises[(empreinte_jeton, empreinte_message)] = (
+            signature_hex, departement, maintenant)
+        for cle in [k for k, v in _signatures_emises.items() if v[2] <= seuil]:
+            del _signatures_emises[cle]
+
+
+def vider_signatures_emises():
+    """Vide le cache. Appele a la cloture, avec le reste de l'etat."""
+    with _verrou_db:
+        _signatures_emises.clear()
 
 
 def charger_groupes_declares():
@@ -691,14 +719,15 @@ def effacer_etat_consultation():
     serveur apres cloture ne revele rien de la consultation passee.
     Operation atomique (une seule transaction)."""
     with _verrou_db:
-        # signatures_emises contient le lien (jeton -> message aveugle) : c'est
-        # la donnee de correlation la plus sensible du systeme. Elle expire
-        # d'elle-meme au bout d'une heure, mais la cloture ne doit pas attendre.
         for table in ("compteurs_votes", "effectifs", "codes_courts",
                       "tokens_consommes", "budget_epsilon", "resultats_publies", "question_active",
-                      "jetons_autorisation", "signatures_emises"):
+                      "jetons_autorisation"):
             _conn.execute(f"DELETE FROM {table}")
         _conn.commit()
+    # Le cache memoire des signatures aussi : il contient le lien
+    # (jeton -> message aveugle), donnee de correlation la plus sensible du
+    # systeme. Il expire de lui-meme en une heure, la cloture n'attend pas.
+    vider_signatures_emises()
     # Checkpoint + VACUUM APRES le commit, hors transaction (SQLite l'exige).
     # Sans eux, la promesse affichee au RH -- "apres cloture le serveur ne
     # conserve plus rien" -- n'est vraie qu'au niveau LOGIQUE : les lignes

@@ -104,18 +104,30 @@ def main():
         print(f"ECHEC 4. {e}")
         ok = False
 
-    # 5. La memoire survit a un redemarrage. Sans cela, elle ne protegerait
-    #    que contre les incidents survenus entre deux crashs -- alors qu'un
-    #    redemarrage est precisement un moment ou des requetes echouent.
+    # 5. Le cache NE survit PAS a un redemarrage -- et c'est voulu.
+    #
+    # La premiere version persistait ce cache en base. Ses commits
+    # s'intercalaient alors, dans le meme fichier journal WAL, avec ceux des
+    # compteurs de votes : le journal appariait « empreinte du jeton d'ALICE »
+    # et « compteur oui +1 ». L'organisation detenant la liste
+    # (personne -> jeton), un instantane du fichier attribuait nommement les
+    # dernieres reponses.
+    #
+    # Le cache est donc en memoire. Un redemarrage le vide, et un votant dont
+    # la finalisation a echoue juste avant perd sa voix -- exactement le mode
+    # de defaillance qui existait AVANT l'idempotence. Le cas courant
+    # (rechargement de page, coupure reseau) reste couvert.
     try:
         import importlib
         p._conn.close()
         importlib.reload(p)
         p.initialiser()
-        relu = p.signature_deja_emise(J1, M1)
-        if relu is None or relu[0] != SIG:
-            raise Echec("la signature n'a pas survecu au redemarrage")
-        _ok("5. la memoire survit a un redemarrage")
+        if p.signature_deja_emise(J1, M1) is not None:
+            raise Echec("le cache a survecu au redemarrage : il est donc "
+                        "persiste, et le lien jeton->reponse est sur disque")
+        _ok("5. le cache ne survit pas a un redemarrage (donnee hors disque)")
+        # Retablir l'etat pour les tests suivants.
+        p.enregistrer_signature_emise(J1, M1, SIG, "Atelier")
     except Echec as e:
         print(f"ECHEC 5. {e}")
         ok = False
