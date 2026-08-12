@@ -1383,18 +1383,27 @@ def repondre(payload: ReponseModeleB):
 
     # SEPARATION DES PHASES -- avant toute autre chose.
     #
-    # L'unlinkability cryptographique ne suffit pas si les deux registres
-    # peuvent etre rapproches par le temps. Sans ce controle, le serveur voit
-    # un jeton consomme a 14h02:11 (donc une identite, via la liste de
-    # l'organisation) puis un vote depose a 14h02:47. Il n'a rien a casser :
-    # la proximite temporelle joint les deux registres que tout le protocole
-    # existe pour tenir disjoints. Dans un groupe de douze personnes, cela
-    # suffit a savoir qui a repondu quoi.
+    # CE QUE CE CONTROLE FERME
+    # L'organisation envoie ses SMS dans un ordre qu'elle connait, etale sur
+    # plusieurs heures ou plusieurs jours. Sans date d'ouverture, chacun vote
+    # dans la foulee de sa reception : l'ordre des votes reproduit alors
+    # l'ordre des envois, que l'organisateur connait personne par personne.
+    # Dans un groupe de douze, cela suffit a attribuer chaque reponse.
+    # La date brise ce lien : apres elle, l'ordre d'arrivee des votes n'a plus
+    # de rapport avec l'ordre d'envoi des invitations.
     #
-    # Fixer une date d'ouverture posterieure a la fin de l'emission garantit
-    # qu'entre l'obtention d'un credential et son depot, des dizaines ou des
-    # centaines d'autres evenements se sont intercales. L'ensemble d'anonymat
-    # redevient le groupe entier au lieu d'une fenetre de quelques secondes.
+    # CE QU'IL NE FERME PAS
+    # La proximite entre les DEUX requetes d'un meme votant. Signature et
+    # depot s'ouvrent au meme instant : quelqu'un qui arrive apres la date
+    # obtient son credential a 14h02:11 et depose a 14h02:47. Un operateur
+    # qui journalise les deux requetes peut les rapprocher.
+    #
+    # Ce canal reste ouvert, et c'est assume : le fermer exigerait deux
+    # visites du votant -- obtenir son credential, revenir plus tard pour
+    # deposer -- pour une menace qui suppose deja un operateur activement
+    # malveillant (Niveau 2, hors garantie). Les journaux nginx sont d'ailleurs
+    # coupes sur ces deux routes, ce qui retire le moyen le plus simple de
+    # conserver cette information.
     #
     # None = pas de date fixee : depots ouverts immediatement. C'est le
     # comportement des consultations anterieures, qu'on ne casse pas.

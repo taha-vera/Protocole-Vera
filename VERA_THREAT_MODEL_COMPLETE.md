@@ -293,6 +293,35 @@ GENERATION par le RH, pas de la consommation. Le passage a l'etat « utilise »
 ne reordonne rien. Il est donc impossible d'apparier « n-ieme jeton consomme »
 et « n-ieme vote insere ».
 
+### Correlation entre les deux requetes du parcours, limite assumee
+
+Une date d'ouverture des depots a ete ajoutee. Ce qu'elle ferme et ce qu'elle
+ne ferme pas doit etre dit precisement, faute de quoi elle donne un faux
+sentiment de securite.
+
+**Ce qu'elle ferme.** L'organisation envoie ses invitations dans un ordre
+qu'elle connait, etale sur plusieurs heures ou jours. Sans date d'ouverture,
+chacun vote dans la foulee de sa reception : l'ordre des votes reproduit alors
+l'ordre des envois, connu de l'organisateur personne par personne. Dans un
+petit groupe, cela suffit a attribuer chaque reponse. La date brise ce lien.
+
+**Ce qu'elle ne ferme pas.** Signature et depot s'ouvrent au meme instant. Un
+votant qui arrive apres la date obtient son credential puis depose quelques
+secondes plus tard. Un operateur qui journalise les deux requetes peut les
+rapprocher : la premiere porte le jeton, donc l'identite via la liste de
+l'organisation ; la seconde porte la reponse.
+
+**Pourquoi ce canal reste ouvert.** Le fermer exigerait deux visites du votant
+-- obtenir son credential, revenir plus tard pour deposer. C'est un cout
+d'usage considerable pour une menace qui suppose deja un operateur activement
+malveillant, c'est-a-dire le Niveau 2 place hors garantie en section 1. Les
+journaux nginx sont par ailleurs coupes sur ces deux routes, ce qui retire le
+moyen le plus simple de conserver cette information.
+
+**Consequence pour l'organisation.** Cette limite s'ajoute a celles qui font
+que l'hebergement doit etre assure par un tiers distinct de l'organisation qui
+consulte.
+
 ### Le journal d'ecriture, limite bornee et non fermee
 
 La table ne conserve aucun ordre. Le fichier journal, si -- pendant un temps.
