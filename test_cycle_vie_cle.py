@@ -32,27 +32,6 @@ import vera_signature_manager as vsm
 
 _p.initialiser()
 
-def _preparer_cle(g, timeout=90):
-    """Prepare la cle maitresse et attend qu'elle soit prete.
-
-    En production, preparer_cle_maitresse() est declenchee a la definition de
-    la question et la generation se fait en arriere-plan pendant que le RH
-    prepare ses lots. Un test n'a pas cette fenetre : il doit attendre.
-
-    La generation prend une vingtaine de secondes -- davantage depuis qu'on
-    rejette les modulus de 2047 bits, qui font echouer le client JavaScript.
-    """
-    import time as _t
-    g.preparer_cle_maitresse()
-    debut = _t.time()
-    while _t.time() - debut < timeout:
-        prete, _en_cours = g.etat_cle_maitresse()
-        if prete:
-            return
-        _t.sleep(0.5)
-    raise RuntimeError(f"cle maitresse non prete apres {timeout} s")
-
-
 
 class Echec(Exception):
     pass
@@ -73,8 +52,7 @@ def main():
     try:
         g = vsm.GestionnaireSignature()
         g.ouvrir_consultation()
-        _preparer_cle(g)
-        g.cle_publique(DEPT)
+        g.cle_publique(DEPT)  # cree la cle
         pub_avant = g.cle_publique_si_existe(DEPT)
         if not pub_avant:
             raise Echec("cle publique indisponible en consultation active")
@@ -137,7 +115,6 @@ def main():
     try:
         g2 = vsm.GestionnaireSignature()
         g2.ouvrir_consultation()
-        _preparer_cle(g2)
         g2.cle_publique(DEPT)
         g2.fermer_consultation()
         try:
