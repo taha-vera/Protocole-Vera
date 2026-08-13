@@ -1,0 +1,65 @@
+name: Gardes structurelles
+
+# POURQUOI CE WORKFLOW EXISTE
+#
+# Deux fuites identiques ont ete introduites a six jours d'intervalle : une
+# route ajoutee au parcours de vote sans le bloc nginx correspondant, laissant
+# IP et horodatage pour chaque votant. La seconde fois, un test avait ete ecrit
+# pour empecher la recidive -- mais rien ne l'executait. Il ne tournait que si
+# quelqu'un lancait run_tests.sh a la main, c'est-a-dire exactement la
+# discipline qui avait deja echoue deux fois.
+#
+# Les tests rassembles ici verifient des invariants STRUCTURELS : ils lisent
+# des fichiers du depot et comparent, sans base de donnees, sans module Rust,
+# sans opendp. Ils tournent donc sur n'importe quel Python, en quelques
+# secondes, a chaque push.
+#
+# Les tests fonctionnels (persistance, cryptographie, calibration DP) restent
+# dans run_tests.sh, sur le serveur : ils exigent le module PyO3 compile et
+# opendp, qu'on ne reconstruit pas ici.
+
+on: [push, pull_request]
+
+jobs:
+  gardes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # Chaque requete que la page de vote declenche doit avoir son bloc
+      # `location =` avec `access_log off` dans la configuration nginx.
+      # Ajouter un appel reseau sans ajouter le bloc fait echouer ce job.
+      - name: Routes du parcours de vote non journalisees
+        run: python3 test_routes_non_journalisees.py
+
+      # La configuration servie doit interdire que les deux registres --
+      # jetons emis et votes deposes -- se retrouvent dans un meme journal.
+      # Ce test-la exige une base : on ne verifie ici que la declaration du
+      # mode de journalisation dans le code, ce qui suffit a detecter un
+      # retour a WAL par inadvertance.
+      - name: Mode de journalisation SQLite
+        run: |
+          if grep -q 'PRAGMA journal_mode=WAL' vera_persistance.py; then
+            echo "ECHEC : journal_mode=WAL detecte dans vera_persistance.py."
+            echo ""
+            echo "En WAL, le journal survit entre les transactions. La"
+            echo "consommation d'un jeton (qui porte l'identite via la liste de"
+            echo "l'organisation) et l'increment du compteur de reponses"
+            echo "s'ecrivent alors dans le meme fichier, a quelques"
+            echo "millisecondes d'intervalle : un lecteur du seul journal"
+            echo "apparie qui a repondu quoi."
+            echo ""
+            echo "Voir test_registres_disjoints.py et le commentaire de"
+            echo "_connexion() dans vera_persistance.py."
+            exit 1
+          fi
+          echo "OK : aucun journal_mode=WAL."
+
+      # Les fichiers Python doivent au moins compiler. Ne remplace pas la
+      # suite de tests, mais attrape une erreur de syntaxe avant le serveur.
+      - name: Compilation des modules
+        run: python3 -m py_compile vera_*.py test_*.py

@@ -77,6 +77,42 @@ def _verifier_worker_unique():
 
 _verifier_worker_unique()
 
+
+# VERROU DE PROCESSUS -- un fait observable, la ou _verifier_worker_unique ne
+# fait qu'une inference sur la facon dont le service a ete lance.
+#
+# Cette derniere lit WEB_CONCURRENCY et balaie sys.argv. Cela couvre
+# `uvicorn --workers N` et `gunicorn -w N`, mais pas un fichier de
+# configuration gunicorn contenant `workers = 4`, ni deux unites systemd
+# lancees en parallele. L'inference peut se tromper ; un verrou pose sur un
+# fichier, non.
+#
+# CE QUI EN DEPEND
+# Deux etats vivent en memoire de processus et ne sont pas partages entre
+# workers : le budget de confidentialite differentielle (deux workers le
+# consommeraient chacun de leur cote, publiant deux fois le meme resultat avec
+# un epsilon double) et le cache d'idempotence des signatures (un rejeu
+# tombant sur l'autre worker echouerait, faisant perdre une voix -- sans
+# danger pour l'anti-double-vote, dont l'autorite reste la base).
+#
+# Le descripteur est garde au niveau module : le verrou tombe a sa fermeture,
+# donc il ne doit pas etre ramasse par le glaneur de memoire.
+import fcntl
+import os
+
+_CHEMIN_VERROU = os.environ.get("VERA_VERROU_PROCESSUS", "/tmp/vera_processus.lock")
+try:
+    _verrou_processus = open(_CHEMIN_VERROU, "w")
+    fcntl.flock(_verrou_processus, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError as _e:
+    raise RuntimeError(
+        f"VERA REFUSE DE DEMARRER : le verrou {_CHEMIN_VERROU} est deja "
+        "detenu par une autre instance. Le budget de confidentialite et le "
+        "cache d'idempotence vivent en memoire de processus : deux instances "
+        "publieraient deux fois le meme resultat avec un epsilon double. "
+        f"Detail : {_e}"
+    )
+
 # Compte RH de démarrage, créé une seule fois au lancement du service.
 #
 # Deux voies, par ordre de préférence :
@@ -570,9 +606,15 @@ def signer_aveugle_endpoint(payload: SignerAveugleRequete):
     if persistance.jeton_a_deja_signe(emp_jeton):
         raise HTTPException(
             status_code=403,
+            # Le rattrapage promis ici depend du cache memoire : il fonctionne
+            # dans l'heure ET si le service n'a pas redemarre entre-temps.
+            # Apres un redemarrage, l'appelant tombe sur l'autre 403 (jeton
+            # deja utilise), dont le message oriente correctement vers une
+            # nouvelle invitation. On ne promet donc pas plus que ce qui tient.
             detail="Ce lien a deja servi a obtenir une signature. Si votre vote "
-                   "n'a pas abouti, rouvrez le lien tel quel sans recharger la "
-                   "page : votre signature vous sera renvoyee.",
+                   "n'a pas abouti, rouvrez-le tel quel : votre signature vous "
+                   "sera renvoyee si la demande est recente. Sinon, demandez "
+                   "une nouvelle invitation.",
         )
 
     departement = persistance.consommer_jeton_autorisation(payload.jeton_autorisation)
@@ -1404,10 +1446,6 @@ def etat_departements(session_vera: Optional[str] = Cookie(None)):
 
 class ReponseEntrante(BaseModel):
     reponse: str
-
-
-class CodeCourtEntrant(BaseModel):
-    code: str
 
 
 @app.get("/api/question")

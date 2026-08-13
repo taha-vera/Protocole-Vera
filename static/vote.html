@@ -549,7 +549,19 @@
       }
       const suite = window.RSABSSA.SHA384.PSS.Randomized();
 
-      const rPk = await fetch(`${API_BASE}/cle_publique?departement=${encodeURIComponent(departementVote)}`);
+      // Bourrage a longueur constante, comme sur le depot du vote et sur la
+      // reponse de signature. Sans lui, la taille de CETTE requete varie avec
+      // la longueur du nom de groupe : un observateur passif partitionne les
+      // votants par service a la simple taille du paquet TLS, sur la requete
+      // qui precede immediatement la signature. Dans une organisation dont les
+      // services ont des noms de longueurs distinctes, cela reduit l'ensemble
+      // d'anonymat au groupe.
+      // Le parametre pad est ignore par le serveur : cle_publique_endpoint ne
+      // declare que departement. 320 couvre les 100 caracteres autorises apres
+      // encodage pourcent au pire cas.
+      const _dep = encodeURIComponent(departementVote);
+      const _pad = 'x'.repeat(Math.max(0, 320 - _dep.length));
+      const rPk = await fetch(`${API_BASE}/cle_publique?departement=${_dep}&pad=${_pad}`);
       if (rPk.status === 404) { showError('Ce département n\'est pas reconnu. Vérifiez que vous avez ouvert le lien en entier, ou demandez-en un nouveau à la personne qui vous l\'a transmis.', 'Département inconnu'); return; }
       if (!rPk.ok) throw new Error('cle publique indisponible');
       const { cle_publique_hex, empreinte_sha256 } = await rPk.json();

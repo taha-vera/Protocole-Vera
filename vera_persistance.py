@@ -279,6 +279,14 @@ def initialiser():
         # migrations ci-dessus, elles, transforment des tables preexistantes
         # et doivent donc passer avant.
         _migrer_ouverture_depots(_conn)
+        # codes_courts : supprimee, pas seulement videe. Elle conservait le
+        # jeton EN CLAIR, alors que le reste du systeme etait passe aux
+        # empreintes pour qu'un lecteur de base ne puisse pas rejouer un jeton
+        # et priver son titulaire de son vote. Aucun endpoint ne l'alimentait
+        # plus. La vider a la cloture ne suffisait pas : sur une base
+        # anterieure elle subsistait, vide mais prete a resservir.
+        _conn.execute("DROP TABLE IF EXISTS codes_courts")
+        _conn.commit()
 
 
 def charger_budget_epsilon():
@@ -507,15 +515,34 @@ RETENTION_SIGNATURES_SECONDES = 3600
 #
 # CE QUE COUTE LE CACHE MEMOIRE
 # Un redemarrage du service vide le cache : un votant dont la finalisation a
-# echoue juste avant perd sa voix. C'est exactement le mode de defaillance qui
-# existait AVANT l'idempotence, donc aucune regression -- et le cas courant
-# (rechargement de page, coupure reseau breve) reste couvert.
+# echoue juste avant perd sa voix. C'est le mode de defaillance qui existait
+# AVANT l'idempotence -- pas de regression face a cet etat-la, mais bien une
+# perte face a la version persistee qui a brievement tourne entre les deux.
+# L'arbitrage est assume : une voix perdue se rattrape par un nouveau lien, une
+# donnee de correlation ecrite sur disque ne se rattrape pas.
+# Le cas courant (rechargement de page, coupure reseau breve) reste couvert.
 #
 # Le service tourne en worker unique par construction (_verifier_worker_unique
 # refuse de demarrer autrement), donc un dictionnaire de processus suffit : il
 # n'y a pas d'autre processus avec qui partager cet etat.
 RETENTION_SIGNATURES_SECONDES = 3600
 _signatures_emises = {}
+
+
+def _purger_signatures_expirees(seuil):
+    """Efface physiquement les entrees expirees. A appeler SOUS _verrou_db.
+
+    Ignorer une entree expiree ne suffit pas : ses octets restent en memoire
+    de processus. Un vidage de memoire, un swap, une image de machine virtuelle
+    prise plusieurs jours apres la derniere signature contiendraient encore le
+    couple (empreinte du jeton -> empreinte du message aveugle), c'est-a-dire
+    exactement ce que ce systeme existe pour ne pas conserver.
+
+    La retention annoncee d'une heure doit valoir pour les octets, pas
+    seulement pour la visibilite logique.
+    """
+    for cle in [k for k, v in _signatures_emises.items() if v[2] <= seuil]:
+        del _signatures_emises[cle]
 
 
 def signature_deja_emise(empreinte_jeton, empreinte_message):
@@ -528,8 +555,9 @@ def signature_deja_emise(empreinte_jeton, empreinte_message):
     """
     seuil = time.time() - RETENTION_SIGNATURES_SECONDES
     with _verrou_db:
+        _purger_signatures_expirees(seuil)
         entree = _signatures_emises.get((empreinte_jeton, empreinte_message))
-        if entree is None or entree[2] <= seuil:
+        if entree is None:
             return None
         return (entree[0], entree[1])
 
@@ -542,8 +570,9 @@ def jeton_a_deja_signe(empreinte_jeton):
     """
     seuil = time.time() - RETENTION_SIGNATURES_SECONDES
     with _verrou_db:
-        for (jeton, _msg), (_sig, _dep, ts) in _signatures_emises.items():
-            if jeton == empreinte_jeton and ts > seuil:
+        _purger_signatures_expirees(seuil)
+        for jeton, _msg in _signatures_emises:
+            if jeton == empreinte_jeton:
                 return True
     return False
 
@@ -559,8 +588,7 @@ def enregistrer_signature_emise(empreinte_jeton, empreinte_message, signature_he
     with _verrou_db:
         _signatures_emises[(empreinte_jeton, empreinte_message)] = (
             signature_hex, departement, maintenant)
-        for cle in [k for k, v in _signatures_emises.items() if v[2] <= seuil]:
-            del _signatures_emises[cle]
+        _purger_signatures_expirees(seuil)
 
 
 def vider_signatures_emises():
@@ -688,14 +716,7 @@ def effacer_etat_consultation():
                       "tokens_consommes", "budget_epsilon", "resultats_publies", "question_active",
                       "jetons_autorisation"):
             _conn.execute(f"DELETE FROM {table}")
-        # codes_courts n'est plus creee depuis le 12/08 (elle conservait le
-        # jeton en clair, alors que le reste du systeme etait passe aux
-        # empreintes). Les bases anterieures en ont une, vide : on la purge si
-        # elle existe, sans echouer sur les bases neuves qui ne l'ont pas.
-        try:
-            _conn.execute("DELETE FROM codes_courts")
-        except sqlite3.OperationalError:
-            pass
+
         _conn.commit()
     # Le cache memoire des signatures aussi : il contient le lien
     # (jeton -> message aveugle), donnee de correlation la plus sensible du
