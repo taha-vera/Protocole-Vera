@@ -37,11 +37,37 @@ reseau, attaquant externe) et contre un operateur qui administre le serveur
 sans chercher a falsifier le logiciel, VERA garantit qu'aucune reponse ne peut
 etre reliee a une personne.
 
-Cette garantie est structurelle, pas procedurale : le serveur ne stocke jamais
-le lien identite ↔ vote. Deux registres disjoints coexistent — les jetons
-d'autorisation d'un cote, les empreintes des secrets consommes de l'autre — et
-la reponse n'existe que dans un compteur agrege par (departement, reponse).
-Un administrateur lisant toute la base ne peut pas desanonymiser un vote.
+Le serveur ne stocke jamais le lien identite ↔ vote. Deux registres disjoints
+coexistent — les jetons d'autorisation d'un cote, les empreintes des secrets
+consommes de l'autre — et la reponse n'existe que dans un compteur agrege par
+(departement, reponse). Une lecture PONCTUELLE de la base, meme complete, ne
+permet donc aucune attribution.
+
+**Mais cette garantie est procedurale autant que structurelle, et il faut le
+dire.** L'invariant tient dans le schema ; il ne tient pas dans le temps.
+
+Un adversaire qui lit la base EN CONTINU pendant la consultation — sans rien
+modifier, sans toucher au logiciel, ce qui est exactement le profil de ce
+niveau — observe la sequence suivante :
+
+    jeton X passe a utilise=1        (consommation, requete de signature)
+    compteur « oui » +1              (quelques secondes plus tard, depot)
+
+L'appariement est direct. Reproduit empiriquement le 13/08 : trois votants,
+trois appariements sans ambiguite. La signature aveugle supprime le lien
+ALGEBRIQUE entre le jeton et le vote ; elle ne supprime pas le lien TEMPOREL
+entre les deux ecritures.
+
+**Ce qui empeche l'attaque aujourd'hui.** Elle exige DEUX choses : l'acces a la
+base, et la liste (personne -> jeton). L'operateur detient la premiere,
+l'organisation consultante la seconde. Aucun des deux ne peut seul. C'est cette
+separation des roles qui protege, pas une impossibilite technique — et c'est
+pourquoi l'hebergement par un tiers distinct de l'organisation qui consulte
+n'est pas une precaution supplementaire mais la condition de la garantie.
+
+**Ce qui la fermerait techniquement** : ecrire les compteurs par lots melanges
+avec un delai aleatoire, de sorte que l'ordre des increments ne reproduise plus
+l'ordre des consommations. Non implemente a ce jour ; l'arbitrage reste ouvert.
 
 ### Niveau 2 — operateur activement malveillant
 

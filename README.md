@@ -23,15 +23,27 @@ sans jamais rendre lisible la contribution d'un individu.
 > ([VERIFICATION_CLIENT.md](VERIFICATION_CLIENT.md)).
 
 **Ce que VERA garantit.** Aucune réponse ne peut être reliée à une personne par
-l'organisateur de la consultation, ni par un tiers, ni par un administrateur qui
-lirait la base. Cette propriété est **structurelle** (signature aveugle RSABSSA,
-registres disjoints) : le serveur ne stocke jamais le lien entre une identité et
-un vote.
+l'organisateur de la consultation, ni par un tiers, ni par quiconque lirait la
+base à un instant donné. Le serveur ne stocke jamais le lien entre une identité
+et un vote : deux registres disjoints coexistent, et la réponse n'existe que
+dans un compteur agrégé.
 
-Face à un opérateur d'infrastructure qui chercherait **activement** à contourner
-le système — en servant un client modifié ou en corrélant ses propres journaux —
-la garantie ne tient plus : c'est pourquoi l'hébergement doit être assuré par un
-tiers distinct de l'organisation qui consulte. Détail :
+**Ce sur quoi cette garantie repose, et qu'il faut lire avant de décider.** La
+cryptographie supprime le lien algébrique entre l'invitation et la réponse. Elle
+ne supprime pas le lien temporel : qui lirait la base *en continu* verrait une
+invitation être consommée, puis un compteur s'incrémenter quelques secondes plus
+tard. Il lui manquerait la correspondance personne → invitation, que détient
+l'organisation qui consulte, et elle seule.
+
+Autrement dit : la protection tient parce que celui qui héberge n'a pas la liste,
+et que celui qui a la liste n'héberge pas. **C'est une séparation des rôles, pas
+une impossibilité technique** — et c'est pourquoi l'hébergement doit être assuré
+par un tiers distinct de l'organisation qui consulte. Ce n'est pas une
+précaution supplémentaire, c'est la condition de la garantie.
+
+Face à un opérateur qui chercherait **activement** à contourner le système — en
+servant un client modifié — aucune vérification exécutée dans un navigateur ne
+protège. Détail :
 [modèle de menace](VERA_THREAT_MODEL_COMPLETE.md), section 1. Les garanties statistiques sur les résultats publiés
 (confidentialité différentielle, ε=0.5) reposent sur des hypothèses documentées
 dans [LIMITS.md](LIMITS.md).

@@ -131,6 +131,20 @@ chacune acceptable prise isolément :
   l'instant de chaque vote ;
 - la présente section décrit des compteurs lisibles et incrémentés en direct.
 
+**Et la source temporelle n'a même pas besoin d'être extérieure.** La table des
+jetons d'autorisation est dans le même fichier : la consommation d'un jeton y
+inscrit `utilise = 1` au moment de la demande de signature, quelques secondes
+avant que le compteur ne s'incrémente. Un adversaire qui lit la base en continu
+observe donc les deux moitiés de l'appariement sans rien d'autre à sa
+disposition :
+
+    jeton X passe à utilisé        →     compteur « oui » +1
+
+Reproduit empiriquement le 13/08. Il lui manque encore la correspondance
+personne → jeton, que détient l'organisation consultante — c'est cette
+séparation qui protège, et elle est procédurale. Voir
+`VERA_THREAT_MODEL_COMPLETE.md`, section « Niveau 1 ».
+
 Un adversaire disposant de l'une de ces sources temporelles **et** d'une lecture
 répétée du fichier reconstitue des votes individuels. Chiffrer les compteurs n'y
 changerait rien : c'est la modification d'une ligne qui porte l'information, pas
