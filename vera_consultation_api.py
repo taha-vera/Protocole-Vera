@@ -826,7 +826,30 @@ def _publier_departement(departement, effectif):
     # le simplexe {x >= 0, somme = effectif}. La projection est du
     # post-traitement : gratuite en epsilon, elle reduit l'erreur d'environ 25%
     # et garantit que les comptages publies somment exactement a l'effectif.
-    comptes_bruites = publier_histogramme_dp(comptes_ordonnes, effectif)
+    try:
+        comptes_bruites = publier_histogramme_dp(comptes_ordonnes, effectif)
+    except ValueError as e:
+        # Le bruit differentiel refuse les comptages au-dela de sa borne de
+        # calibration, plutot que de les ecreter en silence et de publier un
+        # resultat faux.
+        #
+        # On traduit ce refus dans le contrat de retour de cette fonction, au
+        # lieu de laisser l'exception remonter. Sans cela, un seul groupe
+        # au-dela de la borne faisait echouer la CLOTURE ENTIERE : les etapes
+        # suivantes -- destruction de la cle, effacement de l'etat, vidage des
+        # registres -- ne s'executaient jamais, et la promesse faite au RH
+        # (« apres cloture le serveur ne conserve plus rien ») devenait
+        # inatteignable. Un comptage ne redescendant pas, le blocage aurait ete
+        # definitif.
+        #
+        # Avec ce refus, les autres groupes sont publies et l'effacement a lieu.
+        return {
+            "refuse": True,
+            "raison": (
+                "Comptage au-dela de la borne de calibration du bruit "
+                f"differentiel : publier fausserait le resultat. Detail : {e}"
+            ),
+        }
 
     # ATOMICITE : budget + resultat committes ensemble. Sans cela, un crash
     # entre les deux ecritures laissait "budget consomme mais resultat absent"
