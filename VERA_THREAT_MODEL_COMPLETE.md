@@ -293,7 +293,7 @@ deploiement (voir `GUIDE_DEPLOIEMENT.md`).
 | 11 | Acces direct a la base / cle RSA | Fermee | Chiffrement Fernet, sel aleatoire par enregistrement. Fail-closed : si des cles existent mais qu'aucune ne se dechiffre, le service refuse de demarrer plutot que d'en regenerer |
 | 12 | Secret admin visible dans `/proc` | Limite assumee | Contexte solo-root |
 | 13 | Soustraction d'agregats | Limite assumee | Limite irreductible de la DP, attenuee par publication unique par consultation — meme reserve que porte 4 |
-| 14 | Persistance de l'etat de confidentialite | Fermee | SQLite WAL write-through. Verifie par `kill -9` et par reboot systeme complet. Complete par un effacement ACTIF a la cloture : compteurs, effectifs, jetons, budget, resultats publies et cle de signature detruits en une transaction, suivie de `wal_checkpoint(TRUNCATE)` et `VACUUM` |
+| 14 | Persistance de l'etat de confidentialite | Fermee | SQLite en `journal_mode=DELETE` (voir Porte 17 : le WAL joignait les deux registres). Verifie par `kill -9` et par reboot systeme complet. Complete par un effacement ACTIF a la cloture : compteurs, effectifs, jetons, budget, resultats publies et cle de signature detruits en une transaction, suivie de `VACUUM` |
 | 15 | Trafic en clair | Fermee | HTTPS via Nginx + Let's Encrypt, redirection 301, renouvellement automatique |
 | 16 | Retention des journaux | Fermee | Purge manuelle a la cloture + logrotate 3 jours. L'access log applicatif est desactive (voir porte 26) |
 | 17 | Correlation temporelle en base | **Fermee au niveau de la table, bornee au niveau du journal** | Horodatage retire, table anti-rejeu en `WITHOUT ROWID` : ordonnee par empreinte SHA-256 pseudo-aleatoire, l'ordre d'insertion n'existe plus DANS LA TABLE. Le fichier journal, lui, est un autre sujet -- voir ci-dessous |
@@ -391,7 +391,7 @@ consulte.
 
 La table ne conserve aucun ordre. Le fichier journal, si -- pendant un temps.
 
-SQLite fonctionne en mode WAL : chaque validation ecrit une image ordonnee de
+SQLite fonctionnait en mode WAL jusqu'au 13/08 : chaque validation ecrivait une image ordonnee de
 la page modifiee. Comme un vote incremente la ligne (departement, reponse) qui
 lui correspond, comparer deux images successives revele quelle case a bouge,
 donc ce qu'a repondu le n-ieme votant. Verifie empiriquement : sur une sequence

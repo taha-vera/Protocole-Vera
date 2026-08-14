@@ -71,7 +71,7 @@ défendable). Barème complet et justification : [LIMITS.md §14](LIMITS.md).
 
 - *Modèle de menace complet (26 portes)* : [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md)
 - *Mécanisme de bruit en production* : [vera_dp_noise.py](vera_dp_noise.py) (OpenDP, Δ=2, scale=4, ε=0.5, bounds=(0,10000))
-- *Persistance chiffrée de l'état (Portes 11, 14)* : [vera_persistance.py](vera_persistance.py) (SQLite WAL, Fernet/AES-128)
+- *Persistance chiffrée de l'état (Portes 11, 14)* : [vera_persistance.py](vera_persistance.py) (SQLite en journal_mode=DELETE, Fernet/AES-128)
 - *Porte 7 (signature aveugle, production)* : [vera_signature_manager.py](vera_signature_manager.py) et [vera_blind_sig/](vera_blind_sig/) — primitive RSABSSA RFC 9474. L'aveuglement et la finalisation ont lieu dans le navigateur du votant : le serveur ne voit ni le secret ni la signature finale.
 
 ## Antériorité (DOI Zenodo)

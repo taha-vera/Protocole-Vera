@@ -29,7 +29,7 @@ consulte, pourquoi, et quels sont leurs droits. Un modèle est fourni plus bas.
 
 ---
 
-## Les quatre étapes
+## Les six étapes
 
 ### 1. Préparer la question
 
@@ -55,10 +55,55 @@ un groupe est trop petit — tenez-en compte.
 Prévoyez large : 240 est le nombre de **réponses**, pas d'invitations. À 60 % de
 participation, il faut inviter 400 personnes.
 
-### 3. Envoyer les invitations
+### 3. Déclarer les groupes consultés
 
-Le tableau de bord génère les liens et propose un export CSV
-(département, lien, message).
+**En une seule fois, avant tout envoi.** Le tableau de bord vous demande la
+liste complète des groupes ; leurs clés sont créées ensemble.
+
+Cette déclaration est **irréversible**. En ajouter un ensuite changerait
+l'empreinte de sécurité inscrite dans chaque lien et rendrait inutilisables tous
+ceux déjà envoyés. Prenez le temps de vérifier votre liste — un oubli impose de
+clôturer et de tout recommencer.
+
+Tant que vous n'avez pas déclaré, la génération de liens est refusée.
+
+### 4. Publier l'empreinte de sécurité, avant d'envoyer quoi que ce soit
+
+Après la déclaration, le tableau de bord affiche une empreinte — une longue
+suite de caractères. Chaque lien de participation la porte, identique pour tous
+vos membres quel que soit leur groupe.
+
+**Déposez-la à un endroit que vos membres peuvent consulter indépendamment de ce
+serveur, et faites-le AVANT le premier envoi.** Concrètement : un courriel daté
+au comité social et économique et à votre délégué à la protection des données,
+un affichage interne, ou un message aux représentants du personnel.
+
+Pourquoi cela compte : cette empreinte permet de vérifier que le serveur n'a pas
+fabriqué une clé différente par personne — ce qui permettrait de retrouver qui a
+répondu quoi. Publiée par vous à l'avance, elle devient une preuve datée.
+Publiée après coup, ou pas publiée du tout, elle ne vaut rien : le serveur se
+comparerait à lui-même.
+
+C'est la seule étape de ce guide qui ne se fait pas dans le tableau de bord, et
+c'est l'une des plus importantes.
+
+### 5. Fixer la date d'ouverture, puis envoyer les invitations
+
+**D'abord la date.** Le tableau de bord vous demande à partir de quand les votes
+seront acceptés. Choisissez-la **après la fin de vos envois** — si vous étalez
+l'envoi des SMS sur deux jours, fixez l'ouverture au troisième.
+
+Pourquoi : sans cette date, chacun vote dans la foulée de sa réception. L'ordre
+des votes reproduit alors l'ordre de vos envois, que vous connaissez personne
+par personne — dans un petit groupe, cela suffirait à attribuer les réponses.
+La date brise ce lien.
+
+Tant qu'elle n'est pas atteinte, les liens sont valables mais inactifs :
+personne ne peut voter, et un participant qui essaie voit un message le lui
+expliquant, sans que son lien soit consommé.
+
+**Ensuite les envois.** Le tableau de bord génère les liens et propose un export
+CSV (groupe, lien, message).
 
 Vous chargez ce fichier dans **votre propre** outil d'envoi de SMS ou de
 courriel. VERA n'envoie rien lui-même et ne voit jamais un numéro de téléphone.
@@ -72,7 +117,7 @@ Trois précautions :
   pas le transférer.
 - Joignez la notice d'information (modèle ci-dessous).
 
-### 4. Publier
+### 6. Publier
 
 Le tableau de bord affiche la participation en temps réel, sans jamais montrer
 les réponses.
@@ -133,10 +178,26 @@ l'article 13 du RGPD.
 > permettant de vous identifier n'est enregistrée : ni votre nom, ni votre
 > adresse, ni votre numéro de téléphone, ni l'heure de votre réponse.
 >
-> **Comment votre anonymat est protégé :** le système utilisé ne conserve à
-> aucun moment le lien entre une personne et sa réponse. Ce n'est pas un
-> engagement de notre part : le serveur en est techniquement incapable. Le
-> fonctionnement est public et vérifiable.
+> **Comment votre réponse est protégée :** le serveur qui enregistre votre
+> réponse ne peut pas savoir de qui elle vient. Votre autorisation à participer
+> et votre réponse sont vérifiées séparément, par un procédé cryptographique
+> dont le code est public.
+>
+> Ce serveur n'est pas administré par [nom de l'organisation]. Il l'est par
+> [nom du tiers hébergeur], qui ne dispose pas de la liste des personnes
+> invitées. [Nom de l'organisation] détient cette liste, mais n'a accès ni au
+> serveur ni à sa base de données : elle ne voit que des totaux.
+>
+> **Ce sur quoi cette protection repose, et qu'il faut savoir :** elle tient au
+> fait que ces deux choses — la liste des invités et le serveur — sont entre des
+> mains différentes. Ce n'est pas une impossibilité physique, c'est une
+> séparation, encadrée par un contrat. Personne ne peut vous promettre
+> davantage, et quiconque vous le promettrait aurait tort.
+>
+> **Le résultat publié est volontairement approché**, d'environ trois points.
+> C'est cette imprécision qui empêche de remonter à une réponse individuelle.
+> Aucun résultat n'est publié si moins de 240 personnes de votre groupe
+> répondent.
 >
 > **Combien de temps :** les réponses sont agrégées puis effacées à la clôture
 > de la consultation, prévue le [date]. Seul le résultat collectif est
@@ -151,10 +212,27 @@ l'article 13 du RGPD.
 > **Pour toute question :** [contact du délégué à la protection des données ou
 > du responsable de la consultation].
 
-**Point de vigilance.** L'avant-dernier paragraphe n'est pas une clause de
-style : certains droits RGPD sont matériellement inapplicables ici. Cette
-impossibilité doit être annoncée **avant** la participation, pas découverte
-après.
+**Deux points de vigilance.**
+
+*Sur les droits.* L'avant-dernier paragraphe n'est pas une clause de style :
+certains droits RGPD sont matériellement inapplicables ici. Cette impossibilité
+doit être annoncée **avant** la participation, pas découverte après.
+
+*Sur la formulation de la garantie.* Une version antérieure de cette notice
+disait « le serveur en est techniquement incapable ». C'était faux, et il faut
+comprendre pourquoi avant d'être tenté de le réécrire.
+
+La cryptographie supprime le lien entre l'invitation et la réponse dans ce qui
+est ENREGISTRÉ. Elle ne supprime pas le lien dans le TEMPS : qui observerait la
+base pendant que la consultation tourne verrait une invitation être consommée,
+puis un compteur s'incrémenter quelques secondes plus tard. Il lui manquerait la
+correspondance personne → invitation — que vous détenez, et vous seule.
+
+La protection tient donc parce que l'hébergeur n'a pas votre liste, et que vous
+n'avez pas son serveur. C'est réel et c'est solide, mais c'est une séparation
+des rôles. Un participant qui découvrirait après coup qu'on lui a promis une
+impossibilité technique ferait plus de dégâts à votre démarche que n'importe
+quelle faille.
 
 ---
 
@@ -202,11 +280,23 @@ l'engagement pris auprès des participants.
 
 Un point mérite d'être compris, car il est contre-intuitif : **un instantané
 pris pendant la consultation est plus sensible qu'un instantané pris après.**
-Après clôture, il ne reste que des données effacées. Pendant, le journal
-d'écriture de la base conserve la trace des derniers votes enregistrés, dans
-l'ordre. VERA le tronque toutes les vingt écritures pour borner cette fenêtre,
-mais elle n'est pas nulle. Si votre hébergeur prend des instantanés fréquents,
-c'est le moment de la consultation qu'il faut protéger en priorité.
+Après clôture, il ne reste que des données effacées.
+
+Pendant, c'est différent. La base ne conserve aucun vote individuel, mais elle
+enregistre en direct deux choses : quelles invitations ont été utilisées, et
+combien de réponses chaque option a reçues. Qui lirait cette base **plusieurs
+fois pendant la consultation** verrait une invitation être utilisée, puis un
+compteur augmenter quelques secondes plus tard — et pourrait les rapprocher.
+
+Il lui manquerait la correspondance personne → invitation, que vous détenez et
+vous seule. C'est là que se joue la protection : elle tient parce que
+l'hébergeur n'a pas votre liste.
+
+**Ce que cela implique concrètement pour vous.** Pendant toute la fenêtre de
+consultation, aucune lecture répétée de la base ne doit avoir lieu : pas
+d'instantanés d'hyperviseur, pas de sauvegardes incrémentales, pas d'agent de
+supervision qui parcourt les fichiers. C'est un point à inscrire dans votre
+contrat d'hébergement, pas une simple recommandation technique.
 
 ---
 

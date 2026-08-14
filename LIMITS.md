@@ -10,6 +10,23 @@ VERA garantit qu'on ne peut pas apprendre COMMENT un individu a repondu (bruit
 differentiel, eps=0.5). Il ne garantit PAS, en toute generalite, qu'on ne puisse
 pas apprendre QU'UN individu a participe.
 
+**Deux traces de participation, a connaitre.**
+
+*Sur l'appareil du votant.* La page de vote inscrit un marqueur local
+(`vera_vote:` suivi de l'empreinte du jeton) pour reconnaitre un double clic ou
+un rechargement. Il persiste apres la fermeture du navigateur. Une organisation
+qui detient le jeton peut en calculer l'empreinte : sur un poste ou un telephone
+qu'elle administre, elle peut donc etablir qu'une personne nommee a participe --
+pas ce qu'elle a repondu. C'est la seule trace qui survit sur l'appareil, et
+elle n'est pas effacable par VERA.
+
+*Sur le serveur.* L'endpoint `/api/engagement_cles` est public et non
+authentifie : il expose la liste des groupes consultes a quiconque connait
+l'adresse du service, sans avoir recu de lien. C'est le prix de la
+verifiabilite -- un tiers doit pouvoir controler l'engagement de cles sans
+compte -- mais cela signifie que les noms de vos groupes ne sont pas
+confidentiels. Nommez-les en consequence.
+
 L'effectif total N d'un departement est publie exact. Cela repose sur un modele
 d'adjacence par SUBSTITUTION : sous ce modele N est invariant, le publier ne
 coute rien. Mais sous un modele d'AJOUT/RETRAIT, publier N exact revele la
@@ -397,8 +414,27 @@ a ses membres.
    une, et des questions parfaitement correlees. L'inference reellement
    mesuree sur VERA est tres inferieure : AUC = 0.6209 (IC95%
    [0.6185, 0.6232]), a peine mieux que le hasard.
-2. **K_MIN = 240 est la protection pratique porteuse.** La borne epsilon est
-   le garde-fou formel ; le seuil de 240 participants est ce qui noie une
-   reponse individuelle sur le terrain.
+2. **K_MIN = 240 aide en pratique, mais ce n'est pas lui qui porte la
+   garantie.** Le seuil compte face a un adversaire ordinaire : plus le groupe
+   est grand, plus une reponse s'y fond.
+
+   Il ne tient pas face a l'organisateur lui-meme. Rien ne l'empeche de generer
+   240 invitations pour un groupe de quinze personnes reelles, d'en conserver
+   225 et de voter 225 fois avec des reponses qu'il connait : la publication a
+   lieu (240 >= K_MIN), il soustrait ses propres votes, et lit le profil des
+   quinze autres. C'est le bourrage decrit en section 13, vu sous l'angle de
+   l'anonymat plutot que sous celui de la sincerite.
+
+   **Ce qui survit dans ce cas, c'est la borne epsilon.** Elle est une propriete
+   du mecanisme et non des donnees : meme en connaissant 239 reponses sur 240,
+   la certitude de l'adversaire sur la derniere reste bornee a environ 62 %
+   (bareme ci-dessus). C'est la garantie formelle qui porte, pas le seuil.
+
+   Consequence pour la formulation faite aux participants : ne pas promettre
+   « vous etes noyes parmi 240 ». Cette phrase suppose que les 239 autres soient
+   de vraies personnes, ce que le systeme ne verifie pas. La seule contre-mesure
+   au bourrage est procedurale : faire attester par un tiers -- comite social,
+   delegue du personnel -- que le nombre d'invitations emises correspond a un
+   effectif reel.
 3. La population evolue entre deux consultations (departs, arrivees), donc
    "la meme cohorte sur un an" surestime deja l'exposition reelle.

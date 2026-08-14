@@ -538,8 +538,17 @@ def _purger_signatures_expirees(seuil):
     couple (empreinte du jeton -> empreinte du message aveugle), c'est-a-dire
     exactement ce que ce systeme existe pour ne pas conserver.
 
-    La retention annoncee d'une heure doit valoir pour les octets, pas
-    seulement pour la visibilite logique.
+    PORTEE EXACTE DE CETTE PURGE
+    `del` supprime la reference, il n'ecrase pas la memoire : Python peut
+    conserver la chaine jusqu'au passage du ramasse-miettes, et rien ne
+    garantit qu'elle ne subsiste pas dans une page liberee. Un vidage de
+    memoire ou une image de machine virtuelle pourraient donc encore la
+    contenir apres l'heure annoncee.
+
+    Ce n'est donc pas un effacement securise, et le pretendre serait faux. Ce
+    que cette purge garantit : la donnee n'est plus atteignable par le code, et
+    le cache reste borne. Un effacement reel exigerait de manipuler des
+    bytearray et de les zeroiser -- envisageable, non fait a ce jour.
     """
     for cle in [k for k, v in _signatures_emises.items() if v[2] <= seuil]:
         del _signatures_emises[cle]

@@ -27,7 +27,23 @@ dp.enable_features("contrib")
 
 DELTA_INT = 2
 SCALE = 4.0
-BOUNDS = (0, 10000)
+# Borne du DOMAINE OpenDP, pas de la calibration. `scale` est passe
+# explicitement a make_laplace : elargir cette borne ne change ni le bruit ni
+# epsilon = Delta1/scale = 2/4 = 0,5.
+#
+# POURQUOI ELLE EST SI LARGE
+# Une version anterieure la fixait a 10 000 et LEVAIT au-dela, pour ne pas
+# publier un resultat faussement ecrete. L'intention etait bonne, la
+# consequence formelle ne l'etait pas : deux bases voisines a 10 000 et 10 001
+# produisaient des sorties distinguables avec probabilite 1 -- une branche
+# dependante des donnees, donc une perte de confidentialite non bornee sur cet
+# evenement. Le mecanisme n'etait plus strictement epsilon-DP.
+#
+# Une borne inatteignable supprime la branche sans rien changer d'autre. Le
+# scenario qui la motivait (plus de dix mille reponses dans un seul groupe)
+# reste hors de portee de ce systeme, mais il n'a plus besoin d'etre traite
+# par une exception.
+BOUNDS = (0, 10_000_000)
 
 _domaine = dp.atom_domain(T=int, bounds=BOUNDS)
 _metrique = dp.absolute_distance(T=int)
@@ -37,21 +53,15 @@ _mecanisme_laplace = dp.m.make_laplace(_domaine, _metrique, scale=SCALE)
 def appliquer_bruit_dp(valeur_brute: int) -> int:
     """Ajoute le bruit de Laplace calibre a un comptage.
 
-    REFUS AU-DELA DE LA BORNE, plutot qu'ecretage silencieux.
-    L'ecretage a BOUNDS[1] ne compromettait pas la garantie DP -- il est
-    1-lipschitzien, donc n'augmente pas la sensibilite. Mais il produisait un
-    resultat FAUX sans que rien ne le signale : les comptages etaient tronques
-    a 10 000, puis projetes sur une somme N superieure, donnant un histogramme
-    arbitraire publie comme s'il etait juste.
-    Pour un systeme dont l'objet est de dire la verite sur une opinion, un
-    resultat faux publie en silence est pire qu'un refus de publier.
+    AUCUNE BRANCHE DEPENDANTE DES DONNEES ICI.
+    Une version anterieure levait au-dela de 10 000 pour eviter un ecretage
+    silencieux. L'intention etait juste -- un resultat faux publie en silence
+    est pire qu'un refus -- mais la forme ne l'etait pas : le simple fait de
+    lever, ou non, distingue deux bases voisines avec probabilite 1. La borne
+    est desormais inatteignable (voir BOUNDS), ce qui supprime la branche sans
+    toucher a la calibration.
+    L'ecretage residuel reste 1-lipschitzien : il n'augmente pas la sensibilite.
     """
-    if valeur_brute > BOUNDS[1]:
-        raise ValueError(
-            f"Comptage de {valeur_brute} au-dela de la borne DP ({BOUNDS[1]}). "
-            "Publier l'ecreterait silencieusement et fausserait le resultat. "
-            "Relever BOUNDS exige de reverifier la calibration du bruit."
-        )
     valeur_bornee = max(BOUNDS[0], min(BOUNDS[1], valeur_brute))
     valeur_bruitee = _mecanisme_laplace(valeur_bornee)
     return max(0, valeur_bruitee)

@@ -601,6 +601,14 @@
       const eng = await rEng.json();
 
       // 1. L'ensemble des cles correspond-il a ce qui est inscrit dans le lien ?
+      // La consultation est-elle simplement terminee ? Les cles sont detruites
+      // a l'expiration comme a la cloture, et l'agregat devient nul. Sans ce
+      // test, le controle suivant conclurait a une divergence et accuserait le
+      // serveur d'etre compromis -- alors qu'il ne s'est rien passe d'anormal.
+      if (eng.consultation_terminee) {
+        showError("Cette consultation est terminée : les réponses ne sont plus acceptées. Si vous pensez avoir voté dans les délais, signalez-le à la personne qui vous a envoyé ce lien.", 'Consultation terminée');
+        return;
+      }
       if (eng.agregat_sha256 !== empreinteCleAttendue) {
         showError("La configuration du serveur ne correspond pas à ce lien. Vote refusé par sécurité : ne réessayez pas, signalez-le à la personne qui vous a envoyé ce lien.", 'Erreur de sécurité');
         return;

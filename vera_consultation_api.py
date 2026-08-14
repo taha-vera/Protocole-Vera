@@ -99,11 +99,44 @@ _verifier_worker_unique()
 # donc il ne doit pas etre ramasse par le glaneur de memoire.
 import fcntl
 import os
+import sys
+from pathlib import Path
 
-_CHEMIN_VERROU = os.environ.get("VERA_VERROU_PROCESSUS", "/tmp/vera_processus.lock")
+
+class _SauteVerrou(Exception):
+    """Signal interne : contexte de test, verrou non pris."""
+
+
+# A COTE DE LA BASE, pas dans /tmp.
+#
+# systemd propose `PrivateTmp=yes`, un durcissement courant qui donne a chaque
+# unite son propre /tmp. Deux unites lancees en parallele ne partageraient alors
+# pas ce fichier, et le verrou ne detecterait rien -- exactement le cas qu'il
+# existe pour empecher. Le placer aupres de la base le rend independant de ce
+# reglage.
+_CHEMIN_VERROU = os.environ.get(
+    "VERA_VERROU_PROCESSUS",
+    str(Path(os.environ.get("VERA_DB_PATH", "/root/vera_state.db")).parent
+        / "vera_processus.lock"))
+# Les tests n'ont pas a revendiquer l'exclusivite. Un test qui importe ce
+# module pour verifier autre chose -- la garde worker-unique, un correctif de
+# non-regression -- n'ouvre pas un service concurrent : il ne sert aucune
+# requete et ne publie rien. Sans cette exception, la suite de tests echouait
+# des que le service tournait, ce qui aurait rendu le verrou insupportable et
+# conduit a le retirer.
+#
+# Meme motif que le garde-fou de vera_persistance.py, qui empeche un script
+# test_*.py de toucher la base de production.
+_est_un_test = os.path.basename(sys.argv[0] or "").startswith("test_")
+
 try:
+    if _est_un_test:
+        _verrou_processus = None
+        raise _SauteVerrou()
     _verrou_processus = open(_CHEMIN_VERROU, "w")
     fcntl.flock(_verrou_processus, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except _SauteVerrou:
+    pass
 except OSError as _e:
     raise RuntimeError(
         f"VERA REFUSE DE DEMARRER : le verrou {_CHEMIN_VERROU} est deja "
@@ -1289,9 +1322,24 @@ def engagement_cles():
     deja distribuees une par une. Leur liste ne revele que les departements
     consultes, deja deductibles des liens en circulation.
     """
+    agregat = gestionnaire_signature.agregat_cles()
+    # Distinguer « plus de cles » de « configuration alteree ».
+    #
+    # A l'expiration des sept jours comme a la cloture, les cles sont
+    # detruites et l'agregat devient nul. Le client comparait alors cette
+    # valeur nulle a l'empreinte de son lien, concluait a une divergence, et
+    # affichait « la configuration du serveur ne correspond pas a ce lien,
+    # vote refuse par securite, signalez-le » -- une accusation de
+    # compromission adressee a un retardataire, dans le deroulement le plus
+    # normal qui soit.
+    #
+    # Le drapeau ci-dessous permet au client de dire « la consultation est
+    # terminee » plutot que d'alarmer sans raison. Dans un dispositif dont
+    # l'objet est la confiance, un faux positif de securite coute cher.
     return {
-        "agregat_sha256": gestionnaire_signature.agregat_cles(),
+        "agregat_sha256": agregat,
         "cles": gestionnaire_signature.cles_publiques_toutes(),
+        "consultation_terminee": agregat is None,
     }
 
 
@@ -1552,6 +1600,43 @@ def repondre(payload: ReponseModeleB):
         raise HTTPException(status_code=403, detail="Signature invalide.")
     if not valide:
         raise HTTPException(status_code=403, detail="Signature invalide.")
+
+    # REFUS APRES PUBLICATION -- avant toute ecriture.
+    #
+    # LE DEFAUT QUE CELA FERME
+    # Le resultat d'un groupe est FIGE a sa premiere publication : le tirage de
+    # bruit n'est fait qu'une fois, et _publier_departement renvoie ensuite la
+    # valeur figee (sans quoi plusieurs tirages permettraient de moyenner le
+    # bruit et de retrouver les comptes exacts).
+    #
+    # Mais rien n'empechait un vote d'arriver APRES. Il etait alors accepte,
+    # compte en base, et le votant lisait « votre contribution a ete integree
+    # au resultat collectif ». C'etait faux : sa voix n'apparaitrait dans aucun
+    # resultat, et la cloture l'effacerait. Un organisateur qui publie des le
+    # seuil atteint -- le bouton apparait a la 240e reponse -- condamnait ainsi
+    # silencieusement toutes les reponses suivantes.
+    #
+    # Un refus explicite vaut mieux qu'une confirmation fausse : le votant sait
+    # que sa voix n'a pas ete prise, et peut le signaler.
+    #
+    # Placement : AVANT le verrou et avant toute ecriture, pour ne rien
+    # consommer ni compter dans ce cas.
+    try:
+        if budget_epsilon.etat(payload.departement)["nombre_publications"] > 0:
+            raise HTTPException(
+                status_code=409,
+                detail="Le resultat de votre groupe a deja ete publie : les "
+                       "reponses ne sont plus comptabilisees. Votre voix n'a "
+                       "PAS ete enregistree. Signalez-le a la personne qui "
+                       "vous a envoye ce lien.",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        # Un etat de budget illisible ne doit pas bloquer un vote legitime :
+        # l'autorite reste la base, et le pire cas ici est le comportement
+        # anterieur a ce controle.
+        pass
 
     empreinte_k = hashlib.sha384(K).hexdigest()
 
