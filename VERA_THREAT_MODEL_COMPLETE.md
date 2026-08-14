@@ -65,9 +65,34 @@ separation des roles qui protege, pas une impossibilite technique — et c'est
 pourquoi l'hebergement par un tiers distinct de l'organisation qui consulte
 n'est pas une precaution supplementaire mais la condition de la garantie.
 
-**Ce qui la fermerait techniquement** : ecrire les compteurs par lots melanges
-avec un delai aleatoire, de sorte que l'ordre des increments ne reproduise plus
-l'ordre des consommations. Non implemente a ce jour ; l'arbitrage reste ouvert.
+**Ce qui la fermerait techniquement, et pourquoi ce n'est pas fait.**
+
+Deux constructions ont ete examinees le 13/08.
+
+*Retarder chaque depot d'un delai aleatoire avant ecriture.* Implemente puis
+retire apres mesure : le brouillage ne vaut que si les votes arrivent a un
+rythme comparable au delai. Simule sur 200 tirages avec un delai maximal de
+60 secondes --
+
+    1 vote / 10 s (pic d'affluence)   : 25 % des votes restent apparies
+    1 vote / 60 s                     : 74 %
+    1 vote / 5 min (rythme etale)     : 94 %
+
+Or une consultation de 240 reponses sur une semaine, c'est un vote toutes les
+quarante minutes en moyenne : le cas le plus a droite. La protection serait
+quasi nulle la ou elle compterait, et donnerait l'illusion d'une garantie
+technique la ou il n'y en a pas. Allonger le delai a la mesure du probleme --
+plusieurs dizaines de minutes -- est inacceptable pour le votant.
+
+*Ecrire les compteurs par lots melanges.* Efficace, mais la voix n'existerait
+qu'en memoire entre le depot et l'ecriture : un redemarrage la perdrait. C'est
+exactement le defaut ferme le 12/08 par l'idempotence de la signature. Le
+remede serait pire que le mal.
+
+**Conclusion assumee.** Le canal reste ouvert et la garantie reste
+procedurale : elle tient parce que l'hebergeur n'a pas la liste des invites.
+Une limite clairement ecrite vaut mieux qu'une attenuation qui rassure sans
+proteger.
 
 ### Niveau 2 — operateur activement malveillant
 
