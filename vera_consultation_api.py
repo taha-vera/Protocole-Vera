@@ -1336,10 +1336,44 @@ def engagement_cles():
     # Le drapeau ci-dessous permet au client de dire « la consultation est
     # terminee » plutot que d'alarmer sans raison. Dans un dispositif dont
     # l'objet est la confiance, un faux positif de securite coute cher.
+    # Nombre d'invitations emises par groupe. PUBLIC, deliberement.
+    #
+    # POURQUOI L'EXPOSER
+    # Le seuil de 240 reponses est presente comme une protection : en dessous,
+    # un chiffre en dirait trop sur chacun. Mais c'est l'organisation qui
+    # compose les groupes. Rien ne l'empeche de declarer un groupe de 240
+    # invitations dont quinze vont aux personnes qu'elle veut observer, les
+    # 225 autres restant entre ses mains : elle vote 225 fois avec des reponses
+    # connues, soustrait, et lit le profil des quinze. Le seuil est atteint, la
+    # publication a lieu, et la protection n'a pas joue.
+    #
+    # Un delegue du personnel qui connait l'effectif reel de chaque service
+    # peut desormais le comparer a ce chiffre, sans avoir a le demander a
+    # l'employeur -- donc sans dependre de sa bonne volonte. Un ecart
+    # important est un signal.
+    #
+    # Cette donnee ne revele rien sur les votes : elle compte des invitations
+    # emises, pas des reponses. Elle est de toute facon deductible, les liens
+    # circulant parmi les invites.
     return {
         "agregat_sha256": agregat,
         "cles": gestionnaire_signature.cles_publiques_toutes(),
         "consultation_terminee": agregat is None,
+        "invitations_emises": persistance.compter_jetons_par_departement(),
+        # Parametres de publication, exposes pour etre verifiables.
+        #
+        # Un delegue du personnel peut lire K_MIN = 240 dans le code source,
+        # mais rien ne lui disait quelle valeur tournait REELLEMENT sur le
+        # serveur pendant la consultation. Un seuil abaisse en cours de route --
+        # sous la pression d'une direction qui veut « des resultats par
+        # service » -- etait indetectable de l'exterieur.
+        #
+        # Ces valeurs proviennent de la memoire du processus qui sert les votes.
+        # Elles ne prouvent pas que le serveur execute le code publie -- rien ne
+        # le peut depuis l'exterieur -- mais un abaissement devient visible, et
+        # devra etre explique.
+        "seuil_publication": K_MIN,
+        "epsilon_par_publication": EPSILON_PAR_PUBLICATION,
     }
 
 

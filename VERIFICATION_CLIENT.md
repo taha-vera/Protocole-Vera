@@ -29,7 +29,7 @@ précisément celui que ces empreintes ferment.
 Version du 5 août 2026 :
 
 ```
-44fcdbf6db3c16bde05447f4650e94e1f36d68e4bcbb8a6cc8acf71e02c79cfc  static/vote.html
+af9ddb2b0528b7704da401effde6a460d6f6edcef5703b377eeb384c8f04617b  static/vote.html
 08e678cc5d64e9996cfe3cf54eb1220a1bb032c54d0c4351651f8aee057baa66  static/blindrsa-bundle.js
 ```
 

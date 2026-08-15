@@ -204,6 +204,11 @@
         groupe, un chiffre en dirait trop sur chacun.</span>
         <span style="display:block; margin-top:10px; font-size:13px;"><strong>Répondre
         est libre</strong> et n'a pas à être justifié.</span>
+        <span style="display:block; margin-top:10px; font-size:13px;">Un conseil :
+        <strong>répondez depuis votre téléphone personnel</strong>, pas depuis un
+        appareil ou un réseau de votre organisation. Votre réponse est protégée
+        dans tous les cas, mais un appareil professionnel peut garder la trace
+        que vous avez participé.</span>
       </div>
 
       <form id="vote-form">
@@ -661,7 +666,49 @@
         showError("Cette consultation est terminée : les réponses ne sont plus acceptées. Si vous pensez avoir voté dans les délais, signalez-le." + phraseRecours(), 'Consultation terminée');
         return;
       }
-      if (eng.agregat_sha256 !== empreinteCleAttendue) {
+      // RECALCUL DE L'AGREGAT -- ne jamais croire la valeur annoncee.
+      //
+      // LE TROU QUE CELA FERME
+      // Cette page comparait `eng.agregat_sha256` -- une valeur DECLAREE par le
+      // serveur -- a l'empreinte inscrite dans le lien. Un serveur malveillant
+      // n'avait donc qu'a recopier l'empreinte publiee par l'organisation, tout
+      // en servant une cle fabriquee pour ce votant precis : les trois
+      // controles passaient, et au depouillement il retrouvait qui avait
+      // produit quelle signature.
+      //
+      // Autrement dit, l'engagement etait entierement decoratif. Le serveur
+      // s'attestait lui-meme.
+      //
+      // Le client recalcule desormais l'empreinte a partir de la LISTE de cles
+      // qu'il a effectivement recue, et compare ce resultat au lien. Servir une
+      // cle differente change le calcul, donc echoue -- quoi que le serveur
+      // annonce.
+      //
+      // La construction doit reproduire exactement celle du serveur
+      // (vera_signature_manager.agregat_cles) : tri par nom de groupe, et
+      // longueur sur quatre octets avant chaque champ, sans quoi ("AB","C") et
+      // ("A","BC") donneraient la meme suite d'octets.
+      const agregatRecalcule = await (async () => {
+        const entrees = eng.cles.slice().sort((a, b) =>
+          a.departement < b.departement ? -1 : a.departement > b.departement ? 1 : 0);
+        const morceaux = [];
+        for (const e of entrees) {
+          const nom = new TextEncoder().encode(e.departement);
+          const pub = fromHex(e.cle_publique_hex);
+          const lNom = new Uint8Array(4);
+          new DataView(lNom.buffer).setUint32(0, nom.length, false);
+          const lPub = new Uint8Array(4);
+          new DataView(lPub.buffer).setUint32(0, pub.length, false);
+          morceaux.push(lNom, nom, lPub, pub);
+        }
+        const total = morceaux.reduce((n, m) => n + m.length, 0);
+        const tout = new Uint8Array(total);
+        let i = 0;
+        for (const m of morceaux) { tout.set(m, i); i += m.length; }
+        return toHex(new Uint8Array(await crypto.subtle.digest('SHA-256', tout)));
+      })();
+
+      if (agregatRecalcule !== empreinteCleAttendue) {
         showError("La configuration du serveur ne correspond pas à ce lien. Vote refusé par sécurité : ne réessayez pas, signalez-le." + phraseRecours(), 'Erreur de sécurité');
         return;
       }

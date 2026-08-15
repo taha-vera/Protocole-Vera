@@ -125,6 +125,46 @@ def main():
     else:
         print("  (--groupes non fourni : correspondance non verifiee)")
 
+    # --- 2ter. Parametres de publication -------------------------------------
+    # Le seuil de 240 est ecrit dans le code source, mais rien ne disait quelle
+    # valeur tournait REELLEMENT pendant la consultation. Un abaissement en
+    # cours de route -- pour obtenir « des resultats par service » -- etait
+    # indetectable de l'exterieur.
+    seuil = donnees.get("seuil_publication")
+    eps = donnees.get("epsilon_par_publication")
+    if seuil is not None:
+        print(f"\nSeuil de publication annonce par le serveur : {seuil}")
+        if seuil != 240:
+            anomalies.append(
+                f"ANOMALIE : le seuil de publication vaut {seuil} et non 240. "
+                "Un seuil abaisse permet de publier sur des groupes plus petits, "
+                "ou chaque reponse pese davantage."
+            )
+        else:
+            print("  OK : conforme a la valeur documentee (240).")
+    if eps is not None:
+        print(f"Epsilon par publication : {eps}")
+        if abs(eps - 0.5) > 1e-9:
+            anomalies.append(
+                f"ANOMALIE : epsilon vaut {eps} et non 0,5. Un epsilon plus "
+                "eleve signifie moins de bruit, donc une protection plus faible."
+            )
+
+    # --- 2bis. Invitations emises par groupe ---------------------------------
+    # Le seuil de 240 reponses ne protege que si les 240 invitations
+    # correspondent a de vraies personnes. C'est l'organisation qui compose les
+    # groupes : elle peut en declarer un de 240 dont quinze seulement sont
+    # reelles, voter 225 fois avec des reponses connues, soustraire, et lire le
+    # profil des quinze. Comparer ce chiffre a l'effectif reel est le seul
+    # controle possible, et il ne demande aucune competence technique.
+    invitations = donnees.get("invitations_emises") or {}
+    if invitations:
+        print("\nInvitations emises par groupe :")
+        for nom in sorted(invitations):
+            print(f"  {nom} : {invitations[nom]}")
+        print("  -> comparez ces nombres aux effectifs reels que vous connaissez.")
+        print("     Un ecart important doit etre justifie par ecrit.")
+
     # --- 3. Empreinte de l'ensemble ------------------------------------------
     recalcule = calculer_agregat(cles)
     print(f"\nEmpreinte recalculee : {recalcule}")

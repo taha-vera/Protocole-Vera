@@ -44,6 +44,27 @@ représentant du personnel, qui verra ce que vous ne voyez plus.
 
 ### 2. Vérifier la taille du groupe
 
+**Faites ce calcul avant tout le reste.** Il détermine si votre consultation est
+possible, et il en écarte beaucoup.
+
+Il faut 240 réponses par groupe pour qu'un résultat soit publié. Avec un taux de
+participation réaliste de 50 à 60 %, cela demande **au moins 450 à 500 invités
+par groupe**.
+
+Conséquence directe : une entreprise de 600 salariés ne peut publier qu'**un
+seul résultat d'ensemble**. Découper par service — atelier, administratif,
+direction — produirait des groupes de 150 ou 200 personnes dont aucun
+n'atteindrait le seuil : vous auriez envoyé 600 SMS pour n'obtenir aucun
+chiffre.
+
+Ce n'est pas une limite qu'on peut contourner en abaissant le seuil. Sur un
+groupe de 40 personnes, un résultat publié en dit trop sur chacune — c'est
+précisément ce que le seuil empêche.
+
+**Si vous voulez des résultats par service, il vous faut des services de 450
+personnes.** Sinon, consultez en un seul groupe, ou renoncez.
+
+
 **Aucun résultat n'est publié sous 240 réponses.** Ce n'est pas un réglage, c'est
 une protection : en dessous, une réponse individuelle redeviendrait devinable.
 
@@ -131,7 +152,25 @@ Trois précautions :
   pas le transférer.
 - Joignez la notice d'information (modèle ci-dessous).
 
-### 6. Publier
+### 6. Consulter, puis publier — deux gestes distincts
+
+**Consulter les résultats ne les fige pas.** Vous pouvez ouvrir le tableau de
+bord autant que vous voulez pendant la consultation : cela ne consomme rien et
+ne déclenche aucune publication.
+
+**Publier est un geste explicite et irréversible.** Le tirage du bruit n'est
+fait qu'une fois : le résultat est alors figé, et toute réponse arrivant après
+sera refusée. Un participant retardataire verra un message le lui expliquant,
+et sa voix ne sera pas comptée.
+
+**N'appuyez donc sur « Publier » qu'après la date de clôture annoncée à vos
+membres.** Publier dès que le seuil de 240 est atteint prive de leur voix tous
+ceux qui n'avaient pas encore répondu — et ils sont souvent ceux qui hésitaient
+le plus.
+
+Si vos représentants du personnel le demandent, faites-les assister à ce geste.
+
+### 6bis. Publier
 
 Le tableau de bord affiche la participation en temps réel, sans jamais montrer
 les réponses.
@@ -255,6 +294,12 @@ l'article 13 du RGPD.
 >
 > **Répondre est libre.** Ne pas répondre n'a aucune conséquence et n'a pas à
 > être justifié.
+>
+> **Un conseil pratique :** répondez depuis votre téléphone personnel, sur votre
+> connexion personnelle. Votre réponse est protégée dans tous les cas, mais un
+> appareil fourni par [nom de l'organisation] peut conserver la trace que vous
+> avez participé — jamais ce que vous avez répondu. Ce conseil ne coûte rien et
+> referme la question.
 >
 > **En cas de doute ou de difficulté :** écrivez à [contact indépendant — comité
 > social, délégué du personnel ou délégué à la protection des données]. Vous
