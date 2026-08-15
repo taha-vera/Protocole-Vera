@@ -7,7 +7,7 @@
      malvoyantes et des personnes agees ; leur retirer la possibilite d agrandir
      la question et les options revient a leur retirer leur voix. -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Consultation — Réponse confidentielle</title>
+<title>Consultation anonyme</title>
 <style>
   /* Aucune police distante : la page de vote ne doit dependre d'AUCUN tiers.
      Charger des polices chez Google revenait a lui donner l'IP de chaque votant
@@ -175,12 +175,35 @@
   <div class="container">
 
     <div id="form-screen">
-      <p class="eyebrow">Consultation anonyme</p>
+      <p class="eyebrow">Réponse anonyme</p>
       <h1 id="question-title">Chargement de la question…</h1>
 
+      <!-- Ce texte a ete reecrit apres une relecture du point de vue de la
+           personne qui vote. Trois principes en sont sortis :
+
+           1. Decrire le mecanisme plutot que promettre une impossibilite.
+              « Personne ne peut savoir » est une phrase que tout le monde a
+              deja entendue ailleurs, et elle etait fausse : la protection tient
+              a une separation des roles, pas a une impossibilite mathematique.
+              Une garantie nommable est plus credible qu'une garantie absolue.
+
+           2. Ne jamais accoler « votre reponse » et « identifiable ». La
+              version precedente disait « en dessous de 240, votre reponse
+              serait trop identifiable » : le lecteur presse ne retenait que le
+              dernier mot.
+
+           3. Dire que repondre est libre. Sans cette mention, un message venu
+              de l'employeur se lit comme une injonction. -->
       <div class="guarantee">
-        Votre réponse est agrégée avec celles des autres participants. <strong>Personne — y compris l'organisateur — ne peut savoir ce que vous avez répondu individuellement.</strong>
-        <span style="display:block; margin-top:10px; font-size:13px;">Aucun résultat n'est publié tant que votre groupe n'a pas atteint 240 réponses : en dessous, votre réponse serait trop identifiable. VERA protège votre réponse, mais ne vérifie pas la liste des personnes invitées : elle est établie par l'organisateur, qui en répond.</span>
+        <strong>Votre réponse n'est jamais enregistrée à côté de votre nom.</strong>
+        Votre lien sert à vérifier que vous êtes bien invitée, puis il est détaché
+        de votre réponse avant l'envoi. L'organisation ne reçoit qu'un résultat
+        d'ensemble.
+        <span style="display:block; margin-top:10px; font-size:13px;">Les résultats
+        ne sont publiés que pour des groupes d'au moins 240 réponses : sur un petit
+        groupe, un chiffre en dirait trop sur chacun.</span>
+        <span style="display:block; margin-top:10px; font-size:13px;"><strong>Répondre
+        est libre</strong> et n'a pas à être justifié.</span>
       </div>
 
       <form id="vote-form">
@@ -201,12 +224,16 @@
       </form>
 
       <p class="footnote">
-        Ce lien est à usage unique et personnel — <strong>ne le transférez pas</strong> : quiconque l'ouvre peut voter à votre place. Une fois votre réponse envoyée, elle ne peut plus être modifiée ni retracée jusqu'à vous. En cas de problème, contactez la personne qui vous a envoyé ce lien.
+        Ce lien ne fonctionne qu'une fois et ne vaut que pour vous : ne le
+        transmettez à personne. Il sert uniquement à vérifier que vous êtes
+        invitée — il n'est pas joint à votre réponse.
+        <span style="display:block; margin-top:8px;">Une fois envoyée, votre
+        réponse ne peut plus être modifiée ni retirée, même sur demande. C'est
+        précisément ce qui fait qu'on ne peut pas remonter jusqu'à vous.</span>
       </p>
       <p id="avertissement-envoi" style="display:none; margin-top:14px; padding:12px 14px; background:#fff4e5; border-left:3px solid #d97706; color:#7c2d12; font-size:15px; line-height:1.5;" role="status">
-        <strong>Ne fermez pas cette page.</strong> L'envoi est en cours. Si vous
-        quittez maintenant, votre lien sera consommé sans que votre réponse soit
-        enregistrée.
+        <strong>Envoi en cours.</strong> Restez sur la page quelques secondes.
+        Si vous la fermez maintenant, votre réponse sera perdue.
       </p>
     </div>
 
@@ -216,7 +243,7 @@
         <path d="M20 33 L28 41 L44 24" stroke="#C9A227" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
       <p class="state-title">Réponse enregistrée</p>
-      <p class="state-text">Merci d'avoir participé. Votre contribution a été intégrée au résultat collectif, sans pouvoir être reliée à votre identité.</p>
+      <p class="state-text">Elle a rejoint celles des autres participants. Vous pouvez fermer cette page.</p>
     </div>
 
     <div id="error-screen" class="state-screen" role="alert" aria-live="assertive" aria-atomic="true">
@@ -226,7 +253,7 @@
         <circle cx="32" cy="46" r="2" fill="#8B3A3A"/>
       </svg>
       <p class="state-title">Une erreur est survenue</p>
-      <p class="state-text">Chaque lien de participation ne peut servir qu'une seule fois. Si vous pensez qu'il s'agit d'une erreur, contactez la personne qui vous a envoyé ce lien.</p>
+      <p class="state-text">Chaque lien de participation ne peut servir qu'une seule fois. Si vous pensez qu'il s'agit d'une erreur, vous pouvez demander un nouveau lien — sans avoir à dire ce que vous vouliez répondre.</p>
     </div>
 
   </div>
@@ -272,6 +299,31 @@
   const jetonAutorisation = frag.get('a');
   const departementVote = frag.get('d');
   const empreinteCleAttendue = frag.get('k') || '';
+
+  // RECOURS -- ne jamais renvoyer vers l'employeur.
+  //
+  // Une relecture du point de vue de la personne qui vote a montre que tous les
+  // messages d'erreur disaient « contactez la personne qui vous a envoye ce
+  // lien ». Or cette personne, c'est son employeur. Tout ce dispositif existe
+  // pour qu'elle n'ait pas a lui faire confiance -- et sur l'ecran d'erreur,
+  // c'etait pire : elle devait aller lui dire qu'elle avait essaye de voter,
+  // c'est-a-dire reveler sa participation, la seule chose que le systeme ne
+  // protege pas.
+  //
+  // Le contact independant est fourni par l'organisation dans le lien, comme le
+  // reste des parametres. A defaut, on n'invente pas d'interlocuteur : on dit
+  // simplement quoi faire, sans exiger de justification.
+  const contactIndependant = frag.get('c') || '';
+
+  function phraseRecours() {
+    if (contactIndependant) {
+      return " Un problème, un doute ? Écrivez à " + contactIndependant +
+             " — vous n'avez pas à justifier votre demande, ni à dire ce que vous vouliez répondre.";
+    }
+    return " Vous pouvez demander un nouveau lien. Vous n'avez pas à justifier" +
+           " votre demande, ni à dire ce que vous vouliez répondre.";
+  }
+
 
   const form = document.getElementById('vote-form');
   const formScreen = document.getElementById('form-screen');
@@ -544,7 +596,7 @@
       // opaque et croirait a une panne. Il doit savoir que son vote a ete
       // interrompu POUR SA PROTECTION, et qu'il ne doit pas insister.
       if (!window.RSABSSA) {
-        showError("Le module de sécurité n'a pas pu être chargé, ou il a été refusé par votre navigateur parce qu'il ne correspondait pas à la version attendue. Votre vote n'a pas été enregistré et votre lien reste valable. Réessayez plus tard ; si le problème persiste, signalez-le à la personne qui vous a envoyé ce lien.", "Vote interrompu par sécurité");
+        showError("Le module de sécurité n'a pas pu être chargé, ou il a été refusé par votre navigateur parce qu'il ne correspondait pas à la version attendue. Votre vote n'a pas été enregistré et votre lien reste valable. Réessayez plus tard ; si le problème persiste, demandez un nouveau lien." + phraseRecours(), "Vote interrompu par sécurité");
         return;
       }
       const suite = window.RSABSSA.SHA384.PSS.Randomized();
@@ -606,11 +658,11 @@
       // test, le controle suivant conclurait a une divergence et accuserait le
       // serveur d'etre compromis -- alors qu'il ne s'est rien passe d'anormal.
       if (eng.consultation_terminee) {
-        showError("Cette consultation est terminée : les réponses ne sont plus acceptées. Si vous pensez avoir voté dans les délais, signalez-le à la personne qui vous a envoyé ce lien.", 'Consultation terminée');
+        showError("Cette consultation est terminée : les réponses ne sont plus acceptées. Si vous pensez avoir voté dans les délais, signalez-le." + phraseRecours(), 'Consultation terminée');
         return;
       }
       if (eng.agregat_sha256 !== empreinteCleAttendue) {
-        showError("La configuration du serveur ne correspond pas à ce lien. Vote refusé par sécurité : ne réessayez pas, signalez-le à la personne qui vous a envoyé ce lien.", 'Erreur de sécurité');
+        showError("La configuration du serveur ne correspond pas à ce lien. Vote refusé par sécurité : ne réessayez pas, signalez-le." + phraseRecours(), 'Erreur de sécurité');
         return;
       }
 
@@ -620,7 +672,7 @@
       //    l'attaque, pas le hachage.
       const noms = eng.cles.map(c => c.departement);
       if (noms.length !== new Set(noms).size) {
-        showError("Le serveur déclare plusieurs clés pour un même groupe, ce qui n'est jamais légitime. Vote refusé par sécurité : signalez-le à la personne qui vous a envoyé ce lien.", 'Erreur de sécurité');
+        showError("Le serveur déclare plusieurs clés pour un même groupe, ce qui n'est jamais légitime. Vote refusé par sécurité : signalez-le." + phraseRecours(), 'Erreur de sécurité');
         return;
       }
 
@@ -628,7 +680,7 @@
       //    Sans ce controle, le serveur pourrait servir une cle hors liste
       //    tout en presentant un agregat correct.
       if (!eng.cles.some(c => c.cle_publique_hex === cle_publique_hex)) {
-        showError("La clé utilisée pour votre vote ne figure pas parmi celles qui ont été publiées. Vote refusé par sécurité : signalez-le à la personne qui vous a envoyé ce lien.", 'Erreur de sécurité');
+        showError("La clé utilisée pour votre vote ne figure pas parmi celles qui ont été publiées. Vote refusé par sécurité : signalez-le." + phraseRecours(), 'Erreur de sécurité');
         return;
       }
 
@@ -705,7 +757,7 @@
       submitBtn.disabled = false;
       submitBtn.textContent = 'Envoyer ma réponse';
       document.getElementById('avertissement-envoi').style.display = 'none';
-      showInlineError('Erreur inattendue : ' + err.message + '. Réessayez ou contactez la personne qui vous a envoyé ce lien.');
+      showInlineError('Erreur inattendue : ' + err.message + '. Réessayez.' + phraseRecours());
       return;
     }
 

@@ -102,6 +102,20 @@ Tant qu'elle n'est pas atteinte, les liens sont valables mais inactifs :
 personne ne peut voter, et un participant qui essaie voit un message le lui
 expliquant, sans que son lien soit consommé.
 
+**Un contact indépendant, à ajouter aux liens.** Si un participant rencontre un
+problème — page bloquée, lien qui ne fonctionne pas, doute sur le dispositif —
+il ne doit pas avoir à s'adresser à vous. Vous demander de l'aide reviendrait à
+vous révéler qu'il a essayé de voter, c'est-à-dire la seule chose que le système
+ne protège pas.
+
+Ajoutez donc `&c=` suivi d'une adresse de contact à la fin de chaque lien —
+celle du comité social, d'un délégué du personnel, ou de votre délégué à la
+protection des données. La page de vote l'affichera dans ses messages d'erreur.
+
+Sans ce paramètre, la page se contente de dire au participant qu'il peut
+demander un nouveau lien, sans désigner d'interlocuteur. C'est acceptable, mais
+un contact réel vaut mieux.
+
 **Ensuite les envois.** Le tableau de bord génère les liens et propose un export
 CSV (groupe, lien, message).
 
@@ -162,6 +176,47 @@ vous annoncez à vos membres s'affaiblit réellement.
 
 ---
 
+## Le message d'invitation
+
+C'est le premier contact, et il décide de tout : une personne qui trouve ce
+message suspect ne cliquera pas, ou cliquera pour répondre ce qu'elle croit
+qu'on attend d'elle.
+
+**Une contrainte technique d'abord.** Le lien de participation fait à lui seul
+environ 155 caractères. Un SMS unique en contient 160 : votre message occupera
+donc deux segments, facturés comme deux SMS. Prévoyez-le avec votre prestataire.
+
+**Modèle, à adapter :**
+
+> [Prénom], une consultation anonyme est ouverte sur [sujet en trois mots].
+> Votre avis compte, quel qu'il soit. Répondre prend une minute, c'est libre, et
+> personne ne saura ce que vous avez répondu. [lien]
+
+**Ce que ce modèle évite, et pourquoi.**
+
+*Pas de nom d'expéditeur hiérarchique.* « La Direction vous invite à » transforme
+une consultation en convocation. Si votre outil impose un expéditeur, préférez le
+nom du dispositif ou celui du comité social.
+
+*Pas de date limite dans le SMS.* « Avant vendredi » ajoute une pression là où il
+faut de la confiance. La date figure dans la notice, cela suffit.
+
+*Pas de « votre participation est importante pour nous ».* Cette formule est celle
+des enquêtes commerciales ; elle signale un questionnaire de plus, pas un
+dispositif protégé.
+
+*Dire « c'est libre ».* Un message venu de l'employeur se lit par défaut comme
+une obligation. Trois mots suffisent à lever cela, et leur absence coûte des
+réponses sincères.
+
+**Annoncez la consultation avant d'envoyer les liens.** Un SMS contenant un lien
+inconnu ressemble à une tentative d'hameçonnage — c'est même exactement la forme
+qu'elles prennent. Une réunion d'équipe, une note de service ou un message du
+comité social, quelques jours avant, transforme un lien suspect en lien attendu.
+C'est probablement ce qui aura le plus d'effet sur votre taux de réponse.
+
+---
+
 ## Notice d'information à joindre aux invitations
 
 À adapter à votre organisation. Les mentions ci-dessous répondent à
@@ -193,6 +248,17 @@ l'article 13 du RGPD.
 > mains différentes. Ce n'est pas une impossibilité physique, c'est une
 > séparation, encadrée par un contrat. Personne ne peut vous promettre
 > davantage, et quiconque vous le promettrait aurait tort.
+>
+> **Ce qui n'est pas protégé :** le fait que vous ayez participé. [Nom de
+> l'organisation] sait qui a été invité, et le nombre total de réponses est
+> publié. C'est votre réponse qui est protégée, pas votre participation.
+>
+> **Répondre est libre.** Ne pas répondre n'a aucune conséquence et n'a pas à
+> être justifié.
+>
+> **En cas de doute ou de difficulté :** écrivez à [contact indépendant — comité
+> social, délégué du personnel ou délégué à la protection des données]. Vous
+> n'avez à justifier ni votre demande, ni ce que vous vouliez répondre.
 >
 > **Le résultat publié est volontairement approché**, d'environ trois points.
 > C'est cette imprécision qui empêche de remonter à une réponse individuelle.
