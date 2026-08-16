@@ -73,6 +73,7 @@ _SQL_TABLES = [
     # Une seule ligne (id=1). Les OPTIONS ne sont pas stockees : elles restent
     # a trois (oui/non/abstention) car toute la calibration DP en depend --
     # DELTA_INT=2 et K_MIN=240 ont ete mesures sur trois options.
+    "CREATE TABLE IF NOT EXISTS historique_consultations (groupe TEXT NOT NULL, close_unix REAL NOT NULL)",
     "CREATE TABLE IF NOT EXISTS question_active (id INTEGER PRIMARY KEY CHECK (id = 1), intitule TEXT NOT NULL, ouverture_depots_unix REAL, groupes_declares TEXT)",
     "CREATE TABLE IF NOT EXISTS jetons_autorisation (jeton TEXT PRIMARY KEY, departement TEXT NOT NULL, utilise INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS cle_rsa_active (departement TEXT PRIMARY KEY, cle_privee_hex TEXT NOT NULL, cle_publique_hex TEXT NOT NULL, ouverture_unix REAL NOT NULL, salt_hex TEXT)",
@@ -622,6 +623,47 @@ def charger_groupes_declares():
         return None
     import json as _json
     return _json.loads(row[0])
+
+
+def enregistrer_consultation_close(groupes):
+    """Note la date de cloture pour chaque groupe consulte.
+
+    POURQUOI CETTE TABLE SURVIT A LA CLOTURE
+    Tout le reste est efface : compteurs, jetons, budget, cles. Cette table ne
+    l'est pas, deliberement, parce qu'elle sert precisement a se souvenir
+    d'apres.
+
+    Ce qu'elle contient est anodin -- un nom de groupe et une date -- et ne dit
+    rien sur les reponses. Mais elle permet d'avertir un organisateur qui
+    reconsulte le meme groupe trop souvent : chaque publication apprend un peu
+    sur la population, et cette usure ne se voit pas.
+
+    CE QUE CET AVERTISSEMENT NE PEUT PAS FAIRE
+    VERA ne connait pas vos membres -- c'est ce qui protege leur anonymat. Il ne
+    peut donc pas savoir que le groupe « Atelier 2 » designe les memes personnes
+    que « Atelier ». Un organisateur qui renomme ses groupes contourne cet
+    avertissement sans le vouloir, ou en le voulant.
+    C'est un garde-fou de bonne foi, pas une contrainte. La regle des quatre
+    consultations annuelles reste sous la responsabilite de l'organisation.
+    """
+    maintenant = time.time()
+    with _verrou_db:
+        for g in groupes:
+            _conn.execute(
+                "INSERT INTO historique_consultations (groupe, close_unix) VALUES (?, ?)",
+                (g, maintenant))
+        _conn.commit()
+
+
+def compter_consultations_recentes(groupe, fenetre_secondes=365 * 24 * 3600):
+    """Nombre de consultations closes sur ce groupe dans la fenetre donnee."""
+    seuil = time.time() - fenetre_secondes
+    with _verrou_db:
+        row = _conn.execute(
+            "SELECT COUNT(*) FROM historique_consultations "
+            "WHERE groupe = ? AND close_unix > ?",
+            (groupe, seuil)).fetchone()
+    return row[0] if row else 0
 
 
 def persister_groupes_declares(groupes):

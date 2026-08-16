@@ -44,9 +44,23 @@ précaution supplémentaire, c'est la condition de la garantie.
 Face à un opérateur qui chercherait **activement** à contourner le système — en
 servant un client modifié — aucune vérification exécutée dans un navigateur ne
 protège. Détail :
-[modèle de menace](VERA_THREAT_MODEL_COMPLETE.md), section 1. Les garanties statistiques sur les résultats publiés
-(confidentialité différentielle, ε=0.5) reposent sur des hypothèses documentées
-dans [LIMITS.md](LIMITS.md).
+[modèle de menace](VERA_THREAT_MODEL_COMPLETE.md), section 1.
+
+**Ce que la confidentialité différentielle couvre, et ce qu'elle ne couvre
+pas.** La garantie ε = 0,5 borne ce qu'un adversaire peut apprendre **des
+résultats publiés** : même en connaissant toutes les autres réponses, sa
+certitude sur une réponse individuelle reste bornée à environ 62 %, contre 50 %
+sans information. C'est une propriété du mécanisme, vérifiable, et elle tient.
+
+Elle ne borne rien d'autre. Elle ne protège pas le fait qu'une personne ait
+participé, ni le moment où elle l'a fait, ni ce qu'un adversaire apprendrait en
+observant le serveur pendant la consultation. Ces canaux existent, ils sont
+décrits dans [LIMITS.md](LIMITS.md), et aucune valeur d'epsilon ne les ferme.
+
+Un lecteur pressé retient « confidentialité différentielle » comme un label de
+protection totale. Ce n'en est pas un : c'est une garantie précise sur un
+périmètre précis, et c'est hors de ce périmètre que se trouvent les vraies
+limites de ce système.
 
 **Ce qui reste de la responsabilité de l'organisation.** VERA ne connaît pas la
 liste de vos membres : c'est ce qui protège leur anonymat. La contrepartie est
@@ -70,7 +84,7 @@ glissants sur la même population** (ε cumulé = 2.0, dernier palier
 défendable). Barème complet et justification : [LIMITS.md §14](LIMITS.md).
 
 - *Modèle de menace complet (26 portes)* : [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md)
-- *Mécanisme de bruit en production* : [vera_dp_noise.py](vera_dp_noise.py) (OpenDP, Δ=2, scale=4, ε=0.5, bounds=(0,10000))
+- *Mécanisme de bruit en production* : [vera_dp_noise.py](vera_dp_noise.py) (OpenDP, Δ₁=2 sous adjacence par substitution, scale=4, ε=0.5)
 - *Persistance chiffrée de l'état (Portes 11, 14)* : [vera_persistance.py](vera_persistance.py) (SQLite en journal_mode=DELETE, Fernet/AES-128)
 - *Porte 7 (signature aveugle, production)* : [vera_signature_manager.py](vera_signature_manager.py) et [vera_blind_sig/](vera_blind_sig/) — primitive RSABSSA RFC 9474. L'aveuglement et la finalisation ont lieu dans le navigateur du votant : le serveur ne voit ni le secret ni la signature finale.
 

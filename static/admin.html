@@ -638,6 +638,16 @@
         groupesBtn.disabled = false;
         return;
       }
+      // Avertissements de frequence renvoyes par le serveur. Chaque
+      // publication apprend un peu sur la population : au-dela de quatre
+      // consultations annuelles, la protection annoncee s'affaiblit reellement.
+      try {
+        const d = await r.json();
+        if (d && d.avertissements_frequence && d.avertissements_frequence.length) {
+          alert("Attention :\n\n  · " + d.avertissements_frequence.join("\n  · ") +
+                "\n\nVoir la section « Fréquence des consultations » ci-dessous.");
+        }
+      } catch (e) { /* sans consequence */ }
       await rafraichirGroupes();
     } catch (e) {
       groupesEtat.textContent = "Connexion impossible. Réessayez.";

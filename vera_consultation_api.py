@@ -1131,6 +1131,19 @@ def cloturer_consultation(session_vera: Optional[str] = Cookie(None)):
         gestionnaire_signature.fermer_consultation()
 
         # 3. Effacer tout l'etat brut cote base.
+            # Noter les groupes AVANT l'effacement : ensuite, la liste n'existe
+        # plus. Cet historique survit a la cloture, contrairement au reste --
+        # il sert precisement a se souvenir d'apres (voir
+        # enregistrer_consultation_close dans vera_persistance).
+        try:
+            _groupes = persistance.charger_groupes_declares() or []
+            if _groupes:
+                persistance.enregistrer_consultation_close(_groupes)
+        except Exception as e:
+            # Un historique qui echoue ne doit pas empecher l'effacement : la
+            # minimisation prime sur l'avertissement.
+            print(f"ATTENTION : historique non enregistre ({e}).")
+
         persistance.effacer_etat_consultation()
 
         # 4. Vider les registres memoire.
@@ -1284,11 +1297,35 @@ def declarer_groupes(payload: DeclarerGroupesRequete,
     persistance.persister_groupes_declares(groupes)
     agregat = gestionnaire_signature.agregat_cles()
 
+    # Avertissement de frequence. Chaque publication apprend un peu sur la
+    # population : quatre consultations annuelles sur un meme groupe restent
+    # acceptables, au-dela la garantie annoncee aux participants s'affaiblit
+    # reellement (bareme dans LIMITS.md, section 14).
+    #
+    # C'est un avertissement, pas un refus. VERA ne connait pas vos membres :
+    # il ne peut pas savoir que « Atelier 2 » designe les memes personnes
+    # qu'« Atelier ». Bloquer sur un nom donnerait une fausse assurance.
+    avertissements = []
+    for nom in groupes:
+        try:
+            n = persistance.compter_consultations_recentes(nom)
+        except Exception:
+            continue
+        if n >= 4:
+            avertissements.append(
+                f"« {nom} » a deja ete consulte {n} fois cette annee. Au-dela "
+                "de quatre, la protection annoncee a vos membres s'affaiblit "
+                "reellement.")
+        elif n >= 2:
+            avertissements.append(
+                f"« {nom} » a deja ete consulte {n} fois cette annee.")
+
     return {
         "groupes": groupes,
         "empreinte_ensemble": agregat,
         "message": "Publiez cette empreinte hors de ce serveur AVANT d'envoyer "
                    "les liens : elle sera inscrite dans chacun d'eux.",
+        "avertissements_frequence": avertissements,
     }
 
 
