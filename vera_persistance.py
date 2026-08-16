@@ -260,7 +260,9 @@ def _migrer_tokens_sans_rowid(conn):
     conn.execute("DROP TABLE tokens_consommes")
     conn.execute("ALTER TABLE tokens_consommes_v3 RENAME TO tokens_consommes")
     conn.commit()
-    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    # VACUUM seul depuis le passage en journal_mode=DELETE : il n'y a plus de
+    # WAL a tronquer. VACUUM reecrit le fichier, ce qui libere les pages
+    # contenant les anciennes lignes.
     conn.execute("VACUUM")
 
 
@@ -778,11 +780,15 @@ def effacer_etat_consultation():
     # conserve plus rien" -- n'est vraie qu'au niveau LOGIQUE : les lignes
     # supprimees restent lisibles dans le journal -wal (qui contient les pages
     # AVANT suppression) et dans les pages liberees du fichier .db. Le PRAGMA
-    # secure_delete ecrase bien les octets d'une ligne supprimee, mais il ne
-    # vide pas le WAL. Meme correctif que celui applique aux migrations le
-    # 23/07 : le DROP nettoyait la vue, pas les octets.
+    # secure_delete ecrase les octets d'une ligne supprimee, mais les pages
+    # liberees peuvent conserver des traces jusqu'a reecriture du fichier.
+    # Meme correctif que celui applique aux migrations le 23/07 : le DROP
+    # nettoyait la vue, pas les octets.
+    #
+    # Le wal_checkpoint qui figurait ici n'a plus d'objet depuis le passage en
+    # journal_mode=DELETE (13/08) : aucun journal ne persiste entre deux
+    # transactions. VACUUM suffit et fait le travail.
     with _verrou_db:
-        _conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         _conn.execute("VACUUM")
 
 

@@ -282,24 +282,27 @@ l'article 13 du RGPD.
 > invitées. [Nom de l'organisation] détient cette liste, mais n'a accès ni au
 > serveur ni à sa base de données : elle ne voit que des totaux.
 >
-> **Ce sur quoi cette protection repose, et qu'il faut savoir :** elle tient au
-> fait que ces deux choses — la liste des invités et le serveur — sont entre des
-> mains différentes. Ce n'est pas une impossibilité physique, c'est une
-> séparation, encadrée par un contrat. Personne ne peut vous promettre
-> davantage, et quiconque vous le promettrait aurait tort.
+> **Ce sur quoi cette protection repose, et comment le vérifier.** Elle tient au
+> fait que la liste des invités et le serveur sont entre des mains différentes.
+> Ce n'est pas une impossibilité physique, c'est une séparation — et vous
+> pouvez la contrôler : le nom de l'hébergeur et son contrat sont communiqués
+> à vos représentants du personnel, qui peuvent aussi vérifier eux-mêmes la
+> configuration du serveur pendant toute la consultation.
 >
-> **Ce qui n'est pas protégé :** le fait que vous ayez participé. [Nom de
-> l'organisation] sait qui a été invité, et le nombre total de réponses est
-> publié. C'est votre réponse qui est protégée, pas votre participation.
+> **Ce que ce dispositif protège, et ce qu'il ne cache pas.** Votre réponse est
+> protégée dans tous les cas — c'est l'objet même du système. En revanche, il ne
+> cache pas le fait que vous ayez participé : [nom de l'organisation] sait qui a
+> été invité, et le nombre total de réponses est publié.
 >
-> **Répondre est libre.** Ne pas répondre n'a aucune conséquence et n'a pas à
-> être justifié.
+> Deux choses vous rendent la main là-dessus :
 >
-> **Un conseil pratique :** répondez depuis votre téléphone personnel, sur votre
-> connexion personnelle. Votre réponse est protégée dans tous les cas, mais un
-> appareil fourni par [nom de l'organisation] peut conserver la trace que vous
-> avez participé — jamais ce que vous avez répondu. Ce conseil ne coûte rien et
+> — **Répondez depuis votre téléphone personnel**, sur votre connexion
+> personnelle. Un appareil professionnel peut conserver la trace que vous avez
+> participé — jamais ce que vous avez répondu. Ce conseil ne coûte rien et
 > referme la question.
+>
+> — **Répondre est libre.** Ne pas répondre n'a aucune conséquence, n'a pas à
+> être justifié, et ne peut vous être reproché.
 >
 > **En cas de doute ou de difficulté :** écrivez à [contact indépendant — comité
 > social, délégué du personnel ou délégué à la protection des données]. Vous
