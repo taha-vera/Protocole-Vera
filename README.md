@@ -192,7 +192,9 @@ pip install -r requirements.txt
 # Le module de signature aveugle est en Rust : il n'est pas sur PyPI.
 # Sans lui, l'API refuse de démarrer (fail-closed, porte 7).
 pip install maturin
-cd vera_blind_sig && maturin develop --release && cd ..
+cd vera_blind_sig
+PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release
+cd ..
 
 # Clé de chiffrement de la base — À CONSERVER HORS DU SERVEUR.
 # Sans elle, aucun redémarrage n'est possible et les données sont illisibles.
@@ -201,6 +203,12 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 # Empreinte du mot de passe d'administration
 python3 -c "from vera_admin_auth import generer_empreinte; print(generer_empreinte('votre-mot-de-passe'))"
 ```
+
+> **Sur la variable `PYO3_USE_ABI3_FORWARD_COMPATIBILITY`.** PyO3 refuse de
+> compiler contre une version de Python qu'il ne connaît pas encore — c'est le
+> cas de la 3.14. Sans cette variable, `maturin` échoue avec un message qui
+> ressemble à une erreur de code alors que le code est correct. Elle est inutile
+> sur Python 3.11 à 3.13, et sans effet négatif.
 
 Copiez `infra/nginx-vera-consultation.conf` dans vos sites nginx et adaptez le
 nom de domaine. **Ne modifiez pas les blocs `access_log off` ni la directive
