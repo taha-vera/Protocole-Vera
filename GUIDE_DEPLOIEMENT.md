@@ -129,13 +129,18 @@ il ne doit pas avoir à s'adresser à vous. Vous demander de l'aide reviendrait 
 vous révéler qu'il a essayé de voter, c'est-à-dire la seule chose que le système
 ne protège pas.
 
-Ajoutez donc `&c=` suivi d'une adresse de contact à la fin de chaque lien —
-celle du comité social, d'un délégué du personnel, ou de votre délégué à la
-protection des données. La page de vote l'affichera dans ses messages d'erreur.
+Le tableau de bord vous demande donc une **adresse de contact indépendante**
+au moment de générer les liens : celle du comité social, d'un délégué du
+personnel, ou de votre délégué à la protection des données. Elle est inscrite
+dans chaque lien et s'affiche automatiquement en cas de problème.
 
-Sans ce paramètre, la page se contente de dire au participant qu'il peut
-demander un nouveau lien, sans désigner d'interlocuteur. C'est acceptable, mais
-un contact réel vaut mieux.
+**Ce ne doit pas être la vôtre.** Un participant qui vous écrit pour signaler
+un problème vous révèle qu'il a essayé de voter — la seule chose que le système
+ne protège pas.
+
+Ce champ est facultatif. Laissé vide, la page se contente de dire au
+participant qu'il peut demander un nouveau lien, sans désigner
+d'interlocuteur : c'est acceptable, mais un contact réel vaut mieux.
 
 **Ensuite les envois.** Le tableau de bord génère les liens et propose un export
 CSV (groupe, lien, message).

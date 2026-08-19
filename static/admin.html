@@ -421,6 +421,17 @@
             <input type="text" id="dept-input" placeholder="Ex. RH, Bénévoles…" required>
           </div>
           <div>
+            <label for="contact-input">Contact indépendant (facultatif)</label>
+            <input type="text" id="contact-input" placeholder="cse@votre-organisation.fr">
+            <p style="font-size:13px; color:#6b7280; margin-top:6px; line-height:1.45;">
+              Adresse du comité social, d'un délégué du personnel ou de votre
+              délégué à la protection des données. Elle sera inscrite dans chaque
+              lien et s'affichera si un participant rencontre un problème.
+              <strong>Ce ne doit pas être votre adresse :</strong> demander de
+              l'aide reviendrait alors à vous révéler qu'il a essayé de voter.
+            </p>
+          </div>
+          <div>
             <label for="qty-input">Nombre de personnes</label>
             <input type="number" id="qty-input" min="1" max="1000" placeholder="10" required>
             <p style="font-size:13px; color:#6b7280; margin-top:6px; line-height:1.45;">
@@ -750,7 +761,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ departement, quantite })
+        body: JSON.stringify({ departement, quantite, contact: (document.getElementById('contact-input')?.value || '').trim() })
       });
 
       if (!resp.ok) {
