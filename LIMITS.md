@@ -10,6 +10,23 @@ VERA garantit qu'on ne peut pas apprendre COMMENT un individu a repondu (bruit
 differentiel, eps=0.5). Il ne garantit PAS, en toute generalite, qu'on ne puisse
 pas apprendre QU'UN individu a participe.
 
+**Un cache en memoire, pendant une heure.**
+
+L'idempotence de la signature conserve, en memoire de processus et jamais sur
+disque, le couple (empreinte du jeton, empreinte du message aveugle) avec la
+signature emise. C'est exactement le lien que ce protocole existe pour ne pas
+conserver — il permet a un votant dont la finalisation a echoue de rouvrir son
+lien et de retrouver sa signature au lieu de perdre sa voix.
+
+Retention : une heure, purge physique a chaque lecture et a chaque ecriture,
+vidage complet a la cloture. Il ne survit pas a un redemarrage du service.
+
+Le risque est faible mais il n'est pas nul : un vidage de memoire ou une image
+de machine virtuelle prise pendant cette heure contiendrait ce lien. Nous le
+mentionnons parce que cette section inventorie ce que le systeme conserve, et
+qu'une structure gardant precisement ce qu'on promet de ne pas garder merite sa
+ligne.
+
 **Deux traces de participation, a connaitre.**
 
 *Sur l'appareil du votant.* La page de vote inscrit un marqueur local

@@ -1353,6 +1353,57 @@ def obtenir_groupes_declares(session_vera: Optional[str] = Cookie(None)):
     }
 
 
+@app.get("/api/resultats_publies")
+def resultats_publies_endpoint():
+    """Resultats publies, en acces PUBLIC et sans authentification.
+
+    POURQUOI CET ENDPOINT EXISTE
+    Tous les autres chemins de resultat sont derriere la session de
+    l'organisateur. Celui-ci decidait donc seul de publier, lisait le chiffre,
+    et pouvait cloturer sans rien communiquer -- la cloture effacant tout, il ne
+    restait plus rien a contester.
+
+    Vu d'un delegue du personnel, cela revenait a donner l'anonymat aux
+    participants et le monopole du resultat a l'employeur. Le participant prend
+    le risque de repondre ; l'organisation garde le droit de ne pas diffuser.
+    C'est exactement le desequilibre que le reste du systeme s'emploie a
+    corriger.
+
+    CE QUE CELA NE REVELE PAS
+    Rien de plus que ce que l'organisateur voit deja. Les valeurs sont bruitees
+    (epsilon = 0,5), figees au moment de la publication, et jamais retirees
+    d'aucun groupe sous le seuil de 240 reponses. Publier reste un geste
+    explicite de l'organisateur : cet endpoint ne fait que le rendre
+    irreversible et visible de tous, ce qui est precisement la propriete qu'un
+    tiers demande.
+
+    Avant toute publication, il renvoie une liste vide.
+    """
+    try:
+        declares = persistance.charger_groupes_declares() or []
+    except Exception:
+        declares = []
+
+    publies = {}
+    for nom in declares:
+        try:
+            r = persistance.charger_resultat_publie(nom)
+        except Exception:
+            r = None
+        if r is not None:
+            publies[nom] = r
+
+    return {
+        "resultats": publies,
+        "seuil_publication": K_MIN,
+        "epsilon_par_publication": EPSILON_PAR_PUBLICATION,
+        "note": ("Valeurs bruitees par confidentialite differentielle, figees a "
+                 "la publication. Un groupe absent de cette liste n'a pas ete "
+                 "publie : soit le seuil de 240 reponses n'est pas atteint, "
+                 "soit l'organisation n'a pas encore publie."),
+    }
+
+
 @app.get("/api/engagement_cles")
 def engagement_cles():
     """Liste des cles publiques et leur empreinte agregee. PUBLIC.
