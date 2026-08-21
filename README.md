@@ -52,6 +52,7 @@ VERA convient si les quatre conditions suivantes sont réunies.
 | Effectif du groupe consulté | **≥ 240 réponses** | En dessous, le bruit rend le résultat inexploitable. VERA refuse alors de publier — pas de version dégradée. |
 | Fenêtre de collecte | ≤ 7 jours | Les clés de signature sont détruites automatiquement à l'expiration. |
 | Hébergement | **assuré par VERA**, distinct de l'organisation qui consulte | C'est la condition de la garantie, et elle est remplie par défaut. |
+| Attestation de l'effectif | par un tiers mandaté (CSE, représentants du personnel) | Sans elle, l'organisation peut fabriquer une partie des réponses sans que rien ne le montre. |
 | Portée du résultat | consultatif | VERA ne garantit pas l'intégrité du corps électoral. |
 
 **240 réponses, pas 240 invitations.** À un taux de participation réaliste de
@@ -318,10 +319,21 @@ sont parties aux bonnes personnes, ni qu'elles ne sont parties qu'à elles.**
 La fiabilité des résultats repose donc sur l'intégrité de votre liste de
 diffusion.
 
-- **Consultation informelle :** publier le nombre d'invitations envoyées et
-  faire vérifier la liste par une seconde personne suffit généralement. Le
-  nombre d'invitations émises par groupe est exposé publiquement, ce qui permet
-  à un représentant du personnel de le comparer aux effectifs réels.
+**Cette responsabilité se délègue, et elle doit l'être.** Le nombre
+d'invitations émises par groupe est exposé publiquement sur
+`/api/engagement_cles` : un représentant du personnel peut le comparer à
+l'effectif du registre sans rien vous demander.
+
+**À inscrire dans l'accord, avant l'ouverture des dépôts :**
+
+> L'organisation communique aux représentants du personnel le nombre
+> d'invitations émises par groupe et l'effectif inscrit au registre du personnel
+> pour ce même groupe. L'écart est justifié par écrit.
+
+C'est la troisième condition du dispositif, au même rang que le seuil de 240 et
+l'hébergement séparé. Aucun code ne peut la remplacer : vérifier qu'une
+invitation correspond à une personne réelle supposerait de connaître les
+personnes — exactement ce que VERA s'interdit.
 - **Scrutin contraignant ou juridiquement opposable :** cette garantie manquante
   est rédhibitoire. VERA n'est pas conçu pour cet usage.
 
