@@ -1646,7 +1646,7 @@ class ReponseModeleB(BaseModel):
     # "oui"/"non" (3 octets) : TLS preserve la longueur du plaintext, donc un
     # observateur passif distingue les abstentions sans dechiffrer. Le serveur
     # ignore ce champ, il n'existe que pour uniformiser la taille sur le reseau.
-    pad: str = Field(default="", max_length=200)
+    pad: str = Field(default="", max_length=600)
     K_hex: str = Field(min_length=1, max_length=200)
     randomizer_hex: str = Field(min_length=1, max_length=200)
     signature_hex: str = Field(min_length=1, max_length=2000)
