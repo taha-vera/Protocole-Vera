@@ -362,7 +362,10 @@
   //
   // 200 laisse 90 caracteres de marge. Si le schema serveur devait un jour
   // autoriser des noms plus longs, cette constante doit suivre.
-  const LONGUEUR_CIBLE_FIXE = 200;
+  // Cible du bourrage du corps, en OCTETS UTF-8.
+  // 100 caracteres de nom de groupe peuvent occuper jusqu'a 400 octets encodes
+  // (caracteres a quatre octets), plus « abstention » : 450 laisse la marge.
+  const LONGUEUR_CIBLE_FIXE = 450;
 
   let selectedValue = null;
 
@@ -614,10 +617,21 @@
       // services ont des noms de longueurs distinctes, cela reduit l'ensemble
       // d'anonymat au groupe.
       // Le parametre pad est ignore par le serveur : cle_publique_endpoint ne
-      // declare que departement. 320 couvre les 100 caracteres autorises apres
-      // encodage pourcent au pire cas.
+      // declare que departement.
+      //
+      // LA CIBLE DOIT COUVRIR LE PIRE CAS D'ENCODAGE, et 320 ne suffisait pas.
+      // Un nom de 100 caracteres -- la longueur maximale acceptee -- occupe 100
+      // octets s'il est en ASCII, mais 600 s'il est entierement accentue
+      // (« é » -> « %C3%A9 », six caracteres), et jusqu'a 900 pour des
+      // caracteres a trois octets. Avec une cible a 320, le bourrage tombait
+      // silencieusement a zero et l'URL reprenait une longueur variable : le
+      // canal se rouvrait sans alerte, exactement pour les noms les plus
+      // distinctifs.
+      //
+      // 1000 couvre 100 caracteres a neuf octets encodes, avec marge. Une URL
+      // de cette taille reste tres en dessous des limites universelles (2000).
       const _dep = encodeURIComponent(departementVote);
-      const _pad = 'x'.repeat(Math.max(0, 320 - _dep.length));
+      const _pad = 'x'.repeat(Math.max(0, 1000 - _dep.length));
       const rPk = await fetch(`${API_BASE}/cle_publique?departement=${_dep}&pad=${_pad}`);
       if (rPk.status === 404) { showError('Ce département n\'est pas reconnu. Vérifiez que vous avez ouvert le lien en entier, ou demandez-en un nouveau à la personne qui vous l\'a transmis.', 'Département inconnu'); return; }
       if (!rPk.ok) throw new Error('cle publique indisponible');
@@ -790,7 +804,16 @@
         // "oui"/"non" (3 octets) a la simple taille du paquet chiffre, et un
         // observateur passif lit les abstentions sans dechiffrer. On complete
         // pour que (reponse + departement + pad) fasse toujours LONGUEUR_CIBLE_FIXE.
-        pad: 'x'.repeat(Math.max(0, LONGUEUR_CIBLE_FIXE - selectedValue.length - departement.length)),
+        // Le bourrage se calcule en OCTETS UTF-8, pas en caracteres.
+        // `String.length` compte des unites UTF-16 : un nom de groupe de 100
+        // caracteres accentues occupe 200 octets une fois encode, et le corps
+        // faisait alors 340 octets contre 240 pour « RH ». Cent octets d'ecart,
+        // donc le service lisible a la taille du paquet -- exactement le canal
+        // que ce bourrage existe pour fermer. Meme correction que sur l'URL de
+        // /api/cle_publique (Porte 21).
+        pad: 'x'.repeat(Math.max(0, LONGUEUR_CIBLE_FIXE
+              - new TextEncoder().encode(selectedValue).length
+              - new TextEncoder().encode(departement).length)),
         K_hex: toHex(Kmsg), randomizer_hex: toHex(randomizer),
         signature_hex: toHex(signature), reponse: selectedValue, departement: departement
       };

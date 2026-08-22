@@ -32,7 +32,7 @@ peut poser honnetement.
 
 Si votre besoin est un questionnaire, VERA n'est pas l'outil.
 
-### Les quatre conditions du dispositif
+### Les cinq conditions du dispositif
 
 Aucune n'est optionnelle, et aucune n'est tenue par le code seul.
 
@@ -104,11 +104,27 @@ pas ce qu'elle a répondu. C'est la seule trace qui survit sur l'appareil, et
 elle n'est pas effacable par VERA.
 
 *Dans la taille des requêtes.* Le parcours de vote est bourré à longueur
-constante — dépôt, réponse de signature, requête de clé publique — précisément
-pour qu'un observateur du réseau ne déduise pas le groupe de la taille du
-paquet. Ce bourrage a été ajouté après avoir constaté que le nom du groupe
-transparaissait dans la longueur de l'URL de `/api/cle_publique`. C'est fermé,
-mais cela reste une propriété du client : un client modifié ne bourrerait pas.
+constante — dépôt (490 octets), réponse de signature, requête de clé publique
+(1035 octets) — pour qu'un observateur du réseau ne déduise pas le groupe de la
+taille du paquet.
+
+**Deux précisions qui ont coûté deux correctifs.** Le bourrage se calcule en
+**octets UTF-8**, pas en caractères : un nom de 100 caractères accentués occupe
+200 à 400 octets une fois encodé, et une première version comptant les
+caractères laissait le bourrage retomber à zéro — le canal se rouvrait en
+silence, précisément pour les noms les plus distinctifs. Corrigé le 21/08 sur
+l'URL et sur le corps.
+
+Et cela reste une **propriété du client** : un client modifié ne bourrerait pas.
+
+*Par le nombre d'invitations.* `/api/engagement_cles` expose publiquement le
+nombre d'invitations émises par groupe — c'est voulu, cela permet à un tiers de
+le comparer à l'effectif réel (§13). Mais c'est aussi un **majorant public de
+l'effectif** : un groupe de 12 invitations est un groupe de 12 personnes au
+plus. La mitigation annoncée plus haut — « l'effectif exact des cohortes sous
+K_MIN n'est pas exposé » — ne vaut donc que pour l'effectif *ayant répondu*, pas
+pour la taille du groupe. Nommez vos groupes et dimensionnez-les en
+conséquence.
 
 *Sur le serveur.* L'endpoint `/api/engagement_cles` est public et non
 authentifie : il expose la liste des groupes consultés a quiconque connait
@@ -571,6 +587,43 @@ l'inscrire au registre de traitement comme sous-traitant, et vérifier sa durée
 de retention des messages envoyes -- un historique de SMS conserve six mois
 conserve six mois de jetons en clair.
 
+### La clause qui ferme la combinaison transporteur + hebergeur
+
+Le transporteur detient la correspondance (personne → jeton). L'hebergeur
+detient la base. **Ces deux moities suffisent a desanonymiser**, exactement
+comme organisation + hebergeur -- et rien, aujourd'hui, n'interdit qu'ils soient
+la meme entite ou qu'ils appartiennent au meme groupe.
+
+Le contrat d'hebergement ne couvre pas ce cas : il engage l'hebergeur vis-a-vis
+de l'organisation, pas vis-a-vis d'un tiers que l'organisation choisit seule et
+apres coup.
+
+**A inscrire dans l'accord de consultation :**
+
+> **Article — Independance du transporteur.**
+>
+> L'organisation designe nommement, avant l'envoi des invitations, le
+> prestataire assurant leur acheminement (SMS, courriel ou tout autre canal).
+>
+> Ce prestataire n'est ni l'hebergeur du service, ni une filiale, ni une
+> societe mere, ni un sous-traitant de celui-ci, et n'a avec lui aucun lien
+> capitalistique ou contractuel. L'organisation atteste de cette independance
+> par ecrit ; l'hebergeur atteste reciproquement n'avoir aucun lien avec le
+> prestataire designe.
+>
+> La designation et les deux attestations sont communiquees aux representants
+> du personnel avant l'ouverture des depots, et annexees au proces-verbal.
+>
+> A defaut d'un transporteur satisfaisant a ces conditions, la consultation
+> n'est pas ouverte.
+
+**Le cas particulier a ne pas manquer.** Si l'organisation achemine les
+invitations par son propre serveur de courriel, elle est son propre
+transporteur. Ce n'est pas un probleme en soi -- elle detient deja cette moitie
+du secret -- mais aucun tiers n'est alors introduit la ou le modele en supposait
+un. L'attestation doit le dire explicitement plutot que de laisser croire a une
+separation qui n'existe pas.
+
 **Ce que VERA pourrait faire et ne fait pas.** Un lien a usage unique perd sa
 valeur des qu'il est consomme, ce qui borne la fenetre. Rien de plus n'est
 prevu : chiffrer le lien pour le destinataire supposerait une clé par personne,
@@ -723,9 +776,22 @@ seulement. Comme lui seul détient la liste de diffusion, **les participants ne
 peuvent pas distinguer « pas encore publié » de « enterré »** -- ils ne savent
 même pas si les autres ont répondu.
 
-**Ce qui limite le problème depuis le 19/08 :** l'endpoint public
-`/api/resultats_publies` rend la publication visible de tous. Un résultat publié
-ne peut plus être retiré ni caché. Mais rien n'oblige à publier.
+**Ce qui limite le problème depuis le 19/08, et jusqu'où.** L'endpoint public
+`/api/resultats_publies` rend la publication visible de tous : un résultat publié
+ne peut plus être retiré ni modifié **tant que la consultation vit**.
+
+Mais la clôture efface tout, y compris les résultats publiés
+(`VERA_THREAT_MODEL_COMPLETE.md`, Porte 14). Un organisateur qui publie puis
+clôture fait donc disparaître le chiffre du serveur.
+Il reste visible pour qui l'a consulté entre-temps, et rien ne permet de le
+reconstruire ensuite.
+
+**Ce que cela impose.** Le résultat doit être sauvegardé avant la clôture — par
+l'organisation *et* par les représentants du personnel. Un tiers qui interroge
+`/api/resultats_publies` au moment de la publication en garde une copie datée ;
+c'est le seul moyen de rendre le chiffre opposable après coup.
+
+Et rien n'oblige à publier.
 
 **Ce que l'organisation doit accepter contractuellement**, si elle veut que le
 dispositif soit crédible auprès de ses membres : s'engager sur une date de

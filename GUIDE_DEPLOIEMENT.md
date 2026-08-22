@@ -76,6 +76,31 @@ un groupe est trop petit — tenez-en compte.
 Prévoyez large : 240 est le nombre de **réponses**, pas d'invitations. À 60 % de
 participation, il faut inviter 400 personnes.
 
+### 2bis. Faire attester votre effectif par vos représentants du personnel
+
+**C'est une condition, pas une formalité.** VERA ne connaît pas vos membres —
+c'est ce qui protège leur anonymat. Il ne peut donc pas vérifier que vos
+invitations partent à de vraies personnes, ni qu'elles ne partent qu'à elles.
+
+Sans contrôle extérieur, rien n'empêcherait une organisation de générer 240
+invitations pour quinze personnes réelles, d'en conserver 225, et de fabriquer
+un résultat. C'est écrit en clair dans `LIMITS.md` §13, et vos représentants du
+personnel le liront.
+
+**Ce qu'il faut faire, et c'est simple.** Avant d'ouvrir les dépôts,
+communiquez-leur deux chiffres par groupe :
+
+- le **nombre d'invitations émises** — qu'ils peuvent vérifier eux-mêmes en
+  consultant `https://votre-domaine/api/engagement_cles` ;
+- l'**effectif inscrit au registre du personnel** pour ce même groupe.
+
+Tout écart doit être justifié par écrit et annexé au procès-verbal.
+
+**Pourquoi cela vous sert.** Ce contrôle ne vous coûte rien et transforme votre
+consultation : vos membres savent qu'un tiers a vérifié, et le résultat devient
+opposable. Sans lui, un délégué a raison de considérer les chiffres comme
+invérifiables.
+
 ### 3. Déclarer les groupes consultés
 
 **En une seule fois, avant tout envoi.** Le tableau de bord vous demande la
@@ -122,6 +147,26 @@ La date brise ce lien.
 Tant qu'elle n'est pas atteinte, les liens sont valables mais inactifs :
 personne ne peut voter, et un participant qui essaie voit un message le lui
 expliquant, sans que son lien soit consommé.
+
+**Votre prestataire d'envoi doit être indépendant de l'hébergeur.**
+
+Il verra passer, pour chaque destinataire, le couple (numéro de téléphone,
+lien contenant l'invitation). Il détient donc la même moitié du secret que vous.
+Si l'hébergeur détenait aussi cette moitié — parce que c'est la même société,
+une filiale, ou un sous-traitant — la séparation qui protège vos membres
+n'existerait plus.
+
+Avant d'envoyer, communiquez à vos représentants du personnel :
+
+- le **nom du prestataire** retenu ;
+- une **attestation écrite** qu'il n'a aucun lien capitalistique ou contractuel
+  avec l'hébergeur ;
+- l'attestation réciproque de l'hébergeur.
+
+Si vous envoyez depuis votre propre serveur de courriel, dites-le : vous êtes
+alors votre propre transporteur. Ce n'est pas un problème — vous détenez déjà
+cette information — mais il ne faut pas laisser croire à une séparation qui
+n'existe pas.
 
 **Un contact indépendant, à ajouter aux liens.** Si un participant rencontre un
 problème — page bloquée, lien qui ne fonctionne pas, doute sur le dispositif —

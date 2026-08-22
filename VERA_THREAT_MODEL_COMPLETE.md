@@ -30,12 +30,37 @@ le lien qu'il a recu suffit.
 Toutes les garanties se lisent relativement a un adversaire. VERA distingue
 deux niveaux et ne pretend a la garantie forte que contre le premier.
 
+### Le bon axe n'est pas la passivite, c'est la detention du demi-secret
+
+Ce document classait les adversaires selon leur activite -- passif au Niveau 1,
+actif au Niveau 2 -- et accordait la garantie forte au premier. **Cette
+taxonomie confond deux axes orthogonaux**, et l'analyse qui suit le montre :
+un adversaire parfaitement passif qui lit la base en continu realise
+l'appariement (jeton consomme -> compteur incremente). Sa passivite ne le
+protege de rien ; ce qui l'arrete, c'est qu'il n'a pas la liste.
+
+**Formulation qui tient partout :**
+
+> Garantie forte contre quiconque ne detient pas la correspondance
+> (personne → jeton), qu'il soit passif ou actif. Contre qui la detient, la
+> garantie est procedurale et repose sur son absence d'acces a la base.
+
+Les deux moities du secret sont donc :
+
+| Demi-secret | Qui le detient | Ce qu'il ne peut pas faire seul |
+|---|---|---|
+| La correspondance personne → jeton | l'organisation consultante, le transporteur | lire la base, donc apparier |
+| La base et son evolution | l'hebergeur | savoir a qui correspond une empreinte de jeton |
+
+Les niveaux ci-dessous sont conserves parce qu'ils structurent le reste du
+document, mais ils doivent se lire a travers cette grille.
+
 ### Niveau 1 — tiers et operateur honnete-mais-curieux
 
-**Garantie forte.** Contre un tiers (lecteur des resultats publies, observateur
-reseau, attaquant externe) et contre un operateur qui administre le serveur
-sans chercher a falsifier le logiciel, VERA garantit qu'aucune reponse ne peut
-etre reliee a une personne.
+**Garantie forte, sous la condition ci-dessus.** Contre un tiers (lecteur des
+resultats publies, observateur reseau, attaquant externe) et contre un operateur
+qui administre le serveur sans detenir la liste des invites, VERA garantit
+qu'aucune reponse ne peut etre reliee a une personne.
 
 Le serveur ne stocke jamais le lien identite ↔ vote. Deux registres disjoints
 coexistent — les jetons d'autorisation d'un cote, les empreintes des secrets
@@ -133,13 +158,18 @@ condition est-elle remplie » mais « par quoi est-elle garantie » -- et la
 reponse honnete est : par la disponibilite d'une personne. C'est la principale
 dependance non technique du systeme, et elle est traitee plus bas.
 
-Ceci pose, l'organisation qui consulte Celle-ci n'a acces ni au serveur, ni a la base, ni aux journaux ;
-elle dispose du seul tableau de bord, qui n'expose que des agregats. Elle passe
-donc de Niveau 2 a Niveau 1, ou la garantie est forte et prouvee.
+Ceci pose, l'organisation qui consulte n'a acces ni au serveur, ni a la base, ni aux journaux ;
+elle dispose du seul tableau de bord, qui n'expose que des agregats. **Ce qu'il ne faut pas en conclure.** Une version anterieure ecrivait que
+l'organisation « passe de Niveau 2 a Niveau 1, ou la garantie est forte et
+prouvee ». C'est le dernier surengagement de ce document, et il faut le retirer :
+l'organisation est precisement le detenteur de la liste. Sa non-capacite a
+desanonymiser n'est pas prouvee, elle est procedurale -- elle tient a son absence
+d'acces a la base, garantie par un contrat et non par le code.
 
-Ce deplacement n'est pas technique : aucune ligne de code n'a change. C'est la
-separation des roles qui deplace la frontiere. L'organisation qui a un interet
-au resultat n'est plus celle qui detient les moyens de le trahir.
+Ce que la separation des roles change n'est donc pas la nature de la garantie
+-- elle reste procedurale -- mais son destinataire : l'organisation qui a un
+interet au resultat n'est plus celle qui detient les moyens de le trahir. C'est
+reel et c'est utile ; ce n'est pas une preuve.
 
 **Ce qui protege alors l'organisation de VERA lui-meme.** La question se
 retourne legitimement : l'operateur devient a son tour le Niveau 2 potentiel.
@@ -164,10 +194,16 @@ confiance :
 **Ce qui reste non prouve.** Que le serveur execute le Python publie. Le code
 serveur n'est pas transmis au visiteur, donc rien ne permet de le comparer.
 L'etablir exigerait une attestation materielle (SEV-SNP, TDX ou equivalent),
-dont VERA ne dispose pas. La consequence est bornee : un serveur modifie
-pourrait refuser des votes, en fabriquer ou alterer un resultat -- ce qui
-releve de l'integrite du scrutin, deja documentee comme non garantie -- mais il
-ne pourrait plus relier une reponse a une personne, le client etant verifiable.
+dont VERA ne dispose pas.
+
+**La consequence n'est PAS bornee a l'integrite**, et une version anterieure de
+ce paragraphe l'affirmait a tort. Un serveur modifie peut refuser des votes, en
+fabriquer ou alterer un resultat -- integrite, deja documentee comme non
+garantie. Mais il peut aussi **relier une reponse a une personne**, sans
+toucher au client : il lui suffit de journaliser (jeton, t0) a la signature et
+(reponse, t1) au depot. C'est exactement la liaison que le protocole existe
+pour empecher, et la verifiabilite du client n'y peut rien -- elle ferme un
+vecteur sur trois, comme dit trois puces plus haut.
 
 ---
 
@@ -302,7 +338,8 @@ deploiement (voir `GUIDE_DEPLOIEMENT.md`).
 | Bornes de clamp | **(0, 10 000 000)** | Descripteur de domaine OpenDP ; `scale` est passe explicitement, la borne n'entre pas dans la calibration. Portee de 10 000 a 10 M le 13/08 : une exception levee au-dela creait une branche dependante des donnees, donc une perte de confidentialite non bornee sur cet evenement |
 | K_MIN | 240 | Seuil MESURE : a n=240 l'erreur max reste sous 5 % dans 95 % des publications. En dessous : n=200 → 6 %, n=150 → 8 %, n=100 → 12 % |
 | Signature aveugle | RSABSSA-SHA384-PSS-Randomized (RFC 9474) | Modules 2048 bits, `blind-rsa-signatures` 0.17.2 |
-| Bourrage constant | 200 octets | > 100 (departement max) + 10 (« abstention ») |
+| Bourrage du CORPS de requete | 450 octets (cible), 490 avec l'enveloppe JSON | Calcule en OCTETS UTF-8, non en caracteres : 100 caracteres de nom peuvent occuper 400 octets encodes |
+| Bourrage de l'URL de `/api/cle_publique` | 1035 octets | Le nom du groupe est dans la query string : bourrer la reponse n'y ferait rien, c'est la REQUETE qui est portee a longueur fixe (parametre `pad=` ignore du serveur). Voir Porte 21 |
 | Chiffrement cle RSA | Fernet + PBKDF2-SHA256 | 100 000 iterations, sel aleatoire par enregistrement (derivation de la CLE DE BASE depuis `VERA_DB_KEY` -- a ne pas confondre avec les 200 000 iterations des mots de passe d'administration, Porte 22) |
 | Anti-bruteforce | 5 echecs / IP, blocage 5 min | Sur la connexion RH |
 | Rate-limit vote | 5 r/s, rafale 50 | Nginx, sur les 4 routes du parcours de vote |
@@ -316,33 +353,53 @@ deploiement (voir `GUIDE_DEPLOIEMENT.md`).
 |---|---|---|---|
 | 1 | Mecanisme de bruit | Fermee | Laplace vectoriel OpenDP, Δ₁=2, scale=4, ε=0.5. Projection sur le simplexe en post-traitement (gratuite en ε, erreur reduite d'environ 25 %) |
 | 2 | Inference d'appartenance (MIA) | Fermee | AUC = 0.6209, IC95 % [0.6185, 0.6232], borne theorique 0.6225 incluse (N=100 000, bootstrap) |
-| 3 | Canal temporel | Fermee | Fuite sub-microseconde. Spearman ρ = −0.14, p = 0.76 (7 valeurs, N=10 000). Inexploitable via reseau (latence 50-100 ms) |
+| 3 | Canal temporel DE CALCUL (timing cryptographique) | Fermee | Fuite sub-microseconde. Spearman ρ = −0.14, p = 0.76 (7 valeurs, N=10 000). Inexploitable via reseau (latence 50-100 ms) |
 | 4 | Composition sequentielle | **Limite assumee** | Le budget vaut par consultation, pas par cohorte — voir section 2. Regle d'usage : 4 consultations/an max |
 | 5 | Observateur reseau | Limite assumee | Hors-perimetre |
 | 6 | Coercition | Limite assumee | Hors-perimetre |
-| 7 | Differenciation « 49/1 » | Fermee | RSABSSA RFC 9474. Aveuglement et finalisation dans le navigateur du votant : le serveur ne voit ni le secret K ni la signature finale. Une cle RSA par departement, ce qui empeche de deplacer une voix d'une urne a l'autre. Le lien porte l'empreinte de l'ENSEMBLE des cles -- identique pour tous les votants, donc comparable entre collegues -- et le client verifie trois choses : concordance avec le lien, unicite de la cle par groupe, appartenance de la cle recue a l'ensemble |
+| 7 | Differenciation « 49/1 » | **Fermee au Niveau 1** | RSABSSA RFC 9474. Aveuglement et finalisation dans le navigateur du votant : le serveur ne voit ni le secret K ni la signature finale. Une cle RSA par departement, ce qui empeche de deplacer une voix d'une urne a l'autre. Le lien porte l'empreinte de l'ENSEMBLE des cles -- identique pour tous les votants, donc comparable entre collegues -- et le client verifie trois choses : concordance avec le lien, unicite de la cle par groupe, appartenance de la cle recue a l'ensemble. **Fermee au Niveau 1 seulement** : l'empreinte agregee est calculee par le serveur, elle ne l'engage donc pas face a un operateur actif -- voir section 1. Ce que le controle client produit est une trace, pas une preuve |
 | 8 | Inference sur le repondant atypique | Fermee | Meme mesure que porte 2. TPR@1%FPR = 1.6 % |
 | 9 | Collusion emetteur / agregateur | Fermee **au sein d'une organisation** | Secret admin distinct, comptes separes. **Porte sur l'AUTHENTIFICATION, pas sur les donnees** : les tables sont indexees par departement seul, jamais par (compte, departement). Deux organisations distinctes sur une meme instance partageraient urne, cle et budget -- d'ou l'invariant « une instance = une organisation » (`LIMITS.md` §11) |
 | 10 | Sondage binaire (seuil) | Fermee | Refus de publier sous K_MIN=240, verifie avant toute consommation de budget. Effectif exact des petites cohortes non expose |
 | 11 | Acces direct a la base / cle RSA | Fermee | Chiffrement Fernet, sel aleatoire par enregistrement. Fail-closed : si des cles existent mais qu'aucune ne se dechiffre, le service refuse de demarrer plutot que d'en regenerer |
 | 12 | Secret admin visible dans `/proc` | Limite assumee | Contexte solo-root |
 | 13 | Soustraction d'agregats | Limite assumee | Limite irreductible de la DP, attenuee par publication unique par consultation — meme reserve que porte 4 |
-| 14 | Persistance de l'etat de confidentialite | Fermee | SQLite en `journal_mode=DELETE` (voir Porte 17 : le WAL joignait les deux registres). Verifie par `kill -9` et par reboot systeme complet. Complete par un effacement ACTIF a la cloture : compteurs, effectifs, jetons, budget, resultats publies et cle de signature detruits en une transaction, suivie de `VACUUM`. **Consequence a connaitre** : un resultat publie disparait du serveur a la cloture. Il doit donc etre sauvegarde par l'organisation ET par les representants du personnel avant de cloturer -- `/api/resultats_publies` le sert tant que la consultation vit, pas apres |
+| 14 | Persistance de l'etat de confidentialite | Fermee | SQLite en `journal_mode=DELETE` (voir Porte 17 : le WAL joignait les deux registres). Verifie par `kill -9` et par reboot systeme complet. Complete par un effacement ACTIF a la cloture : compteurs, effectifs, jetons, budget, resultats publies et cle de signature detruits en une transaction, suivie de `VACUUM`. **Une exception** : `historique_consultations` survit -- elle ne contient que des noms de groupes et des dates, et sert a l'avertissement de frequence (`LIMITS.md` §9). **Consequence a connaitre** : un resultat publie disparait du serveur a la cloture. Il doit donc etre sauvegarde par l'organisation ET par les representants du personnel avant de cloturer -- `/api/resultats_publies` le sert tant que la consultation vit, pas apres |
 | 15 | Trafic en clair | Fermee | HTTPS via Nginx + Let's Encrypt, redirection 301, renouvellement automatique |
 | 16 | Retention des journaux | Fermee | Purge manuelle a la cloture + logrotate 3 jours. L'access log applicatif est desactive (voir porte 26) |
 | 17 | Correlation temporelle en base | **Fermee au niveau de la table, bornee au niveau du journal** | Horodatage retire, table anti-rejeu en `WITHOUT ROWID` : ordonnee par empreinte SHA-256 pseudo-aleatoire, l'ordre d'insertion n'existe plus DANS LA TABLE. Le fichier journal, lui, est un autre sujet -- voir ci-dessous |
 | 18 | Generation de cles a la volee (DoS keygen) | Fermee | Les endpoints publics sont en lecture seule (404 si le departement n'existe pas) ; la creation de cle est reservee au flux RH authentifie |
 | 19 | API exposee hors TLS | Fermee | uvicorn ecoute sur `127.0.0.1` ; Nginx est l'unique chemin d'acces |
 | 20 | Publication declenchee par une lecture | Fermee | `GET /api/rh/resultats` est en lecture pure ; la publication est un `POST /api/rh/publier` explicite, avec confirmation. Ferme aussi le CSRF (le cookie `SameSite=Lax` laisse passer les GET de navigation) |
-| 21 | Longueur de requete revelant le groupe | Fermee | Le nom du groupe transitait dans l'URL de `GET /api/cle_publique`, dont la longueur variait avec lui -- un observateur passif classait les votants par service. Ferme par bourrage de la REQUETE : le client ajoute un parametre `pad=` ignore du serveur, portant toute URL a 355 octets quel que soit le nom. Verifie sur 2, 17 et 44 caracteres. Reste une propriete du client : un client modifie ne bourrerait pas |
+| 21 | Longueur de requete revelant le groupe | **Fermee sous condition** | Le nom du groupe transitait dans l'URL de `GET /api/cle_publique` et dans le corps du depot, dont les longueurs variaient avec lui. Ferme par bourrage des DEUX, calcule en OCTETS UTF-8 : URL portee a 1035 octets, corps a 490, quel que soit le nom. Verifie sur ASCII, accents et caracteres a quatre octets. **Conditions** : (a) c'est une propriete du CLIENT -- un client modifie ne bourrerait pas ; (b) une premiere version calculait en caracteres et non en octets, et le bourrage retombait silencieusement a zero pour les noms longs accentues -- corrige le 21/08, mais la classe de defaut est a surveiller |
 | 22 | Saturation du threadpool | Fermee | La connexion RH declenche un PBKDF2 200 000 iterations a chaque appel (mots de passe d'administration ; la cle de base utilise 100 000, voir plus haut) et partage le threadpool avec le depot de vote. Rate-limit Nginx dedie (1 r/s, rafale 5) : verifie en production, 4 requetes passent puis 429 |
 | 23 | En-tetes de securite HTTP | Fermee | CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy `no-referrer`. `server_tokens off` : la version exacte du serveur n'est pas annoncee dans les reponses |
 | 24 | Vote accepte puis efface a la cloture | Fermee | Publication et effacement dans le meme verrou : un vote concurrent ne peut plus recevoir « enregistre » puis disparaitre |
 | 25 | Exposition de secrets par un canal hors-code | Fermee | Les trois secrets ont ete rotes apres exposition accidentelle. La rotation de la cle de chiffrement est verifiee de bout en bout |
 | 26 | IP des votants dans le journal applicatif | Fermee | `access_log off` cote Nginx ne coupait que Nginx : uvicorn journalisait en parallele l'IP reelle des votants sur les routes de vote. Corrige par `--no-access-log` ; journal vide apres trafic verifie |
 
-**Bilan : 22 portes fermees avec preuve, 4 limites assumees (5, 6, 12, et 4/13
-qui partagent la meme cause).**
+**Bilan detaille, parce que « 21 fermees » serait optimiste :**
+
+- **15 fermees sans reserve**, avec preuve reproductible sur la production ;
+- **6 fermees sous condition explicite** :
+  - Porte 7 -- au Niveau 1 seulement : l'empreinte agregee est calculee par le
+    serveur, et seule sa publication hors bande la rend opposable ;
+  - Porte 9 -- au sein d'une organisation : les donnees ne sont pas cloisonnees
+    entre organisations distinctes ;
+  - Porte 17 -- fermee au niveau de la table ; le journal a ete supprime le
+    13/08, mais la lecture repetee du fichier reste ouverte ;
+  - Porte 21 -- le bourrage est une propriete du CLIENT : un client modifie ne
+    bourrerait pas ;
+  - Portes 16 et 26 -- la coupure des journaux est une condition
+    d'exploitation, pas une propriete du code. Le test mecanique verifie la
+    configuration du depot, pas celle reellement servie (`LIMITS.md` §9) ;
+- **5 limites assumees** : 4, 5, 6, 12, 13 -- dont 4 et 13 partagent la meme
+  cause.
+
+Ces six fermetures conditionnelles sont documentees avec soin dans leur case
+respective. Les compter comme fermetures pleines gonflerait le chiffre et
+donnerait a un auditeur l'impression d'un bilan complaisant, pour des lignes
+qui sont en realite les plus honnetes du tableau.
 
 ---
 
@@ -383,14 +440,25 @@ et « n-ieme vote insere ».
 Le client ne se contente pas de comparer l'empreinte de l'ensemble des cles a
 celle inscrite dans son lien. Il verifie aussi qu'un groupe n'a **qu'une** cle.
 
-Ce second controle est celui qui compte. Un serveur malveillant pourrait
-publier cinq cents couples (Marketing, cle_i) : l'empreinte agregee serait
-parfaitement valide, et la desanonymisation aussi -- chaque votant recevrait sa
-propre cle, et le depouillement dirait qui a produit quelle signature. C'est le
-COMPTAGE qui ferme l'attaque, pas le hachage.
+**Ce que le comptage ferme.** Un serveur qui publierait cinq cents couples
+(Marketing, cle_i) dans une meme liste produirait un agregat parfaitement
+valide, tout en donnant une cle par votant. Le controle d'unicite detecte ce
+cas, et le hachage seul ne le detecterait pas.
 
-Cette propriete est mentionnee ici parce qu'elle ne se devine pas : l'empreinte
-agregee a l'air de suffire, et elle ne suffit pas.
+**Ce que le comptage NE ferme PAS, et il faut le dire.** Un serveur qui
+SEGMENTE echappe aux trois controles. Il sert a Alice une liste d'UNE cle avec
+`#k=A` dans son lien, et a Bob une liste d'UNE cle avec `#k=B`. Chez chacun :
+l'agregat recalcule correspond a son propre lien, l'unicite est respectee, la
+cle recue appartient a l'ensemble. Les trois controles passent, et le serveur a
+pourtant une cle par personne.
+
+**Ce qui ferme ce cas est hors du navigateur** : la comparaison de `#k=` entre
+collegues. L'empreinte est identique pour tous les votants d'une meme
+consultation, quel que soit leur groupe -- deux personnes qui constatent des
+valeurs differentes ont la preuve de la segmentation. C'est pourquoi
+l'organisation doit publier cette empreinte hors du serveur AVANT tout envoi
+(Porte 7) : sans point de comparaison exterieur, aucun controle execute dans un
+navigateur ne distingue un serveur honnete d'un serveur qui segmente.
 
 ### Correlation entre les deux requetes du parcours, limite assumee
 
@@ -492,6 +560,29 @@ trois n'etaient pas nommes.
 l'anonymat -- il ne peut rien apprendre -- mais l'INTEGRITE : lui seul peut dire
 que 240 invitations correspondent a 240 personnes reelles. Sans lui, la Porte 13
 reste entierement ouverte. Voir `LIMITS.md` §0 et §13.
+
+### Quelles combinaisons rompent l'invariant
+
+Le tableau ci-dessus liste des detenteurs. La question qu'un delegue ou un DPO
+posera est autre : **quelles PAIRES suffisent a desanonymiser ?**
+
+| Combinaison | Effet | Realiste ? |
+|---|---|---|
+| Organisation + hebergeur | desanonymisation complete, passive, sans modifier une ligne de code | c'est ce que la separation des roles existe pour empecher |
+| **Transporteur + hebergeur** | **identique** -- le transporteur detient (personne → jeton), l'hebergeur detient la base | **oui, et ce n'est pas couvert par le contrat d'hebergement** |
+| Organisation + transporteur | rien de plus que l'organisation seule : les deux ont la meme moitie | sans objet |
+| DNS/AC + n'importe qui | permet de servir un client modifie, donc d'exfiltrer avant aveuglement | scenario Niveau 2 |
+
+**La deuxieme ligne est le trou du modele.** Et il s'aggrave d'un cas que le
+tableau des acteurs masque : le transporteur est choisi par l'organisation
+consultante. S'il s'agit de son propre serveur de courriel interne, la
+separation transporteur/organisation n'existe pas -- l'organisation detient
+alors sa moitie deux fois, ce qui ne change rien, mais aucun tiers n'est
+introduit la ou le modele en supposait un.
+
+**Ce que cela impose au contrat d'hebergement :** l'hebergeur ne doit avoir
+aucun lien avec le transporteur, et l'organisation doit le declarer. C'est une
+condition de plus, et elle n'etait ecrite nulle part.
 
 **Les deux derniers sont subis, pas choisis.** Le transporteur voit le couple
 (numero, jeton) et pourrait voter a la place du destinataire. Qui controle la

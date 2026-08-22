@@ -53,6 +53,7 @@ VERA convient si les quatre conditions suivantes sont réunies.
 | Fenêtre de collecte | ≤ 7 jours | Les clés de signature sont détruites automatiquement à l'expiration. |
 | Hébergement | **assuré par VERA**, distinct de l'organisation qui consulte | C'est la condition de la garantie, et elle est remplie par défaut. |
 | Attestation de l'effectif | par un tiers mandaté (CSE, représentants du personnel) | Sans elle, l'organisation peut fabriquer une partie des réponses sans que rien ne le montre. |
+| Transporteur des invitations | **indépendant de l'hébergeur** | Le transporteur voit le couple (personne, invitation) ; l'hébergeur détient la base. Réunis, ils désanonymisent. |
 | Portée du résultat | consultatif | VERA ne garantit pas l'intégrité du corps électoral. |
 
 **240 réponses, pas 240 invitations.** À un taux de participation réaliste de
