@@ -532,9 +532,20 @@ Les comptes RH sont stockes en memoire du processus (dictionnaire
 _comptes_rh dans vera_admin_auth.py), sans aucune persistance. Un compte cree
 via /api/rh/creer_compte disparait donc au prochain redemarrage du service.
 
-Seul le compte principal survit : il est recree a chaque demarrage a partir des
-variables d'environnement VERA_ADMIN_USER et VERA_ADMIN_PASS, definies dans
-l'unite systemd.
+Seul le compte principal survit : il est recree a chaque demarrage a partir de
+variables d'environnement definies dans l'unite systemd, et lues au demarrage
+par `vera_consultation_api.py` (le module d'authentification, lui, ne les
+connait pas).
+
+**Deux variantes, et la production utilise la seconde.** `VERA_ADMIN_PASS`
+porte le mot de passe en clair : conservee pour ne pas casser une installation
+existante, elle declenche un avertissement au demarrage, car le secret vit alors
+en clair dans l'unite systemd -- lisible par `systemctl cat`.
+`VERA_ADMIN_HASH` porte une empreinte `sel$hash` calculee hors ligne
+(PBKDF2-HMAC-SHA256, 200 000 iterations) : le mot de passe n'apparait nulle part
+sur le serveur. C'est cette variante qui est en production depuis le 12/08.
+
+Si les deux sont definies, l'empreinte gagne.
 
 Ce n'est pas un oubli, mais le motif merite d'être donne exactement -- une
 version anterieure invoquait « rien de sensible au repos », ce qui est faux :
