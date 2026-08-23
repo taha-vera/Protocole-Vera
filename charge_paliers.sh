@@ -16,7 +16,25 @@ LOTS=$(( (TOTAL + 999) / 1000 ))
 DEPT="CHARGE${TOTAL}"
 PY=/root/vera_blind_sig/.venv/bin/python3
 
-export VERA_TEST_MDP=$(grep -oP 'VERA_ADMIN_PASS=\K[^"]*' /etc/systemd/system/vera-consultation.service)
+# Le mot de passe est SAISI, pas extrait de la configuration.
+#
+# Cette ligne lisait auparavant VERA_ADMIN_PASS dans l'unite systemd. Deux
+# raisons de ne plus le faire. D'abord elle ne peut plus fonctionner : le repli
+# en clair a ete retire le 23/08/2026 et l'unite ne porte plus qu'une empreinte
+# PBKDF2, dont on ne retrouve pas le mot de passe. Ensuite, extraire un secret
+# d'un fichier de configuration pour le poser dans une variable d'environnement
+# etait douteux independamment de cette panne : la variable se retrouve dans
+# l'environnement de chaque processus fils, donc lisible dans /proc.
+#
+# La saisie a lieu UNE fois ; charge_votants.py lit ensuite VERA_TEST_MDP au
+# lieu de redemander a chaque lot.
+read -r -s -p "Mot de passe RH (saisie masquee) : " VERA_TEST_MDP
+echo
+if [ -z "$VERA_TEST_MDP" ]; then
+    echo "Aucun mot de passe saisi -- abandon." >&2
+    exit 1
+fi
+export VERA_TEST_MDP
 
 echo "Montee en charge : $TOTAL votants en $LOTS lots de 1000, sur le departement $DEPT"
 echo "Parallele : $PARALLELE"

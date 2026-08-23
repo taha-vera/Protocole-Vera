@@ -122,6 +122,93 @@ if lignes_actives:
         "seul endroit ou cette variable est encore nommee -- pour la refuser.\n"
         "    " + "\n    ".join(lignes_actives))
 
+# --- 5. Aucun script shell n'emprunte le repli ----------------------------
+#
+# AJOUTE LE 23/08 APRES COUP, ET C'EST LE POINT DE CE TEST.
+#
+# La premiere version de cette garde ne verifiait que run_tests.sh, nommement.
+# C'etait fermer le CAS et non la CLASSE -- exactement ce que la methode du
+# projet proscrit. Quatre scripts shell utilisaient le repli ; un seul avait
+# ete traite.
+#
+# Les deux autres etaient casses sans que rien ne le dise :
+#   - chantier_crypto/crash_test.sh passait VERA_ADMIN_PASS a uvicorn. L'API
+#     refuse desormais de demarrer avec cette variable : le test de crash, que
+#     run_tests.sh presente comme le plus complet de la suite, ne pouvait plus
+#     s'executer du tout.
+#   - charge_paliers.sh extrayait le mot de passe de l'unite systemd par grep.
+#     La variable n'y existe plus : VERA_TEST_MDP serait vide et l'outil de
+#     charge echouerait a s'authentifier sans expliquer pourquoi.
+#
+# Cette verification porte donc sur TOUS les fichiers .sh du depot, presents
+# et futurs.
+
+racine = RACINE
+scripts = sorted(
+    chemin for chemin in racine.rglob("*.sh")
+    if ".git" not in chemin.parts
+)
+
+if not scripts:
+    echecs.append(
+        "aucun script .sh trouve : le parcours du depot ne fonctionne pas, "
+        "donc cette verification ne verifie rien.")
+
+motif = re.compile(
+    r"^[^#]*\bVERA_ADMIN_PASS\s*=", re.MULTILINE)
+
+for chemin in scripts:
+    texte = chemin.read_text(encoding="utf-8", errors="replace")
+    fautives = [
+        ligne.strip() for ligne in texte.splitlines()
+        if motif.match(ligne) and "unset" not in ligne
+    ]
+    if fautives:
+        echecs.append(
+            f"{chemin.relative_to(racine)} affecte VERA_ADMIN_PASS. L'API "
+            "refuse de demarrer avec cette variable : ce script ne peut plus "
+            "s'executer.\n    " + "\n    ".join(fautives))
+
+# Le cas particulier de charge_paliers.sh : il ne doit pas non plus RELIRE le
+# secret dans l'unite systemd. Ce n'est plus possible -- il n'y a plus de mot
+# de passe en clair a y lire -- et ce ne serait pas souhaitable : une variable
+# d'environnement se retrouve dans /proc de chaque processus fils.
+for chemin in scripts:
+    texte = chemin.read_text(encoding="utf-8", errors="replace")
+    for ligne in texte.splitlines():
+        if ligne.lstrip().startswith("#"):
+            continue
+        if "vera-consultation.service" in ligne and (
+                "grep" in ligne or "sed" in ligne or "awk" in ligne):
+            echecs.append(
+                f"{chemin.relative_to(racine)} extrait une valeur de l'unite "
+                "systemd. Les secrets ne se lisent pas dans la "
+                "configuration : ils se saisissent.\n    " + ligne.strip())
+
+# --- 6. Aucun script n'exerce une copie du code hors du depot -------------
+#
+# /root/vera_test et /root/crypto_test etaient deux exemplaires du code hors
+# depot, que rien ne mettait a jour. Au 23/08/2026, /root/vera_test datait du
+# 26 juillet : crash_test.sh -- le test le plus complet de la suite -- validait
+# depuis un mois une version qui n'etait plus deployee, sans qu'aucun echec ne
+# le signale. Un script du depot doit exercer le code du depot ; le chemin se
+# deduit de l'emplacement du script, il ne s'ecrit pas en dur.
+
+copies_connues = ("/root/vera_test", "/root/crypto_test", "/root/sandbox_vera",
+                  "/root/repo-push")
+
+for chemin in scripts:
+    texte = chemin.read_text(encoding="utf-8", errors="replace")
+    for numero, ligne in enumerate(texte.splitlines(), 1):
+        if ligne.lstrip().startswith("#"):
+            continue
+        for copie in copies_connues:
+            if copie in ligne and "rm -f" not in ligne:
+                echecs.append(
+                    f"{chemin.relative_to(racine)}:{numero} designe {copie} en "
+                    "dur. Le chemin se deduit de l'emplacement du script.\n    "
+                    + ligne.strip())
+
 # --- Verdict ---------------------------------------------------------------
 
 poser()

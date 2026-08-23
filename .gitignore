@@ -6,3 +6,4 @@ __pycache__/
 # blind-rsa-signatures, ce qui rend la compilation du module reproductible.
 target/
 archive/
+node_modules/

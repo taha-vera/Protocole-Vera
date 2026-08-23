@@ -1,0 +1,14 @@
+{
+  "name": "vera-chantier-crypto",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Tests du chemin cryptographique reel de VERA : pont client-serveur, courses concurrentes, survie de l'anti-rejeu a un kill -9.",
+  "license": "AGPL-3.0-only",
+  "dependencies": {
+    "@cloudflare/blindrsa-ts": "0.4.4"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
+  }
+}

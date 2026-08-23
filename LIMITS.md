@@ -264,6 +264,18 @@ change en transit ou sur le serveur. Et `VERIFICATION_CLIENT.md` publié les
 empreintes SHA-256 des deux fichiers servis, verifiables en deux commandes par
 un tiers.
 
+**Un pas vers le build reproductible, fait le 23/08.** Le `package.json` des
+tests cryptographiques et son `package-lock.json` vivaient hors du depot, dans
+`/root/crypto_test`. Le depot publiait donc sept fichiers `.mjs` sans le
+manifeste disant de quoi ils dependent : personne ne pouvait les executer, et la
+version de `@cloudflare/blindrsa-ts` -- la bibliotheque qui realise
+l'aveuglement dans le navigateur -- n'etait figee nulle part. Les deux fichiers
+sont desormais versionnes, avec des versions exactes plutot que des plages `^`.
+
+Cela ne suffit pas a rendre le bundle reproductible : il faudrait encore que la
+construction par `esbuild` soit deterministe et verifiee. Mais sans le lock, la
+question ne se posait meme pas.
+
 **Ce qui n'existe pas, et qu'il ne faut pas laisser croire.** Il n'y a pas de
 build reproductible du bundle depuis ses sources : la vérification detecte une
 divergence entre le code PUBLIE et le code SERVI, elle ne prouve pas que le
@@ -558,6 +570,18 @@ Ignorer la variable en silence demarrerait un service sans aucun compte
 d'administration -- ce que l'organisateur ne decouvrirait qu'au moment de se
 connecter, consultation ouverte. Verifie dans les deux sens par
 `test_repli_admin_retire.py`.
+
+**Et le retrait a lui-meme entrouvert une porte, la cinquieme fois que cela
+arrive sur ce projet.** La garde ecrite le meme jour ne verifiait que
+`run_tests.sh`, nommement : elle fermait le cas, pas la classe. Quatre scripts
+shell utilisaient le repli. Deux sont restes casses sans que rien ne le dise --
+`chantier_crypto/crash_test.sh`, que la suite presente pourtant comme son test
+le plus complet, et `charge_paliers.sh`, qui extrayait en outre le mot de passe
+de l'unite systemd par un `grep`. Les deux ont ete corriges le 23/08 et la
+garde porte desormais sur tous les fichiers `.sh`, presents et futurs.
+
+Le motif merite d'etre retenu tel quel : une garde nommant un fichier ferme un
+cas. Une garde parcourant une classe de fichiers ferme une classe.
 
 Ce n'est pas un oubli, mais le motif merite d'être donne exactement -- une
 version anterieure invoquait « rien de sensible au repos », ce qui est faux :

@@ -68,23 +68,27 @@ jobs:
       - name: Empreintes publiees a jour
         run: python3 test_empreintes_publiees.py
 
-      # Le repli en clair VERA_ADMIN_PASS doit rester hors de la suite de
-      # tests : c'est le canal par lequel des secrets ont fuite le 31/07, et
-      # tant que les tests l'empruntent, le chemin reellement en service
-      # (VERA_ADMIN_HASH) n'est couvert par rien.
-      - name: La suite de tests n'emprunte pas le repli en clair
+      # AUCUN script du depot n'emprunte le repli en clair VERA_ADMIN_PASS.
+      #
+      # La premiere version de cette garde ne nommait que run_tests.sh. C'etait
+      # fermer le CAS et non la CLASSE : quatre scripts shell utilisaient le
+      # repli, et deux sont restes casses -- crash_test.sh, que run_tests.sh
+      # presente comme le test le plus complet de la suite, et charge_paliers.sh.
+      # Elle porte desormais sur tous les .sh, presents et futurs.
+      - name: Aucun script n'emprunte le repli en clair
         run: |
-          if grep -qE '^[[:space:]]*export[[:space:]]+VERA_ADMIN_PASS' run_tests.sh; then
-            echo "ECHEC : run_tests.sh exporte VERA_ADMIN_PASS."
+          FAUTIFS=$(grep -rlE '^[^#]*\bVERA_ADMIN_PASS[[:space:]]*=' \
+                      --include='*.sh' . | grep -v '^\./\.git/' || true)
+          if [ -n "$FAUTIFS" ]; then
+            echo "ECHEC : ces scripts affectent VERA_ADMIN_PASS :"
+            echo "$FAUTIFS"
             echo ""
-            echo "Toute la suite emprunterait alors le chemin d'amorcage en"
-            echo "clair, tandis que VERA_ADMIN_HASH -- la voie en production --"
-            echo "ne serait exerce par aucun test. Le retrait annonce du repli"
-            echo "casserait la suite sans qu'aucun test n'ait valide son"
-            echo "remplacant. Voir LIMITS.md section 12."
+            echo "L'API refuse de demarrer avec cette variable depuis le"
+            echo "23/08. Ces scripts ne peuvent donc plus s'executer, et"
+            echo "rien d'autre ne le signalerait. Voir LIMITS.md section 12."
             exit 1
           fi
-          echo "OK : la suite derive VERA_ADMIN_HASH."
+          echo "OK : aucun script n'emprunte le repli."
 
       # Les fichiers Python doivent au moins compiler. Ne remplace pas la
       # suite de tests, mais attrape une erreur de syntaxe avant le serveur.
