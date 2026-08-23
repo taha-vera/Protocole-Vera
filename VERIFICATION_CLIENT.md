@@ -26,10 +26,10 @@ précisément celui que ces empreintes ferment.
 
 ## Empreintes de référence
 
-Version du 5 août 2026 :
+Version du 22 août 2026 (commit b5195f0) :
 
 ```
-af9ddb2b0528b7704da401effde6a460d6f6edcef5703b377eeb384c8f04617b  static/vote.html
+8ff02ef63014fb82630b4fae22821ca210ac7c3a8acb6cc90b09f04bb2b0465f  static/vote.html
 08e678cc5d64e9996cfe3cf54eb1220a1bb032c54d0c4351651f8aee057baa66  static/blindrsa-bundle.js
 ```
 

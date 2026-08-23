@@ -59,6 +59,33 @@ jobs:
           fi
           echo "OK : aucun journal_mode=WAL."
 
+      # Les empreintes publiees dans VERIFICATION_CLIENT.md doivent decrire
+      # les fichiers du depot, et l'attribut integrity de la page de vote doit
+      # correspondre au bundle. Le 22/08, un correctif a modifie vote.html sans
+      # que le document suive : pendant sept jours, la procedure du README
+      # produisait une divergence chez tout tiers qui l'appliquait -- le signal
+      # meme d'un client modifie, emis a tort par le mecanisme de detection.
+      - name: Empreintes publiees a jour
+        run: python3 test_empreintes_publiees.py
+
+      # Le repli en clair VERA_ADMIN_PASS doit rester hors de la suite de
+      # tests : c'est le canal par lequel des secrets ont fuite le 31/07, et
+      # tant que les tests l'empruntent, le chemin reellement en service
+      # (VERA_ADMIN_HASH) n'est couvert par rien.
+      - name: La suite de tests n'emprunte pas le repli en clair
+        run: |
+          if grep -qE '^[[:space:]]*export[[:space:]]+VERA_ADMIN_PASS' run_tests.sh; then
+            echo "ECHEC : run_tests.sh exporte VERA_ADMIN_PASS."
+            echo ""
+            echo "Toute la suite emprunterait alors le chemin d'amorcage en"
+            echo "clair, tandis que VERA_ADMIN_HASH -- la voie en production --"
+            echo "ne serait exerce par aucun test. Le retrait annonce du repli"
+            echo "casserait la suite sans qu'aucun test n'ait valide son"
+            echo "remplacant. Voir LIMITS.md section 12."
+            exit 1
+          fi
+          echo "OK : la suite derive VERA_ADMIN_HASH."
+
       # Les fichiers Python doivent au moins compiler. Ne remplace pas la
       # suite de tests, mais attrape une erreur de syntaxe avant le serveur.
       - name: Compilation des modules

@@ -16,8 +16,8 @@ construction dans ce modèle.
 - Signatures aveugles RSABSSA — RFC 9474, aveuglement et finalisation dans le
   navigateur du votant
 - Aucune persistance du lien identité → réponse
-- Modèle de menace public : **26 portes, 21 fermées avec preuve reproductible,
-  5 limites assumées**
+- Modèle de menace public : **26 portes — 15 fermées avec preuve reproductible,
+  6 fermées sous condition explicite, 5 limites assumées**
 
 > ⚠️ **VERA n'est pas conçu pour un scrutin contraignant ou juridiquement
 > opposable.** Il ne peut pas vérifier que les invitations sont parties aux
@@ -45,21 +45,30 @@ construction dans ce modèle.
 
 ## Est-ce que VERA répond à votre besoin ?
 
-VERA convient si les quatre conditions suivantes sont réunies.
+VERA convient si les conditions suivantes sont réunies. Les cinq premières sont
+les conditions de la garantie — énumérées et justifiées dans
+[LIMITS.md](LIMITS.md) §0 ; les deux dernières sont des contraintes d'usage.
 
 | Condition | Seuil | Pourquoi |
 |---|---|---|
 | Effectif du groupe consulté | **≥ 240 réponses** | En dessous, le bruit rend le résultat inexploitable. VERA refuse alors de publier — pas de version dégradée. |
-| Fenêtre de collecte | ≤ 7 jours | Les clés de signature sont détruites automatiquement à l'expiration. |
 | Hébergement | **assuré par VERA**, distinct de l'organisation qui consulte | C'est la condition de la garantie, et elle est remplie par défaut. |
 | Attestation de l'effectif | par un tiers mandaté (CSE, représentants du personnel) | Sans elle, l'organisation peut fabriquer une partie des réponses sans que rien ne le montre. |
+| Découpage en groupes | **sans recoupement** — chaque personne dans un seul groupe publié | Quelqu'un présent dans deux groupes subit ε = 1,0 en une seule consultation, alors que le barème le classe à 0,5. VERA ne peut pas le détecter : il ne connaît pas vos membres. |
 | Transporteur des invitations | **indépendant de l'hébergeur** | Le transporteur voit le couple (personne, invitation) ; l'hébergeur détient la base. Réunis, ils désanonymisent. |
+| Fenêtre de collecte | ≤ 7 jours | Les clés de signature sont détruites automatiquement à l'expiration. |
 | Portée du résultat | consultatif | VERA ne garantit pas l'intégrité du corps électoral. |
 
-**240 réponses, pas 240 invitations.** À un taux de participation réaliste de
-50 à 60 %, il faut compter **450 à 500 invités par groupe**. Une organisation de
-600 personnes ne peut donc publier qu'un seul résultat d'ensemble : découper par
-service produirait des groupes dont aucun n'atteindrait le seuil.
+**240 réponses, pas 240 invitations.** L'effectif minimal d'un groupe vaut
+240 / taux de participation. **Ce taux n'a jamais été mesuré sur VERA** : c'est
+l'inconnue principale du projet, et aucun chiffre présenté ici n'est un taux
+« attendu » ou « réaliste ». La valeur prudente retenue par défaut est **40 %,
+soit 600 personnes par groupe** ; à 25 %, il en faut près de 1 000. Barème
+complet : [LIMITS.md](LIMITS.md) §2.
+
+Une organisation de 600 personnes ne peut donc espérer, dans cette hypothèse,
+qu'un seul résultat d'ensemble : découper par service produirait des groupes
+dont aucun n'atteindrait le seuil.
 
 **Public visé :** grandes entreprises et groupes, fonction publique, hôpitaux,
 universités, syndicats de branche, associations de grande taille.
@@ -68,10 +77,14 @@ Les structures plus petites ne peuvent pas obtenir un résultat à la fois anony
 et suffisamment précis à ε = 0,5. C'est une contrainte mathématique, pas un choix
 de conception.
 
-### Précision réelle (mesurée le 14/07/2026)
+### Précision
 
-Erreur maximale sur trois options — 95ᵉ centile, pire répartition, 3000
-simulations, avec projection sur le simplexe :
+**Le bruit est absolu, pas proportionnel.** L'erreur sur la valeur publiée vaut
+environ **12 voix au 95ᵉ centile, quel que soit l'effectif** — projection sur le
+simplexe comprise, celle-ci étant du post-traitement, gratuite en ε. Mesure de
+référence : 20 000 tirages à n = 240, erreur maximale sur les trois options
+(16,1 voix avant projection, 12,0 après). Les pourcentages n'en sont que la
+traduction :
 
 | Effectif | Erreur max |
 |---|---|
@@ -79,11 +92,13 @@ simulations, avec projection sur le simplexe :
 | 150 | 8 % |
 | 200 | 6 % |
 | **240** | **5 %** ← seuil de publication |
-| 300 | 4 % |
-| 500 | 2,5 % |
+| 500 | 2,4 % |
+| 1 000 | 1,2 % |
+| 5 000 | 0,24 % |
 
-**Simulation** sur 250 votants, répartition 130/80/40 → publié 123/84/43. Somme
-exacte (250), erreur max 2,8 %.
+Les valeurs hors de n = 240 découlent du caractère absolu du bruit ; elles ne
+sont pas mesurées séparément. Méthode et chiffres : [LIMITS.md](LIMITS.md) §2,
+qui fait foi — toute autre série de simulations citée ailleurs est obsolète.
 
 *Ces chiffres proviennent de simulations, pas d'un déploiement réel : VERA n'a
 pas encore été utilisé pour une consultation en conditions réelles. Le parcours
@@ -147,7 +162,7 @@ protège. Détail : [modèle de menace](VERA_THREAT_MODEL_COMPLETE.md), section 
 
 ε = 0,5 borne ce qu'un adversaire peut apprendre **des résultats publiés** :
 même en connaissant toutes les autres réponses, sa certitude sur une réponse
-individuelle reste bornée à environ 62 %, contre 50 % sans information. C'est une
+individuelle reste bornée à 62,25 %, contre 50 % sans information. C'est une
 propriété du mécanisme, vérifiable, et elle tient.
 
 Elle ne borne rien d'autre. Elle ne protège ni le fait qu'une personne ait
@@ -229,6 +244,10 @@ Variables d'environnement de l'unité systemd :
 | `VERA_DB_PATH` | Emplacement de la base | `/root/vera_state.db` |
 | `VERA_VERROU_PROCESSUS` | Verrou d'instance unique | à côté de la base |
 
+Une variable de repli, `VERA_ADMIN_PASS`, accepte encore le mot de passe en
+clair. **Ne l'utilisez pas** : c'est le canal par lequel des secrets ont fuité
+le 31/07/2026, et il est destiné à être retiré. Voir [LIMITS.md](LIMITS.md) §12.
+
 Deux paramètres ne se configurent pas et sont inscrits dans le code, pour être
 vérifiables : le budget de confidentialité (ε = 0,5) et le seuil de publication
 (240 réponses). Ils sont exposés publiquement sur `/api/engagement_cles`, ce qui
@@ -259,8 +278,8 @@ seraient contournables.
 
 Après clôture, un accès au serveur ne révèle plus rien de la consultation passée.
 C'est la minimisation des données (RGPD art. 5) rendue opérationnelle et
-testable. Vérifié en conditions réelles : un état de dix départements ramené à
-zéro après clôture.
+testable. Vérifié sur le serveur de production : un état de dix départements
+ramené à zéro après clôture.
 
 ---
 
@@ -285,6 +304,12 @@ par groupe — que vous pouvez comparer aux effectifs réels que vous connaissez
 
 Procédure détaillée : [VERIFICATION_CLIENT.md](VERIFICATION_CLIENT.md).
 
+Ces empreintes sont tenues à jour par une garde d'intégration continue
+(`test_empreintes_publiees.py`) : toute modification de la page de vote ou du
+bundle qui ne s'accompagnerait pas de la mise à jour du document fait échouer le
+workflow. Une procédure de vérification qui se déclenche à tort n'en est plus
+une.
+
 **Portée de cette vérification :** elle détecte une divergence entre le code
 publié et le code servi. Elle ne protège pas contre un opérateur qui servirait
 délibérément un client modifié au moment du vote. Voir
@@ -300,11 +325,14 @@ croire le serveur sur parole.
 Chaque porte marquée « fermée » l'a été après vérification sur le serveur de
 production, avec une preuve reproductible.
 
-**Une porte fermée peut être rouverte par une fonctionnalité ajoutée plus tard.**
-Ce n'est pas une précaution théorique : c'est arrivé deux fois sur ce projet,
-dont une fois sans être détecté pendant quatorze jours. Toute modification
-touchant les mécanismes d'une porte fermée doit s'accompagner d'une
-re-vérification de celle-ci.
+**Une porte fermée peut être rouverte par une modification apportée plus tard.**
+Ce n'est pas une précaution théorique : c'est arrivé trois fois sur ce projet.
+Une fois sans être détecté pendant quatorze jours. Et une fois dans le mécanisme
+de détection lui-même — le 22/08, un correctif a modifié la page de vote sans
+que son empreinte publiée suive, si bien que pendant sept jours la procédure
+ci-dessus produisait, chez tout tiers qui l'appliquait, le signal d'un client
+modifié. Toute modification touchant les mécanismes d'une porte fermée doit
+s'accompagner d'une re-vérification de celle-ci.
 
 Cette consigne s'adresse à qui modifie le code. Elle n'implique aucune
 vérification de la part de l'organisation qui utilise VERA.
@@ -320,10 +348,14 @@ sont parties aux bonnes personnes, ni qu'elles ne sont parties qu'à elles.**
 La fiabilité des résultats repose donc sur l'intégrité de votre liste de
 diffusion.
 
-**Cette responsabilité se délègue, et elle doit l'être.** Le nombre
-d'invitations émises par groupe est exposé publiquement sur
-`/api/engagement_cles` : un représentant du personnel peut le comparer à
-l'effectif du registre sans rien vous demander.
+- **Consultation d'opinion :** faire attester la liste par un tiers mandaté
+  suffit. Le nombre d'invitations émises par groupe est exposé publiquement sur
+  `/api/engagement_cles` : un représentant du personnel peut le comparer à
+  l'effectif du registre sans rien vous demander.
+- **Scrutin contraignant ou juridiquement opposable :** cette garantie manquante
+  est rédhibitoire. VERA n'est pas conçu pour cet usage.
+
+**Cette responsabilité se délègue, et elle doit l'être.**
 
 **À inscrire dans l'accord, avant l'ouverture des dépôts :**
 
@@ -335,17 +367,24 @@ C'est la troisième condition du dispositif, au même rang que le seuil de 240 e
 l'hébergement séparé. Aucun code ne peut la remplacer : vérifier qu'une
 invitation correspond à une personne réelle supposerait de connaître les
 personnes — exactement ce que VERA s'interdit.
-- **Scrutin contraignant ou juridiquement opposable :** cette garantie manquante
-  est rédhibitoire. VERA n'est pas conçu pour cet usage.
 
 Détail : [LIMITS.md](LIMITS.md) §13.
 
-Vous restez également responsable de la notice RGPD jointe aux invitations, et
-du choix d'un hébergeur tiers effectivement indépendant.
+Vous restez également responsable de la notice RGPD jointe aux invitations, du
+choix d'un hébergeur tiers effectivement indépendant, et de celui d'un
+transporteur d'invitations sans lien avec cet hébergeur ([LIMITS.md](LIMITS.md)
+§12bis).
 
 ---
 
 ## Règles d'usage
+
+**Les groupes déclarés doivent former une partition de votre population** —
+chaque personne dans un groupe, un seul. Un découpage par service convient ; un
+découpage croisant service et statut ne convient pas : ceux qui se trouvent à
+l'intersection paient le double, silencieusement, et rien dans les chiffres
+publiés ne le signale. VERA ne peut pas le détecter, puisqu'il ne connaît pas
+vos membres. Détail : [LIMITS.md](LIMITS.md) §11bis.
 
 Le budget de confidentialité s'applique **par consultation**, et non par
 cohorte : il est remis à zéro à chaque clôture. Reposer une question à la même
@@ -360,6 +399,11 @@ deuxième consultation d'un même groupe, et fermement à partir de la quatrièm
 même population** (ε cumulé = 2,0, dernier palier défendable).
 
 Barème complet et justification : [LIMITS.md](LIMITS.md) §14.
+
+**Une consultation porte une question, à trois options.** VERA produit donc au
+plus quatre référendums d'entreprise par an et par population. Si votre besoin
+est un questionnaire ou un baromètre à plusieurs items, ce n'est pas l'outil :
+[LIMITS.md](LIMITS.md) §0.
 
 ---
 
@@ -389,7 +433,7 @@ séparation des rôles, pas à un défaut d'implémentation.
 
 | Document | Contenu |
 |---|---|
-| [LIMITS.md](LIMITS.md) | Limites détaillées, canaux non couverts, barèmes |
+| [LIMITS.md](LIMITS.md) | Limites détaillées, canaux non couverts, barèmes — **fait foi en cas de divergence** |
 | [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md) | Modèle de menace (26 portes), modèle d'adversaire, analyses |
 | [VERA_AUDIT_REFERENCE.md](VERA_AUDIT_REFERENCE.md) | Synthèse et paramètres |
 | [VERIFICATION_CLIENT.md](VERIFICATION_CLIENT.md) | Vérifier que le serveur sert bien ce code |
@@ -399,10 +443,18 @@ séparation des rôles, pas à un défaut d'implémentation.
 
 | Fichier | Rôle |
 |---|---|
+| `vera_consultation_api.py` | Tous les endpoints HTTP |
 | `vera_dp_noise.py` | Mécanisme de bruit (OpenDP, Δ₁ = 2 sous adjacence par substitution, scale = 4, ε = 0,5) |
 | `vera_signature_manager.py`, `vera_blind_sig/` | Signature aveugle RSABSSA (RFC 9474). L'aveuglement et la finalisation ont lieu dans le navigateur du votant : le serveur ne voit ni le secret ni la signature finale. |
 | `vera_persistance.py` | Persistance chiffrée de l'état — portes 11 et 14 (SQLite en `journal_mode=DELETE`, Fernet/AES-128) |
+| `vera_epsilon_budget.py` | Budget de confidentialité |
+| `vera_admin_auth.py` | Authentification de l'organisateur |
+| `static/vote.html`, `static/admin.html` | Page du votant, tableau de bord |
 | `verifier_engagement.py` | Outil du tiers vérificateur |
+
+L'architecture est **plate** : fichiers Python à la racine, module Rust dans
+`vera_blind_sig/`, deux pages dans `static/`. Il n'existe ni `routes/`, ni
+`models/`, ni `auth/`.
 
 **Note sur Fernet/AES-128 :** ce chiffrement protège l'état transitoire au
 repos, dont la durée de vie est bornée par la clôture. Il n'entre pas dans la
@@ -432,7 +484,11 @@ Voir également [SECURITY.md](SECURITY.md).
 Le parcours complet a été validé de bout en bout dans un navigateur ; aucune
 consultation avec de vrais participants n'a encore eu lieu.
 
-**Version courante :** commit `main`, 16 août 2026 — 24 tests automatiques.
+**Version courante :** commit `b5195f0`, 22 août 2026 — 26 tests automatiques.
+
+**Opéré par un mainteneur unique.** C'est une donnée du projet et non un détail
+d'organisation : elle limite ce qui peut être promis en matière de continuité,
+d'astreinte et de chaîne de sous-traitance au sens de l'article 28 du RGPD.
 
 **Contact :** tahahouari@hotmail.fr
 

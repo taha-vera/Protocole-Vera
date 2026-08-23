@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://taha-vera.github.io/Protocole-Vera/</loc>
-    <lastmod>2026-06-04</lastmod>
+    <loc>https://taha-vera.github.io/projet-vera-consultations-/</loc>
+    <lastmod>2026-08-23</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://github.com/taha-vera/Protocole-Vera</loc>
-    <lastmod>2026-06-04</lastmod>
+    <loc>https://github.com/taha-vera/projet-vera-consultations-</loc>
+    <lastmod>2026-08-23</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>

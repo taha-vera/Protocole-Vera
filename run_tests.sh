@@ -23,7 +23,24 @@ if [ -z "${VERA_DB_KEY:-}" ] && [ -r "$UNIT" ]; then
     export VERA_DB_KEY
 fi
 export VERA_ADMIN_USER="${VERA_ADMIN_USER:-compte_de_test}"
-export VERA_ADMIN_PASS="${VERA_ADMIN_PASS:-motdepasse_de_test}"
+
+# La suite exerce la voie de PRODUCTION -- VERA_ADMIN_HASH -- et jamais le
+# repli en clair VERA_ADMIN_PASS. Constat du 23/08/2026 : ce script exportait
+# le mot de passe en clair, donc chaque test empruntait le chemin par lequel
+# des secrets ont fuite le 31/07, tandis que le chemin reellement en service
+# n'etait couvert par rien. Le repli devant etre retire, sa disparition aurait
+# casse la suite sans qu'aucun test n'ait jamais valide son remplacant.
+unset VERA_ADMIN_PASS
+if [ -z "${VERA_ADMIN_HASH:-}" ]; then
+    VERA_ADMIN_HASH=$("$VENV" -c \
+        "import vera_admin_auth as a; print(a.generer_empreinte('motdepasse_de_test'))" \
+        2>/dev/null) || VERA_ADMIN_HASH=""
+    if [ -z "$VERA_ADMIN_HASH" ]; then
+        echo "ECHEC : impossible de deriver VERA_ADMIN_HASH avec $VENV." >&2
+        exit 1
+    fi
+    export VERA_ADMIN_HASH
+fi
 
 # CONTROLE DE DIVERGENCE depot / production.
 # Les tests importent les modules du REPERTOIRE COURANT (le depot), alors que

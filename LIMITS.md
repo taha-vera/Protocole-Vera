@@ -360,9 +360,9 @@ chacune acceptable prise isolément :
   l'instant de chaque vote ;
 - la présente section décrit des compteurs lisibles et incrémentés en direct.
 
-### Les canaux temporels forment une classe, pas trois problèmes séparés
+### Les canaux temporels forment une classe, pas quatre problèmes séparés
 
-Trois observations différentes livrent la même chose — l'instant de chaque
+Quatre observations différentes livrent la même chose — l'instant de chaque
 participation — et se composent entre elles :
 
 | Canal | Ce qu'il livre | Qui y accède |
@@ -815,8 +815,9 @@ faire.
 > **EN CLAIR, sans jargon.**
 > La protection de VERA s'use si vous consultez plusieurs fois les MEMES
 > personnes. Une ou deux consultations par an sur un groupe : protection
-> solide. Quatre : encore correcte. Au-dela de six, un employeur curieux
-> pourrait deviner qui a répondu quoi une fois sur vingt.
+> solide. Quatre : encore correcte. Au-dela de six, la protection cesse d'etre
+> defendable : un employeur curieux qui chercherait a deviner comment une
+> personne a repondu tomberait juste dix-neuf fois sur vingt.
 > **Regle simple : pas plus de quatre consultations par an sur le même groupe.**
 > VERA ne peut pas vous en empecher techniquement -- il ne sait pas qui sont
 > vos membres, c'est ce qui protège leur anonymat. C'est donc a l'organisation
@@ -862,11 +863,11 @@ definitivement non publiable). La limite est structurelle.
 
 | Consultations | epsilon cumule | Borne superieure de decision correcte* |
 |---|---|---|
-| 1 | 0.5 | 62,3 % |
+| 1 | 0.5 | 62,25 % |
 | 2 | 1.0 | 73,1 % |
 | **4** | **2.0** | **88,1 %** |
 | 6 | 3.0 | 95,3 % |
-| 10 | 5.0 | 99,4 % |
+| 10 | 5.0 | 99,3 % |
 | 20 | 10.0 | 99,995 % |
 
 \* *Probabilite maximale qu'un adversaire devine juste, dans le scenario binaire

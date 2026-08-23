@@ -2,8 +2,7 @@
 __pycache__/
 *.pyc
 *.png
-Cargo.lock
-target/
-__pycache__/
+# Cargo.lock est VOLONTAIREMENT suivi : il fige les versions du crate
+# blind-rsa-signatures, ce qui rend la compilation du module reproductible.
 target/
 archive/

@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VERA — Consultation a confidentialite differentielle, prouvee</title>
-<meta name="description" content="VERA est un protocole open source pour publier le resultat d'une consultation ou d'un sondage sensible sans jamais rendre lisible la reponse d'un individu — et le prouver mathematiquement via la confidentialite differentielle (OpenDP).">
-<meta name="keywords" content="confidentialite differentielle, consultation anonyme, sondage sensible, RGPD, anonymat prouve, OpenDP, differential privacy, protocole open source">
+<title>VERA — Consultation d'entreprise a confidentialite differentielle</title>
+<meta name="description" content="VERA est un service heberge, au code public, qui publie le resultat d'une consultation sensible sans rendre lisible la reponse d'un individu. Confidentialite differentielle a epsilon = 0,5 (OpenDP) et signatures aveugles RSABSSA.">
+<meta name="keywords" content="confidentialite differentielle, consultation anonyme, climat social, RGPD, OpenDP, differential privacy, signature aveugle, RSABSSA">
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family: system-ui, sans-serif; color: #1a1a1a; line-height: 1.6; }
@@ -34,7 +34,7 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <header>
 <div class="container">
 <h1>Publier le resultat d'une consultation sensible — sans jamais trahir une seule reponse.</h1>
-<p>VERA est un protocole open source qui publie un resultat collectif (sondage, consultation interne) sans rendre lisible la contribution d'un individu, et qui le PROUVE mathematiquement. Pas une promesse : une garantie verifiable.</p>
+<p>VERA publie un resultat collectif (consultation interne, climat social) sans rendre lisible la contribution d'un individu. La garantie repose sur deux choses inseparables : un mecanisme mathematique verifiable, et une separation des roles — celui qui heberge n'a pas la liste des membres, celui qui a la liste n'heberge pas.</p>
 <div class="cta">
 <a href="https://github.com/taha-vera/projet-vera-consultations-" class="btn btn-primary">Voir sur GitHub</a>
 <a href="https://github.com/taha-vera/projet-vera-consultations-/blob/main/VERA_THREAT_MODEL_COMPLETE.md" class="btn btn-secondary">Modele de menace</a>
@@ -87,15 +87,18 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <section>
 <div class="container">
 <h2>Invariants du protocole</h2>
-<p style="margin-bottom:1.5rem; color:#64748b;">Garantis par le code, pas par une politique.</p>
+<p style="margin-bottom:1.5rem; color:#64748b;">Ce que le code garantit &mdash; et ce qu'il ne peut pas garantir seul.</p>
 <ul>
 <li>La donnee brute n'est jamais stockee ni exposee</li>
 <li>Les sorties sont des agregats statistiques bruites, irreversibles</li>
 <li>Confidentialite differentielle : budget epsilon plafonne et borne</li>
 <li>Seuil minimum de participants (K = 240) : refus de publier en dessous</li>
-<li>Un token anonyme par individu et par consultation (anti double-reponse)</li>
+<li>Une invitation a usage unique : un jeton consomme ne peut plus servir</li>
 <li>Limites du modele de menace documentees, pas dissimulees</li>
 </ul>
+<p style="margin-top:1.5rem;" data-vera-conditions><strong>Ce que le code ne peut pas garantir seul.</strong> L'anonymat tient aussi a cinq conditions que le code ne verifie pas : un hebergement assure par un tiers distinct de l'organisation, un transporteur d'invitations independant de cet hebergeur, l'attestation de l'effectif par un representant du personnel, des groupes qui ne se recoupent pas, et pas plus de quatre consultations par an sur la meme population. Elles sont detaillees dans les <a href="https://github.com/taha-vera/projet-vera-consultations-/blob/main/LIMITS.md">limites</a>, et aucune n'est optionnelle.</p>
+<p><strong>Etat du projet.</strong> Fonctionnel et audite, jamais deploye en conditions reelles : aucune consultation avec de vrais participants n'a encore eu lieu.</p>
+
 </div>
 </section>
 <section>
@@ -152,7 +155,7 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <div class="container">
 <h2>Comment ca marche</h2>
 <div class="grid">
-<div class="card"><h3>1. Ouverture</h3><p>L'organisateur ouvre une consultation. Chaque participant recoit un token anonyme a usage unique.</p></div>
+<div class="card"><h3>1. Ouverture</h3><p>L'organisateur ouvre une consultation. Chaque participant recoit une invitation a usage unique, envoyee depuis la liste de l'organisation, jamais transmise a l'hebergeur.</p></div>
 <div class="card"><h3>2. Reponses</h3><p>Les participants repondent une fois chacun. Le seuil minimum de participants est verifie.</p></div>
 <div class="card"><h3>3. Agregation + bruit</h3><p>Les reponses alimentent un compteur agrege, jamais un enregistrement individuel. Le resultat est bruite par le mecanisme de Laplace (OpenDP).</p></div>
 <div class="card"><h3>4. Publication</h3><p>Seule la tendance bruitee est publiee. Le budget de confidentialite est decompte ; au-dela, publication refusee.</p></div>
@@ -162,7 +165,7 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 </main>
 <footer>
 <div class="container">
-<p>VERA n'est pas une entreprise. C'est un protocole open source. Chacun peut l'implementer, le verifier, l'auditer.</p>
+<p>VERA est un service heberge, au code public. L'organisation qui consulte n'installe rien : c'est la condition de la garantie. Chacun peut lire le code, le verifier, l'auditer.</p>
 <p style="margin-top:1rem;">
 <a href="https://github.com/taha-vera/projet-vera-consultations-" style="color:#60a5fa;">GitHub</a> —
 <a href="https://github.com/taha-vera/projet-vera-consultations-/blob/main/VERA_THREAT_MODEL_COMPLETE.md" style="color:#60a5fa;">Modele de menace</a> —

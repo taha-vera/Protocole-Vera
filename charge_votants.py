@@ -51,7 +51,7 @@ except ImportError:
     print("  /root/vera_blind_sig/.venv/bin/python3 charge_votants.py ...")
     sys.exit(1)
 
-LONGUEUR_CIBLE_FIXE = 200  # doit correspondre a static/vote.html
+LONGUEUR_CIBLE_FIXE = 450  # doit correspondre a static/vote.html
 
 
 # Le cookie de session est pose avec secure=True (protection voulue, cf.
