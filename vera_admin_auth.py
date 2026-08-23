@@ -155,3 +155,47 @@ def session_valide(jeton_session: str) -> str | None:
 def fermer_session(jeton_session: str) -> None:
     with _verrou:
         _sessions.pop(jeton_session, None)
+
+
+def amorcer_compte_principal() -> str | None:
+    """Cree le compte d'amorcage depuis l'environnement. Retourne l'identifiant
+    cree, ou None si aucun n'etait declare.
+
+    UNE SEULE VOIE : VERA_ADMIN_USER + VERA_ADMIN_HASH, l'empreinte
+    "sel_hex$hash_hex" etant calculee hors ligne par generer_empreinte(). Le mot
+    de passe n'apparait alors nulle part sur le serveur.
+
+    LE REPLI EN CLAIR A ETE RETIRE LE 23/08/2026. VERA_ADMIN_PASS acceptait le
+    mot de passe en clair ; il vivait alors en permanence dans l'unite systemd,
+    lisible par `systemctl cat` et recopie dans toute sauvegarde de
+    configuration. C'est par ce canal que des secrets ont fuite le 31/07/2026.
+
+    Le retrait echoue FRANCHEMENT plutot qu'en silence. Ignorer une variable
+    encore presente dans une unite demarrerait un service sans aucun compte
+    d'administration : l'organisateur ne s'en apercevrait qu'au moment de se
+    connecter, consultation ouverte. Un refus de demarrer se voit tout de suite,
+    et le message dit quoi faire.
+
+    Cette fonction vit ici plutot que dans l'API pour etre testable sans
+    fastapi, sans opendp et sans le module Rust -- c'est-a-dire partout.
+    """
+    identifiant = os.environ.get("VERA_ADMIN_USER")
+    empreinte = os.environ.get("VERA_ADMIN_HASH")
+
+    if os.environ.get("VERA_ADMIN_PASS") and not empreinte:
+        raise RuntimeError(
+            "VERA REFUSE DE DEMARRER : VERA_ADMIN_PASS n'est plus accepte. "
+            "Cette variable transportait le mot de passe d'administration en "
+            "clair dans l'unite systemd -- le canal par lequel des secrets ont "
+            "fuite le 31/07/2026. Pour migrer, calculer l'empreinte hors "
+            "ligne :\n"
+            "    python3 -c \"import vera_admin_auth as a; "
+            "print(a.generer_empreinte('VOTRE_MOT_DE_PASSE'))\"\n"
+            "puis remplacer VERA_ADMIN_PASS par VERA_ADMIN_HASH dans l'unite, "
+            "et retirer VERA_ADMIN_PASS."
+        )
+
+    if identifiant and empreinte:
+        creer_compte_depuis_empreinte(identifiant, empreinte)
+        return identifiant
+    return None

@@ -533,19 +533,31 @@ _comptes_rh dans vera_admin_auth.py), sans aucune persistance. Un compte cree
 via /api/rh/creer_compte disparait donc au prochain redemarrage du service.
 
 Seul le compte principal survit : il est recree a chaque demarrage a partir de
-variables d'environnement definies dans l'unite systemd, et lues au demarrage
-par `vera_consultation_api.py` (le module d'authentification, lui, ne les
-connait pas).
+variables d'environnement definies dans l'unite systemd, par
+`vera_admin_auth.amorcer_compte_principal()`.
 
-**Deux variantes, et la production utilise la seconde.** `VERA_ADMIN_PASS`
-porte le mot de passe en clair : conservee pour ne pas casser une installation
-existante, elle declenche un avertissement au demarrage, car le secret vit alors
-en clair dans l'unite systemd -- lisible par `systemctl cat`.
-`VERA_ADMIN_HASH` porte une empreinte `sel$hash` calculee hors ligne
-(PBKDF2-HMAC-SHA256, 200 000 iterations) : le mot de passe n'apparait nulle part
-sur le serveur. C'est cette variante qui est en production depuis le 12/08.
+**Une seule variante depuis le 23/08/2026.** `VERA_ADMIN_HASH` porte une
+empreinte `sel$hash` calculee hors ligne (PBKDF2-HMAC-SHA256, 200 000
+iterations) : le mot de passe n'apparait nulle part sur le serveur. C'est la
+variante en production depuis le 12/08.
 
-Si les deux sont definies, l'empreinte gagne.
+**Le repli `VERA_ADMIN_PASS` a ete retire.** Il portait le mot de passe en clair,
+qui vivait alors en permanence dans l'unite systemd -- lisible par
+`systemctl cat` et recopie dans toute sauvegarde de configuration. C'est le
+chemin par lequel des secrets ont fuite le 31/07/2026.
+
+Il a survecu longtemps pour une raison mecanique, qui merite d'etre notee :
+`run_tests.sh` l'exportait, donc toute la suite l'empruntait et le retirer
+cassait les tests -- tandis que la voie reellement en service n'etait exercee par
+rien. La suite a d'abord ete basculee sur `VERA_ADMIN_HASH` le 23/08, ce qui a
+rendu le retrait possible le meme jour.
+
+**Le refus est franc.** Si `VERA_ADMIN_PASS` figure encore dans une unite sans
+`VERA_ADMIN_HASH`, le service ne demarre pas et le message indique la migration.
+Ignorer la variable en silence demarrerait un service sans aucun compte
+d'administration -- ce que l'organisateur ne decouvrirait qu'au moment de se
+connecter, consultation ouverte. Verifie dans les deux sens par
+`test_repli_admin_retire.py`.
 
 Ce n'est pas un oubli, mais le motif merite d'être donne exactement -- une
 version anterieure invoquait « rien de sensible au repos », ce qui est faux :

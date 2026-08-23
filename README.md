@@ -244,9 +244,11 @@ Variables d'environnement de l'unité systemd :
 | `VERA_DB_PATH` | Emplacement de la base | `/root/vera_state.db` |
 | `VERA_VERROU_PROCESSUS` | Verrou d'instance unique | à côté de la base |
 
-Une variable de repli, `VERA_ADMIN_PASS`, accepte encore le mot de passe en
-clair. **Ne l'utilisez pas** : c'est le canal par lequel des secrets ont fuité
-le 31/07/2026, et il est destiné à être retiré. Voir [LIMITS.md](LIMITS.md) §12.
+La variable de repli `VERA_ADMIN_PASS`, qui acceptait le mot de passe en clair,
+a été retirée le 23/08/2026 — c'était le canal par lequel des secrets ont fuité
+le 31/07. Si elle figure encore dans une unité systemd sans `VERA_ADMIN_HASH`,
+**le service refuse de démarrer** et indique la migration à faire. Voir
+[LIMITS.md](LIMITS.md) §12.
 
 Deux paramètres ne se configurent pas et sont inscrits dans le code, pour être
 vérifiables : le budget de confidentialité (ε = 0,5) et le seuil de publication
@@ -484,7 +486,7 @@ Voir également [SECURITY.md](SECURITY.md).
 Le parcours complet a été validé de bout en bout dans un navigateur ; aucune
 consultation avec de vrais participants n'a encore eu lieu.
 
-**Version courante :** commit `b5195f0`, 22 août 2026 — 26 tests automatiques.
+**Version courante :** commit `main`, 23 août 2026 — 27 tests automatiques.
 
 **Opéré par un mainteneur unique.** C'est une donnée du projet et non un détail
 d'organisation : elle limite ce qui peut être promis en matière de continuité,
