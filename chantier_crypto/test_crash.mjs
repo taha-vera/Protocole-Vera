@@ -15,7 +15,10 @@ import { RSABSSA } from '@cloudflare/blindrsa-ts';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const BASE = 'http://127.0.0.1:8020';
-const ETAT = '/root/crypto_test/crash_state.json';
+// L'etat inter-phases va dans le bac a sable jetable, pas dans un
+// repertoire hors depot : c'est ce qui rendait ce test dependant
+// d'un emplacement que personne n'avait documente.
+const ETAT = process.env.VERA_CRASH_ETAT || '/tmp/vera_crash_test/crash_state.json';
 const suite = RSABSSA.SHA384.PSS.Randomized();
 const toHex = (u8) => Buffer.from(u8).toString('hex');
 const fromHex = (h) => new Uint8Array(Buffer.from(h, 'hex'));

@@ -66,7 +66,17 @@ lancer() {
   nohup "$PY" -m uvicorn vera_consultation_api:app --host 127.0.0.1 --port 8020 >> "$LOG" 2>&1 &
   echo $! > "$PIDF"
   sleep 3
-  curl -sf http://127.0.0.1:8020/api/health > /dev/null || { echo "### serveur ne demarre pas, voir $LOG"; exit 1; }
+  # Verifier que NOTRE processus est vivant, pas que le port repond.
+  # Un serveur fantome d'un essai precedent -- detenteur du verrou, donc
+  # empechant le notre de demarrer -- repondait 200 sur /api/health et ce
+  # controle passait. Le test echouait ensuite plus loin, sur un 401
+  # incomprehensible, contre une instance amorcee avec d'autres comptes.
+  if ! kill -0 "$(cat "$PIDF")" 2>/dev/null; then
+    echo "### le serveur de test s'est arrete au demarrage. Voir $LOG" >&2
+    tail -5 "$LOG" >&2
+    exit 1
+  fi
+  curl -sf "$BASE/api/health" > /dev/null || { echo "### serveur injoignable, voir $LOG"; exit 1; }
 }
 
 echo "--- Nettoyage + lancement 1 ---"

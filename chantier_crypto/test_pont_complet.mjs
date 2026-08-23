@@ -30,7 +30,7 @@ const randomizer = prepared.slice(0, 32);
 const Kmsg = prepared.slice(32);
 console.log('K == Kmsg extrait:', toHex(K) === toHex(Kmsg));
 
-const res = execFileSync('/root/vera_blind_sig/.venv/bin/python3',
+const res = execFileSync(process.env.VERA_PYTHON || '/root/vera_blind_sig/.venv/bin/python3',
   ['/tmp/test_pont.py', cle_publique_hex, toHex(Kmsg), toHex(signature), toHex(randomizer)],
   {encoding:'utf8'});
 console.log(res.trim());

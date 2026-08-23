@@ -583,6 +583,15 @@ garde porte desormais sur tous les fichiers `.sh`, presents et futurs.
 Le motif merite d'etre retenu tel quel : une garde nommant un fichier ferme un
 cas. Une garde parcourant une classe de fichiers ferme une classe.
 
+**Un controle de sante qui ne controle rien.** Le crash test verifiait son
+demarrage par `curl /api/health`. Un serveur fantome d'un essai precedent --
+detenteur du verrou, donc empechant precisement le nouveau de demarrer --
+repondait 200 et le controle passait. Le test echouait ensuite beaucoup plus
+loin, sur une erreur d'authentification sans rapport, contre une instance
+amorcee avec d'autres comptes. Il verifie desormais que SON processus est
+vivant (`kill -0` sur le PID) avant d'interroger le port. Un port qui repond ne
+prouve pas que c'est le bon serveur qui repond.
+
 Ce n'est pas un oubli, mais le motif merite d'être donne exactement -- une
 version anterieure invoquait « rien de sensible au repos », ce qui est faux :
 la clé RSA privee EST persistee, chiffree (section 9). La doctrine réelle est
