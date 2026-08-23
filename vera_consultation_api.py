@@ -171,9 +171,32 @@ auth.amorcer_compte_principal()
 # n'a jamais ete transmis en cross-origin -- mais une politique ouverte permet
 # a n'importe quel site d'interroger les endpoints publics depuis le navigateur
 # d'un visiteur. Principe de moindre privilege.
+# Le domaine du service vit dans une variable, pas dans le code. Il apparaissait
+# en dur a deux endroits -- l'origine CORS ci-dessous et la base des liens
+# d'invitation -- ce qui faisait d'un changement de domaine une modification de
+# code, donc un cycle de deploiement complet, pour ce qui est une donnee
+# d'exploitation. Le defaut reste le domaine actuel : rien ne change tant que
+# la variable n'est pas definie.
+#
+# Motif du changement a venir : DuckDNS est gratuit, sans engagement, sans
+# recours en cas de reprise du nom. Qui controle la zone DNS peut obtenir un
+# certificat valide pour ce nom et servir son propre JavaScript aux votants --
+# le scenario « operateur actif » de LIMITS.md section 6, ouvert a un tiers qui
+# n'a jamais ete choisi comme tel (section 12bis).
+VERA_DOMAINE = os.environ.get(
+    "VERA_DOMAINE", "https://vera-consultation.duckdns.org").rstrip("/")
+
+if not VERA_DOMAINE.startswith("https://"):
+    raise RuntimeError(
+        f"VERA REFUSE DE DEMARRER : VERA_DOMAINE vaut {VERA_DOMAINE!r}. "
+        "Le domaine doit etre une origine HTTPS complete, par exemple "
+        "https://consultation.exemple.org. En HTTP, l'aveuglement du vote "
+        "circule en clair et la garantie ne tient plus."
+    )
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://vera-consultation.duckdns.org"],
+    allow_origins=[VERA_DOMAINE],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -807,7 +830,7 @@ def generer_autorisations(payload: GenererAutorisationsRequete, session_vera: Op
             detail="Les cles de la consultation ne sont pas encore pretes.",
         )
 
-    base_url = "https://vera-consultation.duckdns.org/vote"
+    base_url = f"{VERA_DOMAINE}/vote"
     autorisations = []
     # HORS DU VERROU GLOBAL. La generation de jetons est du calcul local
     # (secrets.token_urlsafe) sur des donnees qui n'existent pas encore : elle

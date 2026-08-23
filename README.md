@@ -243,6 +243,7 @@ Variables d'environnement de l'unité systemd :
 | `VERA_ADMIN_HASH` | Empreinte PBKDF2 du mot de passe, format `sel$hash` | — |
 | `VERA_DB_PATH` | Emplacement de la base | `/root/vera_state.db` |
 | `VERA_VERROU_PROCESSUS` | Verrou d'instance unique | à côté de la base |
+| `VERA_DOMAINE` | Origine HTTPS du service. Sert d'origine CORS et de base aux liens d'invitation. Le démarrage échoue si elle n'est pas en `https://`. | `https://vera-consultation.duckdns.org` |
 
 La variable de repli `VERA_ADMIN_PASS`, qui acceptait le mot de passe en clair,
 a été retirée le 23/08/2026 — c'était le canal par lequel des secrets ont fuité
@@ -486,7 +487,7 @@ Voir également [SECURITY.md](SECURITY.md).
 Le parcours complet a été validé de bout en bout dans un navigateur ; aucune
 consultation avec de vrais participants n'a encore eu lieu.
 
-**Version courante :** commit `main`, 23 août 2026 — 27 tests automatiques.
+**Version courante :** commit `main`, 23 août 2026 — 28 tests automatiques.
 
 **Opéré par un mainteneur unique.** C'est une donnée du projet et non un détail
 d'organisation : elle limite ce qui peut être promis en matière de continuité,
@@ -510,11 +511,36 @@ Antériorité horodatée (Zenodo) :
 
 ## Licence
 
-**Code :** MIT — voir [LICENSE](LICENSE).
+**Code :** AGPL-3.0 — voir [LICENSE](LICENSE).
 **Documentation :** CC-BY 4.0.
 
-> **Point à arbitrer.** Pour un projet où une modification du client peut défaire
-> les garanties annoncées, une licence copyleft réseau (AGPL-3.0) obligerait un
-> opérateur qui modifie le code à publier ses modifications. C'est cohérent avec
-> le modèle de menace, section 1 — et cela transformerait une limite documentée
-> en obligation juridique. Ce changement reste à trancher.
+**Pourquoi une licence copyleft réseau.** Dans ce projet, la garantie annoncée
+aux participants dépend du code exécuté dans leur navigateur : un opérateur qui
+sert un JavaScript modifié défait l'anonymat sans que rien ne le signale
+(`LIMITS.md` §6). L'AGPL fait de cette limite documentée une obligation
+juridique — quiconque opère une version modifiée de VERA pour des utilisateurs
+distants doit leur en proposer le code source correspondant.
+
+C'est la seule licence qui atteigne un opérateur de service. Sous MIT, ou même
+sous GPL, une version modifiée servie sur un serveur ne déclenche aucune
+obligation de publication : le logiciel n'est pas *distribué*, il est seulement
+*exécuté*. C'est précisément le cas de VERA.
+
+**Ce que cela n'apporte pas, et qu'il ne faut pas confondre.** L'AGPL est une
+obligation, pas un mécanisme de détection. Un opérateur malveillant qui sert un
+client piégé viole la licence — il ne devient pas détectable pour autant. Ce que
+la licence change, c'est qu'un écart constaté devient opposable en droit et plus
+seulement en fait. La protection réelle reste la séparation des rôles.
+
+**Ce que l'AGPL impose à qui opère VERA.** La section 13 demande d'offrir le
+code source aux utilisateurs *distants* — pas seulement à qui reçoit une copie
+du logiciel. La page de vote porte donc un lien vers le dépôt. Sans lui,
+l'obligation existerait en droit sans qu'aucun votant ait le moyen de l'exercer.
+
+Cette mention a aussi une valeur propre : la garantie annoncée au votant dépend
+du JavaScript exécuté dans *son* navigateur. Lui donner l'adresse du code, c'est
+lui donner de quoi le faire vérifier.
+
+**Sur le changement de licence.** Le projet était sous MIT jusqu'au 23/08/2026.
+Les copies déjà obtenues sous MIT le restent — une licence accordée ne se retire
+pas. Le changement vaut pour les versions publiées à partir de cette date.

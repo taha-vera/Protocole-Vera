@@ -161,6 +161,23 @@
   }
 
   #error-screen .state-title { color: var(--error); }
+
+  /* Pied de page AGPL section 13. Volontairement discret : il informe, il ne
+     sollicite pas. Il ne doit en aucun cas concurrencer le bouton de vote. */
+  .pied-source {
+    margin: 2.5rem auto 1.5rem;
+    max-width: 34rem;
+    padding: 0 1.25rem;
+    text-align: center;
+  }
+  .pied-source p {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: #7a7a76;
+  }
+  .pied-source a { color: #7a7a76; text-decoration: underline; }
+  .pied-source a:hover, .pied-source a:focus { color: #3a3a38; }
 </style>
 </head>
 <body>
@@ -262,6 +279,27 @@
     </div>
 
   </div>
+
+  <!-- AGPL-3.0, section 13 : « Remote Network Interaction ». Un operateur qui
+       fait tourner une version MODIFIEE de VERA pour des utilisateurs distants
+       doit leur proposer le code source correspondant. Cette mention rend
+       l'offre effective -- sans elle, l'obligation existe en droit mais aucun
+       votant n'a le moyen de l'exercer.
+
+       Elle a aussi une valeur propre, independante de la licence : la garantie
+       annoncee au votant depend du JavaScript execute dans SON navigateur.
+       Lui donner l'adresse du code, c'est lui donner de quoi verifier -- ou
+       faire verifier -- ce qu'il execute. Voir LIMITS.md section 6 : ce
+       controle ne protege pas d'un operateur actif, mais il rend un ecart
+       constatable. -->
+  <footer class="pied-source">
+    <p>
+      VERA est un logiciel libre sous licence AGPL-3.0. Le code de cette page,
+      y compris la partie qui chiffre votre reponse, est public et verifiable :
+      <a href="https://github.com/taha-vera/projet-vera-consultations-"
+         target="_blank" rel="noopener noreferrer">code source</a>.
+    </p>
+  </footer>
 
 <!-- Sous-ressource intègre (SRI). Le navigateur calcule lui-meme l'empreinte
      du fichier recu et refuse de l'executer si elle ne correspond pas. C'est
