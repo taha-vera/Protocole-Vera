@@ -307,8 +307,20 @@ par groupe — que vous pouvez comparer aux effectifs réels que vous connaissez
 
 Procédure détaillée : [VERIFICATION_CLIENT.md](VERIFICATION_CLIENT.md).
 
+**Vous pouvez aussi reconstruire le bundle vous-même** et vérifier qu'il dérive
+bien du code source publié :
+
+```bash
+cd chantier_crypto && npm ci && npm run build:verifier
+sha256sum /tmp/vera_bundle_verif.js ../static/blindrsa-bundle.js
+```
+
+Les deux empreintes doivent être identiques. Le build est déterministe : mêmes
+sources, mêmes dépendances figées par `package-lock.json`, même fichier au bit
+près, quelle que soit la machine.
+
 Ces empreintes sont tenues à jour par une garde d'intégration continue
-(`test_empreintes_publiees.py`) : toute modification de la page de vote ou du
+(`test_empreintes_publiees.py`, `test_bundle_reconstructible.py`) : toute modification de la page de vote ou du
 bundle qui ne s'accompagnerait pas de la mise à jour du document fait échouer le
 workflow. Une procédure de vérification qui se déclenche à tort n'en est plus
 une.
@@ -487,11 +499,13 @@ Voir également [SECURITY.md](SECURITY.md).
 Le parcours complet a été validé de bout en bout dans un navigateur ; aucune
 consultation avec de vrais participants n'a encore eu lieu.
 
-**Version courante :** commit `main`, 23 août 2026 — 28 tests automatiques.
+**Version courante :** commit `main`, 23 août 2026 — 29 tests automatiques.
 
-**Opéré par un mainteneur unique.** C'est une donnée du projet et non un détail
-d'organisation : elle limite ce qui peut être promis en matière de continuité,
-d'astreinte et de chaîne de sous-traitance au sens de l'article 28 du RGPD.
+**L'équipe d'exploitation est réduite.** Ce n'est pas un détail d'organisation :
+cela limite ce qui peut être promis en matière de continuité, d'astreinte et de
+chaîne de sous-traitance au sens de l'article 28 du RGPD. Une organisation qui
+envisage VERA doit poser la question avant de s'engager, et la réponse figurera
+au contrat.
 
 **Contact :** tahahouari@hotmail.fr
 

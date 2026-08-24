@@ -5,6 +5,10 @@
   "type": "module",
   "description": "Tests du chemin cryptographique reel de VERA : pont client-serveur, courses concurrentes, survie de l'anti-rejeu a un kill -9.",
   "license": "AGPL-3.0-only",
+  "scripts": {
+    "build": "esbuild entree_bundle.js --bundle --format=iife --outfile=../static/blindrsa-bundle.js",
+    "build:verifier": "esbuild entree_bundle.js --bundle --format=iife --outfile=/tmp/vera_bundle_verif.js"
+  },
   "dependencies": {
     "@cloudflare/blindrsa-ts": "0.4.4"
   },

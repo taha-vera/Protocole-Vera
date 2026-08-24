@@ -90,6 +90,15 @@ jobs:
           fi
           echo "OK : aucun script n'emprunte le repli."
 
+      # Le bundle servi doit se reconstruire a l'identique depuis ses sources.
+      # Sans ce controle, la chaine allait de l'empreinte publiee au fichier du
+      # depot, jamais du fichier au code qui l'a produit : un bundle piege
+      # commite tel quel passait tout.
+      - name: Bundle reconstructible depuis ses sources
+        run: |
+          cd chantier_crypto && npm ci --silent && cd ..
+          python3 test_bundle_reconstructible.py
+
       # Les fichiers Python doivent au moins compiler. Ne remplace pas la
       # suite de tests, mais attrape une erreur de syntaxe avant le serveur.
       - name: Compilation des modules

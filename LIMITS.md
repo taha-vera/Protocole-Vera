@@ -264,24 +264,39 @@ change en transit ou sur le serveur. Et `VERIFICATION_CLIENT.md` publié les
 empreintes SHA-256 des deux fichiers servis, verifiables en deux commandes par
 un tiers.
 
-**Un pas vers le build reproductible, fait le 23/08.** Le `package.json` des
-tests cryptographiques et son `package-lock.json` vivaient hors du depot, dans
-`/root/crypto_test`. Le depot publiait donc sept fichiers `.mjs` sans le
-manifeste disant de quoi ils dependent : personne ne pouvait les executer, et la
-version de `@cloudflare/blindrsa-ts` -- la bibliotheque qui realise
-l'aveuglement dans le navigateur -- n'etait figee nulle part. Les deux fichiers
-sont desormais versionnes, avec des versions exactes plutot que des plages `^`.
+**Le build du bundle est reproductible, verifie le 23/08.** Le `package.json`
+des tests cryptographiques et son `package-lock.json` vivaient hors du depot,
+dans `/root/crypto_test`. Le depot publiait donc sept fichiers `.mjs` sans le
+manifeste disant de quoi ils dependent, et la version de
+`@cloudflare/blindrsa-ts` -- la bibliotheque qui realise l'aveuglement dans le
+navigateur -- n'etait figee nulle part.
 
-Cela ne suffit pas a rendre le bundle reproductible : il faudrait encore que la
-construction par `esbuild` soit deterministe et verifiee. Mais sans le lock, la
-question ne se posait meme pas.
+Une fois le verrou versionne, la reconstruction a ete tentee : sur une autre
+machine, avec un Node de version differente, `esbuild` redonne le bundle publie
+**au bit pres** -- meme SHA-256 `08e678cc...baa66`, meme empreinte SHA-384 que
+l'attribut `integrity` de la page de vote. Deux builds successifs sont
+identiques.
 
-**Ce qui n'existe pas, et qu'il ne faut pas laisser croire.** Il n'y a pas de
-build reproductible du bundle depuis ses sources : la vérification detecte une
-divergence entre le code PUBLIE et le code SERVI, elle ne prouve pas que le
-bundle publié corresponde a son code source. Et surtout, elle ne protège pas
-d'un serveur qui servirait une page differente a un jeton cible -- qui sert la
-page sert aussi l'attribut qui la certifie.
+Rien n'introduit de variation ici : le bundle n'est pas minifie, esbuild ordonne
+les modules par le graphe d'imports et non par le systeme de fichiers, et
+n'insere ni horodatage ni chemin absolu. La commande, qui n'etait ecrite nulle
+part, figure desormais dans le script `build` du manifeste. `npm ci` installe
+exactement ce que le verrou decrit.
+
+`test_bundle_reconstructible.py` reconstruit le bundle a chaque passage de la
+suite et echoue s'il differe du fichier servi -- ou si deux reconstructions
+successives different entre elles.
+
+**Ce qui n'existe pas, et qu'il ne faut pas laisser croire.** La verification
+detecte une divergence entre le code PUBLIE et le code SERVI. Depuis le 23/08
+elle etablit aussi que le bundle publie derive de son code source, puisqu'il se
+reconstruit a l'identique -- c'est la chaine qui manquait, et une version
+anterieure de cette section affirmait a tort qu'elle etait hors de portee.
+
+Mais elle ne protège toujours pas d'un serveur qui servirait une page
+differente a un jeton cible : qui sert la page sert aussi l'attribut qui la
+certifie. Et la reconstruction se verifie sur ce que le depot publie, pas sur ce
+qu'un navigateur a reellement recu.
 
 **Conclusion.** Contre un operateur actif, aucune vérification executee dans un
 navigateur ne protège. Ce que ces mécanismes produisent est une trace : un ecart
