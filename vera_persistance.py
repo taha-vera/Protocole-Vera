@@ -485,10 +485,26 @@ def charger_question():
 
 # Duree de conservation des signatures emises, pour l'idempotence.
 #
-# Cette table contient le lien (jeton -> message aveugle) : exactement ce que
-# le protocole existe pour ne pas conserver. On la garde donc le minimum --
-# assez pour qu'un votant dont le navigateur a echoue puisse recharger sa page
-# et retrouver SA signature, pas davantage.
+# Ce cache retient le couple (empreinte du jeton -> empreinte du message
+# AVEUGLE) avec la signature aveugle emise.
+#
+# CE QU'IL REVELE EXACTEMENT, ET IL FAUT LE DIRE JUSTE.
+# Le facteur d'aveuglement r ne quitte jamais le navigateur du votant. Sans
+# lui, aucune de ces valeurs ne se raccroche au depot, qui porte hash(K) et la
+# signature FINALISEE. Le cache etablit donc seulement qu'un jeton a obtenu une
+# signature -- information que jetons_autorisation.utilise = 1 inscrit deja en
+# base, sans limite de retention. L'apport marginal est proche de zero.
+#
+# Ce n'est PAS le lien identite -> reponse. Une formulation anterieure de ce
+# commentaire disait « exactement ce que le protocole existe pour ne pas
+# conserver » : c'etait exagere, et le 26/08 un relecteur externe l'a cite tel
+# quel pour conclure a une violation de la garantie centrale. Un commentaire
+# qui surestime un risque fabrique des fausses alertes, exactement comme un
+# commentaire qui le minimise en cache de vraies. Analyse complete :
+# LIMITS.md section 1.
+#
+# On garde neanmoins le minimum : assez pour qu'un votant dont le navigateur a
+# echoue puisse recharger sa page et retrouver SA signature, pas davantage.
 #
 # Une heure couvre un rechargement, un retour en arriere, une perte de reseau.
 # Elle ne couvre pas un votant qui reviendrait le lendemain : celui-la devra
@@ -538,8 +554,12 @@ def _purger_signatures_expirees(seuil):
     Ignorer une entree expiree ne suffit pas : ses octets restent en memoire
     de processus. Un vidage de memoire, un swap, une image de machine virtuelle
     prise plusieurs jours apres la derniere signature contiendraient encore le
-    couple (empreinte du jeton -> empreinte du message aveugle), c'est-a-dire
-    exactement ce que ce systeme existe pour ne pas conserver.
+    couple (empreinte du jeton -> empreinte du message aveugle).
+
+    Ce couple n'etablit pas le lien identite -> reponse -- voir le commentaire
+    de RETENTION_SIGNATURES_SECONDES ci-dessus. Il n'a pas a trainer pour
+    autant : cette section inventorie ce que le systeme conserve, et une
+    structure gardant plus longtemps que ce qu'elle annonce merite sa ligne.
 
     PORTEE EXACTE DE CETTE PURGE
     `del` supprime la reference, il n'ecrase pas la memoire : Python peut

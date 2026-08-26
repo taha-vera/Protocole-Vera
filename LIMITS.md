@@ -123,6 +123,14 @@ retrouver sa signature au lieu de perdre sa voix.
 Retention : une heure, purge physique a chaque lecture et a chaque ecriture,
 vidage complet a la clôture. Il ne survit pas a un redemarrage du service.
 
+**Un commentaire qui exagere un risque en fabrique un.** Jusqu'au 26/08,
+`vera_persistance.py` decrivait ce cache comme « exactement ce que le protocole
+existe pour ne pas conserver » -- formulation plus alarmante que l'analyse
+ci-dessus ne le justifie. Un relecteur externe l'a citee telle quelle pour
+conclure a une violation de la garantie centrale. Le commentaire a ete aligne
+sur cette section. Une surestimation ecrite dans le code produit de fausses
+alertes aussi surement qu'une sous-estimation en cache de vraies.
+
 Le risque est faible mais il n'est pas nul : un vidage de memoire ou une image
 de machine virtuelle prise pendant cette heure contiendrait ce lien. Nous le
 mentionnons parce que cette section inventorie ce que le système conserve, et
