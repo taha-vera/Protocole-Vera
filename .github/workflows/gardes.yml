@@ -99,6 +99,13 @@ jobs:
           cd chantier_crypto && npm ci --silent && cd ..
           python3 test_bundle_reconstructible.py
 
+      # Aucun document ne doit contredire les parametres du code.
+      # VERA_AUDIT_REFERENCE.md affichait journal_mode=WAL, 48 h de duree de cle
+      # et un bourrage a 200 octets, des semaines apres que les trois eurent
+      # change. Aucun test ne lisait la documentation.
+      - name: Parametres documentes conformes au code
+        run: python3 test_parametres_documentes.py
+
       # Les fichiers Python doivent au moins compiler. Ne remplace pas la
       # suite de tests, mais attrape une erreur de syntaxe avant le serveur.
       - name: Compilation des modules

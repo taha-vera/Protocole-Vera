@@ -165,6 +165,13 @@ même en connaissant toutes les autres réponses, sa certitude sur une réponse
 individuelle reste bornée à 62,25 %, contre 50 % sans information. C'est une
 propriété du mécanisme, vérifiable, et elle tient.
 
+**Ce chiffre suppose trois choses**, et il ne veut rien dire sans elles : un
+adversaire qui connaît déjà toutes les autres réponses, un a priori équilibré
+sur celle qui l'intéresse, et une décision entre deux valeurs. C'est la borne
+`e^ε/(1+e^ε)`, un maximum théorique dans le pire cas — pas une probabilité
+universelle de réidentification. Dérivation complète et hypothèses :
+[LIMITS.md](LIMITS.md) §14.
+
 Elle ne borne rien d'autre. Elle ne protège ni le fait qu'une personne ait
 participé, ni le moment où elle l'a fait, ni ce qu'un adversaire apprendrait en
 observant le serveur pendant la consultation. Ces canaux existent, ils sont
@@ -341,13 +348,16 @@ Chaque porte marquée « fermée » l'a été après vérification sur le serveu
 production, avec une preuve reproductible.
 
 **Une porte fermée peut être rouverte par une modification apportée plus tard.**
-Ce n'est pas une précaution théorique : c'est arrivé trois fois sur ce projet.
-Une fois sans être détecté pendant quatorze jours. Et une fois dans le mécanisme
-de détection lui-même — le 22/08, un correctif a modifié la page de vote sans
-que son empreinte publiée suive, si bien que pendant sept jours la procédure
-ci-dessus produisait, chez tout tiers qui l'appliquait, le signal d'un client
-modifié. Toute modification touchant les mécanismes d'une porte fermée doit
-s'accompagner d'une re-vérification de celle-ci.
+Ce n'est pas une précaution théorique : **c'est arrivé cinq fois sur ce projet**,
+et le décompte est tenu à jour dans [LIMITS.md](LIMITS.md). Une fois sans être
+détecté pendant quatorze jours. Une fois dans le mécanisme de détection
+lui-même — le 22/08, un correctif a modifié la page de vote sans que son
+empreinte publiée suive, si bien que pendant sept jours la procédure ci-dessus
+produisait, chez tout tiers qui l'appliquait, le signal d'un client modifié. Et
+une fois dans un correctif censé fermer une classe, qui n'a fermé qu'un cas.
+
+Toute modification touchant les mécanismes d'une porte fermée doit s'accompagner
+d'une re-vérification de celle-ci.
 
 Cette consigne s'adresse à qui modifie le code. Elle n'implique aucune
 vérification de la part de l'organisation qui utilise VERA.
@@ -450,7 +460,7 @@ séparation des rôles, pas à un défaut d'implémentation.
 |---|---|
 | [LIMITS.md](LIMITS.md) | Limites détaillées, canaux non couverts, barèmes — **fait foi en cas de divergence** |
 | [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md) | Modèle de menace (26 portes), modèle d'adversaire, analyses |
-| [VERA_AUDIT_REFERENCE.md](VERA_AUDIT_REFERENCE.md) | Synthèse et paramètres |
+| [VERA_AUDIT_REFERENCE.md](VERA_AUDIT_REFERENCE.md) | Instantané daté du 31/07 — trace historique, **paramètres périmés** |
 | [VERIFICATION_CLIENT.md](VERIFICATION_CLIENT.md) | Vérifier que le serveur sert bien ce code |
 | [GUIDE_DEPLOIEMENT.md](GUIDE_DEPLOIEMENT.md) | Guide de l'organisation qui consulte, notice RGPD |
 
@@ -499,7 +509,8 @@ Voir également [SECURITY.md](SECURITY.md).
 Le parcours complet a été validé de bout en bout dans un navigateur ; aucune
 consultation avec de vrais participants n'a encore eu lieu.
 
-**Version courante :** commit `main`, 23 août 2026 — 29 tests automatiques.
+**Version courante :** branche `main`, 26 août 2026 — 30 tests automatiques,
+plus un test de résistance au crash exercé sur le chemin HTTP réel.
 
 **L'équipe d'exploitation est réduite.** Ce n'est pas un détail d'organisation :
 cela limite ce qui peut être promis en matière de continuité, d'astreinte et de

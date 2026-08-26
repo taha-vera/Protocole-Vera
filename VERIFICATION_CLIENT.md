@@ -26,10 +26,10 @@ précisément celui que ces empreintes ferment.
 
 ## Empreintes de référence
 
-Version du 23 août 2026 (mention AGPL §13 ajoutée à la page de vote) :
+Version du 26 août 2026 (mention de la limite d'intégrité ajoutée à la page de vote) :
 
 ```
-7054fbe6cd7be077bb4d30119267742db203ebe2f21dc2693ac6c52c079c8dac  static/vote.html
+a6fa2f09d4575afba86fbce66b85537ec91ffd37746bb6ce0886d8cfe197a0a5  static/vote.html
 08e678cc5d64e9996cfe3cf54eb1220a1bb032c54d0c4351651f8aee057baa66  static/blindrsa-bundle.js
 ```
 

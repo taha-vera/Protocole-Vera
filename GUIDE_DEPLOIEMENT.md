@@ -12,8 +12,9 @@ informatique, `LIMITS.md` pour un délégué à la protection des données.
 ## Avant de commencer : ce qui relève de vous
 
 VERA protège les réponses. Il ne connaît ni vos membres, ni votre organisation,
-ni votre question. Trois choses restent donc entièrement sous votre
-responsabilité.
+ni votre question. Cinq choses restent donc entièrement sous votre
+responsabilité — et la garantie annoncée à vos membres ne tient que si les cinq
+sont respectées.
 
 **La liste des personnes invitées.** VERA génère des liens anonymes ; c'est vous
 qui décidez à qui les envoyer. La fiabilité du résultat dépend entièrement de
@@ -26,6 +27,20 @@ capable de relier une personne à une invitation.
 
 **L'information des participants.** Le RGPD vous impose de leur dire qui les
 consulte, pourquoi, et quels sont leurs droits. Un modèle est fourni plus bas.
+
+**Le découpage en groupes.** Chaque personne doit appartenir à un groupe, et à
+un seul. Un découpage qui se recoupe affaiblit silencieusement la protection de
+ceux qui se trouvent à l'intersection. VERA ne peut pas le détecter — voir
+l'étape 3.
+
+**Le choix du transporteur des invitations.** Le prestataire qui achemine vos
+SMS ou vos courriels voit passer, pour chaque destinataire, le couple
+(personne, lien). Il détient donc exactement ce que vous détenez — et le lien
+en clair, qui lui permettrait de voter à la place du destinataire. **Il ne doit
+avoir aucun lien avec l'hébergeur du service** : réunis, ils désanonymisent.
+Inscrivez-le au registre comme sous-traitant, et vérifiez sa durée de rétention
+des messages envoyés — un historique de SMS conservé six mois conserve six mois
+de liens utilisables. Détail et clause type : `LIMITS.md` §12bis.
 
 ---
 
@@ -47,34 +62,47 @@ représentant du personnel, qui verra ce que vous ne voyez plus.
 **Faites ce calcul avant tout le reste.** Il détermine si votre consultation est
 possible, et il en écarte beaucoup.
 
-Il faut 240 réponses par groupe pour qu'un résultat soit publié. Avec un taux de
-participation réaliste de 50 à 60 %, cela demande **au moins 450 à 500 invités
-par groupe**.
+Il faut 240 réponses par groupe pour qu'un résultat soit publié. **240 réponses,
+pas 240 invitations** — la confusion est facile et elle décide de la
+faisabilité.
 
-Conséquence directe : une entreprise de 600 salariés ne peut publier qu'**un
-seul résultat d'ensemble**. Découper par service — atelier, administratif,
-direction — produirait des groupes de 150 ou 200 personnes dont aucun
-n'atteindrait le seuil : vous auriez envoyé 600 SMS pour n'obtenir aucun
-chiffre.
+L'effectif minimal d'un groupe vaut donc *240 ÷ taux de participation*.
+
+| Taux de participation | Invités nécessaires |
+|---|---|
+| 60 % | 400 personnes |
+| 50 % | 480 personnes |
+| **40 %** | **600 personnes** ← valeur à retenir |
+| 25 % | 960 personnes |
+| 20 % | 1 200 personnes |
+
+**Ce taux n'a jamais été mesuré sur VERA.** Aucune consultation réelle n'a
+encore eu lieu : personne, y compris nous, ne peut vous dire combien de vos
+membres répondront. C'est l'inconnue principale du dispositif, et nous
+préférons vous le dire avant plutôt que de vous vendre un chiffre rassurant.
+
+**Dimensionnez sur 40 %.** C'est prudent sans être pessimiste. Si vous
+dimensionnez sur 60 % et que la participation tombe à 40 %, vous obtenez
+160 réponses au lieu de 240 : **rien ne sera publié**, après avoir envoyé les
+invitations et mobilisé vos représentants du personnel. L'écart n'est pas une
+perte de précision, c'est une consultation blanche.
+
+Conséquence directe : une entreprise de 600 salariés ne peut espérer qu'**un
+seul résultat d'ensemble**, et encore, si la participation dépasse 40 %.
+Découper par service — atelier, administratif, direction — produirait des
+groupes de 150 ou 200 personnes dont aucun n'atteindrait le seuil.
 
 Ce n'est pas une limite qu'on peut contourner en abaissant le seuil. Sur un
 groupe de 40 personnes, un résultat publié en dit trop sur chacune — c'est
 précisément ce que le seuil empêche.
 
-**Si vous voulez des résultats par service, il vous faut des services de 450
-personnes.** Sinon, consultez en un seul groupe, ou renoncez.
+**Si vous voulez des résultats par service, il vous faut des services de
+600 personnes.** Sinon, consultez en un seul groupe, ou renoncez.
 
-
-**Aucun résultat n'est publié sous 240 réponses.** Ce n'est pas un réglage, c'est
-une protection : en dessous, une réponse individuelle redeviendrait devinable.
-
-Conséquence pratique : ne découpez pas votre organisation en petits services.
-Un groupe de 50 personnes ne produira jamais de résultat, et vous ne
-l'apprendrez qu'à la fin. Le tableau de bord vous avertit dès la génération si
-un groupe est trop petit — tenez-en compte.
-
-Prévoyez large : 240 est le nombre de **réponses**, pas d'invitations. À 60 % de
-participation, il faut inviter 400 personnes.
+**Aucun résultat n'est publié sous 240 réponses.** Ce n'est pas un réglage,
+c'est une protection : en dessous, une réponse individuelle redeviendrait
+devinable. Le tableau de bord vous avertit dès la génération si un groupe est
+trop petit — tenez-en compte, vous ne l'apprendrez pas autrement avant la fin.
 
 ### 2bis. Faire attester votre effectif par vos représentants du personnel
 
@@ -110,6 +138,25 @@ Cette déclaration est **irréversible**. En ajouter un ensuite changerait
 l'empreinte de sécurité inscrite dans chaque lien et rendrait inutilisables tous
 ceux déjà envoyés. Prenez le temps de vérifier votre liste — un oubli impose de
 clôturer et de tout recommencer.
+
+**Vos groupes ne doivent pas se recouper.** Chaque personne doit appartenir à un
+groupe, et à un seul. C'est une condition du dispositif, au même rang que le
+seuil de 240 et l'hébergement séparé — et c'est celle qu'on oublie le plus
+facilement, parce qu'elle ne produit aucun message d'erreur.
+
+Un découpage par service convient. Un découpage qui croise deux critères — 
+service **et** statut, site **et** métier — ne convient pas : « Marketing » et
+« Cadres » se recoupent, et un cadre du marketing recevrait deux invitations.
+
+**Ce que cela coûte à cette personne.** Sa réponse compte dans deux résultats
+publiés. La protection qu'on lui annonce est alors deux fois plus faible que
+celle annoncée à ses collègues — l'équivalent de deux consultations subies en
+une seule. Rien dans les chiffres publiés ne le signale, et **VERA ne peut pas
+le détecter** : il ne connaît pas vos membres, c'est précisément ce qui protège
+leur anonymat.
+
+Si un chevauchement est inévitable dans votre organisation, ne publiez qu'un
+seul des groupes concernés. Détail : `LIMITS.md` §11bis.
 
 Tant que vous n'avez pas déclaré, la génération de liens est refusée.
 
@@ -424,8 +471,8 @@ organisation qui le voudrait vraiment. Or c'est précisément l'organisation don
 vos membres se méfient. La garantie que vous leur annoncez repose alors sur
 votre parole.
 
-**VERA propose l'hébergement.** Le serveur est alors administré par le
-mainteneur du protocole, distinct de vous : vous n'avez accès ni au serveur, ni
+**VERA propose l'hébergement.** Le serveur est alors administré par l'équipe
+VERA, distincte de vous : vous n'avez accès ni au serveur, ni
 à la base, ni aux journaux, seulement au tableau de bord qui n'affiche que des
 agrégats. Vous ne pouvez pas désanonymiser une réponse, et vos membres peuvent
 le vérifier — ce n'est plus une promesse que vous leur faites, c'est une
@@ -499,9 +546,10 @@ base. Sans elle, les données existantes sont définitivement illisibles — c'e
 une protection voulue, pas un défaut : elle garantit qu'une copie volée de la
 base ne révèle rien.
 
-Cette clé est aujourd'hui conservée par le mainteneur, hors du serveur. Cela
-couvre une panne matérielle ou la perte du serveur. Cela ne couvre pas
-l'indisponibilité prolongée du mainteneur lui-même.
+Cette clé est aujourd'hui conservée hors du serveur par l'équipe
+d'exploitation. Cela couvre une panne matérielle ou la perte du serveur. Cela ne
+couvre pas son indisponibilité prolongée — l'équipe est réduite, et vous devez
+en tenir compte avant de vous engager.
 
 **Pour une consultation à enjeu, exigez davantage.** Le dépôt de cette clé chez
 un tiers — votre service informatique, un notaire, un séquestre — avec une

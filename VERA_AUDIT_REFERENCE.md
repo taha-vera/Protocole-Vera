@@ -1,5 +1,28 @@
 # VERA Consultation -- Document de reference pour audit de securite
 
+> ## ⚠️ INSTANTANE DATE -- NE PAS S'EN SERVIR POUR LES PARAMETRES
+>
+> Ce document decrit l'etat du projet au **31/07/2026**. Plusieurs parametres
+> qu'il citait ont change depuis, et il les a affiches faux pendant des
+> semaines :
+>
+> - la persistance est passee de `journal_mode=WAL` a `DELETE` le 13/08, parce
+>   que le journal WAL conservait un historique des versions successives des
+>   compteurs (`LIMITS.md` §9) ;
+> - la duree de vie des cles est de **7 jours** depuis le 24/07, pas 48 h ;
+> - le bourrage du corps vaut **450 octets** UTF-8, pas 200 ;
+> - le decompte des portes s'est affine : **15 fermees sans reserve, 6 sous
+>   condition explicite, 5 limites assumees** -- « 21 fermees » etait optimiste.
+>
+> **Ce qui fait foi :** le code pour les parametres, `LIMITS.md` pour les
+> limites, `VERA_THREAT_MODEL_COMPLETE.md` pour le modele de menace. Ce
+> document ne conserve d'interet que comme trace historique d'un audit passe.
+>
+> *Pourquoi il n'est pas simplement mis a jour :* dupliquer une table de
+> parametres dans un second document cree une divergence a chaque changement.
+> C'est exactement ce qui s'est produit ici. La regle retenue est qu'un seul
+> endroit porte chaque valeur.
+
 **Version :** 2.0 -- 31/07/2026
 **Depot :** https://github.com/taha-vera/projet-vera-consultations-
 **Contact :** tahahouari@hotmail.fr
@@ -101,7 +124,7 @@ il ne prouve PAS l'integrite du scrutin (cf. section 9).
 | Transport | TLS via Nginx + Let's Encrypt, redirection HTTP->HTTPS 301 |
 | Fail-closed | Si vera_blind_sig ne charge pas : RuntimeError, refus de demarrer |
 | Anti-bruteforce | /api/rh/connexion et /api/resoudre_code : 5 echecs max par IP (lue via X-Real-IP/X-Forwarded-For depuis le 22/07), blocage 5 minutes. Protection en memoire (perdue au redemarrage -- limite assumee) |
-| Padding constant (P-A) | LONGUEUR_CIBLE_FIXE = 200 (porte de 96 le 31/07 -- Porte 21 : a 96, un departement de 87+ caracteres faisait fuiter la distinction oui/abstention par taille de paquet TLS) |
+| Padding constant (P-A) | LONGUEUR_CIBLE_FIXE etait 200 au 31/07 (450 depuis le 22/08) (porte de 96 le 31/07 -- Porte 21 : a 96, un departement de 87+ caracteres faisait fuiter la distinction oui/abstention par taille de paquet TLS) |
 
 ---
 
