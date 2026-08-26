@@ -34,7 +34,8 @@ import pathlib
 import re
 import sys
 
-RACINE = pathlib.Path(__file__).resolve().parent
+# tests/ etant un sous-repertoire, la racine du depot est le parent.
+RACINE = pathlib.Path(__file__).resolve().parent.parent
 API = RACINE / "vera_consultation_api.py"
 
 echecs = []

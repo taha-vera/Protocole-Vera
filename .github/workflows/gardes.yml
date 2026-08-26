@@ -34,7 +34,7 @@ jobs:
       # `location =` avec `access_log off` dans la configuration nginx.
       # Ajouter un appel reseau sans ajouter le bloc fait echouer ce job.
       - name: Routes du parcours de vote non journalisees
-        run: python3 test_routes_non_journalisees.py
+        run: python3 tests/test_routes_non_journalisees.py
 
       # La configuration servie doit interdire que les deux registres --
       # jetons emis et votes deposes -- se retrouvent dans un meme journal.
@@ -66,7 +66,7 @@ jobs:
       # produisait une divergence chez tout tiers qui l'appliquait -- le signal
       # meme d'un client modifie, emis a tort par le mecanisme de detection.
       - name: Empreintes publiees a jour
-        run: python3 test_empreintes_publiees.py
+        run: python3 tests/test_empreintes_publiees.py
 
       # AUCUN script du depot n'emprunte le repli en clair VERA_ADMIN_PASS.
       #
@@ -97,16 +97,16 @@ jobs:
       - name: Bundle reconstructible depuis ses sources
         run: |
           cd chantier_crypto && npm ci --silent && cd ..
-          python3 test_bundle_reconstructible.py
+          python3 tests/test_bundle_reconstructible.py
 
       # Aucun document ne doit contredire les parametres du code.
       # VERA_AUDIT_REFERENCE.md affichait journal_mode=WAL, 48 h de duree de cle
       # et un bourrage a 200 octets, des semaines apres que les trois eurent
       # change. Aucun test ne lisait la documentation.
       - name: Parametres documentes conformes au code
-        run: python3 test_parametres_documentes.py
+        run: python3 tests/test_parametres_documentes.py
 
       # Les fichiers Python doivent au moins compiler. Ne remplace pas la
       # suite de tests, mais attrape une erreur de syntaxe avant le serveur.
       - name: Compilation des modules
-        run: python3 -m py_compile vera_*.py test_*.py
+        run: python3 -m py_compile vera_*.py tests/test_*.py

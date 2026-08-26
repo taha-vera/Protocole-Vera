@@ -37,7 +37,8 @@ import pathlib
 import re
 import sys
 
-RACINE = pathlib.Path(__file__).resolve().parent
+# tests/ etant un sous-repertoire, la racine du depot est le parent.
+RACINE = pathlib.Path(__file__).resolve().parent.parent
 
 # Parametre -> (fichier source, motif d'extraction dans le code)
 SOURCES = {
@@ -94,7 +95,12 @@ if persistance.exists():
 
 # --- Balayage de la documentation ----------------------------------------
 
-for chemin in sorted(RACINE.glob("*.md")):
+# Racine + docs/, jamais un rglob nu : node_modules/ contient des .md de
+# dependances, qui n'engagent pas ce projet et feraient echouer le test
+# sur des valeurs qui ne sont pas les siennes.
+documents = sorted(RACINE.glob("*.md")) + sorted(RACINE.glob("docs/**/*.md"))
+
+for chemin in documents:
     lignes = chemin.read_text(encoding="utf-8", errors="replace").splitlines()
     for numero, ligne in enumerate(lignes, 1):
         minuscule = ligne.lower()
@@ -111,7 +117,7 @@ for chemin in sorted(RACINE.glob("*.md")):
                 if t.strip().replace("_", "").replace(" ", "") != \
                         attendu.replace("_", "").replace(" ", ""):
                     echecs.append(
-                        f"{chemin.name}:{numero} — {nom} y vaut {t.strip()}, "
+                        f"{chemin.relative_to(RACINE)}:{numero} — {nom} y vaut {t.strip()}, "
                         f"le code dit {attendu}.\n    " + ligne.strip()[:120])
 
         # Mode de journalisation SQLite.
@@ -120,7 +126,7 @@ for chemin in sorted(RACINE.glob("*.md")):
             for c in cites:
                 if c.upper() != mode_reel:
                     echecs.append(
-                        f"{chemin.name}:{numero} — journal_mode y vaut {c}, "
+                        f"{chemin.relative_to(RACINE)}:{numero} — journal_mode y vaut {c}, "
                         f"le code dit {mode_reel}. Le mode WAL conservait un "
                         "historique des compteurs : la difference est "
                         "securitaire, pas cosmetique.\n    "

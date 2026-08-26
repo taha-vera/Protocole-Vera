@@ -35,7 +35,8 @@ import pathlib
 import re
 import sys
 
-RACINE = pathlib.Path(__file__).resolve().parent
+# tests/ etant un sous-repertoire, la racine du depot est le parent.
+RACINE = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(RACINE))
 
 import vera_admin_auth as auth  # noqa: E402

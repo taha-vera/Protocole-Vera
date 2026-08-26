@@ -25,7 +25,8 @@ import os
 import re
 import sys
 
-RACINE = os.path.dirname(os.path.abspath(__file__))
+# tests/ etant un sous-repertoire, la racine du depot est le parent.
+RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VOTE = os.path.join(RACINE, "static", "vote.html")
 API = os.path.join(RACINE, "vera_consultation_api.py")
 

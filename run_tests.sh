@@ -73,17 +73,30 @@ liste_echecs=""
 echo "Suite de tests VERA"
 echo "==================================================="
 
-for f in test_*.py; do
+# Les tests vivent dans tests/ depuis le 26/08. Lances depuis ce
+# sous-repertoire, ils ne trouveraient plus les modules de l'application, que
+# Python cherche a cote du script execute et non dans le repertoire courant.
+# PYTHONPATH rend la racine du depot importable : une ligne ici plutot qu'un
+# sys.path.insert recopie dans chacun des trente fichiers.
+export PYTHONPATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)${PYTHONPATH:+:$PYTHONPATH}"
+
+if [ ! -d tests ]; then
+    echo "ECHEC : le repertoire tests/ est introuvable." >&2
+    echo "Lancer ce script depuis la racine du depot." >&2
+    exit 1
+fi
+
+for f in tests/test_*.py; do
     [ -e "$f" ] || continue
     base_jetable=$(mktemp -u /tmp/vera_test_XXXXXX.db)
     sortie=$(VERA_DB_PATH="$base_jetable" "$VENV" "$f" 2>&1)
     code=$?
     rm -f "$base_jetable" "$base_jetable"-wal "$base_jetable"-shm
     if [ $code -eq 0 ]; then
-        printf "PASS   %s\n" "$f"
+        printf "PASS   %s\n" "$(basename "$f")"
         passes=$((passes + 1))
     else
-        printf "ECHEC  %s (code %d)\n" "$f" "$code"
+        printf "ECHEC  %s (code %d)\n" "$(basename "$f")" "$code"
         echo "$sortie" | tail -3 | sed 's/^/         /'
         echecs=$((echecs + 1))
         liste_echecs="$liste_echecs $f"

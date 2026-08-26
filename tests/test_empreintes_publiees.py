@@ -28,7 +28,8 @@ import pathlib
 import re
 import sys
 
-RACINE = pathlib.Path(__file__).resolve().parent
+# tests/ etant un sous-repertoire, la racine du depot est le parent.
+RACINE = pathlib.Path(__file__).resolve().parent.parent
 DOC = RACINE / "VERIFICATION_CLIENT.md"
 PAGE = RACINE / "static" / "vote.html"
 BUNDLE = RACINE / "static" / "blindrsa-bundle.js"

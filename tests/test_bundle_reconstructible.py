@@ -50,7 +50,8 @@ import subprocess
 import sys
 import tempfile
 
-RACINE = pathlib.Path(__file__).resolve().parent
+# tests/ etant un sous-repertoire, la racine du depot est le parent.
+RACINE = pathlib.Path(__file__).resolve().parent.parent
 CHANTIER = RACINE / "chantier_crypto"
 BUNDLE = RACINE / "static" / "blindrsa-bundle.js"
 ENTREE = CHANTIER / "entree_bundle.js"

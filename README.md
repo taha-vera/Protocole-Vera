@@ -460,7 +460,7 @@ séparation des rôles, pas à un défaut d'implémentation.
 |---|---|
 | [LIMITS.md](LIMITS.md) | Limites détaillées, canaux non couverts, barèmes — **fait foi en cas de divergence** |
 | [VERA_THREAT_MODEL_COMPLETE.md](VERA_THREAT_MODEL_COMPLETE.md) | Modèle de menace (26 portes), modèle d'adversaire, analyses |
-| [VERA_AUDIT_REFERENCE.md](VERA_AUDIT_REFERENCE.md) | Instantané daté du 31/07 — trace historique, **paramètres périmés** |
+| [docs/archive/VERA_AUDIT_REFERENCE.md](docs/archive/VERA_AUDIT_REFERENCE.md) | Instantané daté du 31/07 — trace historique, **paramètres périmés** |
 | [VERIFICATION_CLIENT.md](VERIFICATION_CLIENT.md) | Vérifier que le serveur sert bien ce code |
 | [GUIDE_DEPLOIEMENT.md](GUIDE_DEPLOIEMENT.md) | Guide de l'organisation qui consulte, notice RGPD |
 
@@ -477,9 +477,23 @@ séparation des rôles, pas à un défaut d'implémentation.
 | `static/vote.html`, `static/admin.html` | Page du votant, tableau de bord |
 | `verifier_engagement.py` | Outil du tiers vérificateur |
 
-L'architecture est **plate** : fichiers Python à la racine, module Rust dans
-`vera_blind_sig/`, deux pages dans `static/`. Il n'existe ni `routes/`, ni
-`models/`, ni `auth/`.
+**Arborescence.** Les modules de l'application sont à la racine, à plat — il
+n'existe ni `routes/`, ni `models/`, ni `auth/`. Le reste est rangé :
+
+```
+vera_*.py              les 6 modules de l'application
+verifier_engagement.py outil du tiers vérificateur
+tests/                 30 tests, dont 5 gardes structurelles
+static/                page du votant, tableau de bord, bundle
+chantier_crypto/       tests JS, crash test, manifeste npm
+vera_blind_sig/        module Rust (liaison PyO3 vers RSABSSA)
+infra/                 configuration nginx
+docs/archive/          documents datés, conservés comme trace
+```
+
+La suite se lance depuis la racine : `./run_tests.sh`. Elle exporte `PYTHONPATH`
+pour que les tests, désormais dans `tests/`, retrouvent les modules — une ligne
+dans le script plutôt qu'un `sys.path` recopié dans trente fichiers.
 
 **Note sur Fernet/AES-128 :** ce chiffrement protège l'état transitoire au
 repos, dont la durée de vie est bornée par la clôture. Il n'entre pas dans la
