@@ -353,7 +353,7 @@ deploiement (voir `GUIDE_DEPLOIEMENT.md`).
 |---|---|---|---|
 | 1 | Mecanisme de bruit | Fermee | Laplace vectoriel OpenDP, Δ₁=2, scale=4, ε=0.5. Projection sur le simplexe en post-traitement (gratuite en ε, erreur reduite d'environ 25 %) |
 | 2 | Inference d'appartenance (MIA) | Fermee | AUC = 0.6209, IC95 % [0.6185, 0.6232], borne theorique 0.6225 incluse (N=100 000, bootstrap) |
-| 3 | Canal temporel DE CALCUL (timing cryptographique) | Fermee | Fuite sub-microseconde. Spearman ρ = −0.14, p = 0.76 (7 valeurs, N=10 000). Inexploitable via reseau (latence 50-100 ms) |
+| 3 | Canal temporel DE CALCUL (timing cryptographique) | Fermee | Fuite sub-microseconde, inexploitable via reseau (latence 50-100 ms, soit sept ordres de grandeur au-dessus). Mesure d'origine le 30/06 : Spearman ρ = −0.14, p = 0.76. **La preuve vivait hors du depot et dependait de `scipy` : personne ne pouvait la rejouer.** Rapatriee le 26/08 en `tests/test_porte3_timing.py`, sans dependance externe, et rejouee a chaque passage de la suite |
 | 4 | Composition sequentielle | **Limite assumee** | Le budget vaut par consultation, pas par cohorte — voir section 2. Regle d'usage : 4 consultations/an max |
 | 5 | Observateur reseau | Limite assumee | Hors-perimetre |
 | 6 | Coercition | Limite assumee | Hors-perimetre |
