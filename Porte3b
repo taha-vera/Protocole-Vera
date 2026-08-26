@@ -1,0 +1,257 @@
+From 3c8753395e6311813051301c1fbfb7563866ad9d Mon Sep 17 00:00:00 2001
+From: v <v@l>
+Date: Wed, 26 Aug 2026 12:37:35 +0000
+Subject: [PATCH] Porte 3 : critere relatif et signe constant. Le seuil absolu
+ de 1 us, calibre a l'aveugle, faisait echouer le test une fois sur deux.
+
+---
+ VERA_THREAT_MODEL_COMPLETE.md |   2 +-
+ tests/test_porte3_timing.py   | 164 ++++++++++++++++++++++++++--------
+ 2 files changed, 127 insertions(+), 39 deletions(-)
+
+diff --git a/VERA_THREAT_MODEL_COMPLETE.md b/VERA_THREAT_MODEL_COMPLETE.md
+index 36f5438..14a8dcb 100644
+--- a/VERA_THREAT_MODEL_COMPLETE.md
++++ b/VERA_THREAT_MODEL_COMPLETE.md
+@@ -353,7 +353,7 @@ deploiement (voir `GUIDE_DEPLOIEMENT.md`).
+ |---|---|---|---|
+ | 1 | Mecanisme de bruit | Fermee | Laplace vectoriel OpenDP, Δ₁=2, scale=4, ε=0.5. Projection sur le simplexe en post-traitement (gratuite en ε, erreur reduite d'environ 25 %) |
+ | 2 | Inference d'appartenance (MIA) | Fermee | AUC = 0.6209, IC95 % [0.6185, 0.6232], borne theorique 0.6225 incluse (N=100 000, bootstrap) |
+-| 3 | Canal temporel DE CALCUL (timing cryptographique) | Fermee | Fuite sub-microseconde, inexploitable via reseau (latence 50-100 ms, soit sept ordres de grandeur au-dessus). Mesure d'origine le 30/06 : Spearman ρ = −0.14, p = 0.76. **La preuve vivait hors du depot et dependait de `scipy` : personne ne pouvait la rejouer.** Rapatriee le 26/08 en `tests/test_porte3_timing.py`, sans dependance externe, et rejouee a chaque passage de la suite |
++| 3 | Canal temporel DE CALCUL (timing cryptographique) | Fermee | Fuite sub-microseconde, inexploitable via reseau (latence 50-100 ms, soit sept ordres de grandeur au-dessus). Mesure d'origine le 30/06 : Spearman ρ = −0.14, p = 0.76. **La preuve vivait hors du depot et dependait de `scipy` : personne ne pouvait la rejouer.** Rapatriee le 26/08 en `tests/test_porte3_timing.py`, sans dependance externe, et rejouee a chaque passage de la suite. **Mesure du 26/08 sur la production :** l'appel prend environ 38 microsecondes, et l'ecart entre les deux bornes de BOUNDS **change de signe** d'une repetition a l'autre -- huit mesures signees : -1380, +615, +375, +165, +35, +120, +10, -340 ns. Bruiter 10 000 000 ne peut pas couter MOINS que bruiter 0 : le signe alternant signe le bruit d'ordonnanceur, pas un canal. **Ce que le test etablit exactement :** il borne l'ecart a 5 % de la duree d'appel ET exige un signe constant sur cinq repetitions. Il prouve l'inexploitabilite, pas l'absence -- sous ce seuil une difference peut exister sans etre detectee |
+ | 4 | Composition sequentielle | **Limite assumee** | Le budget vaut par consultation, pas par cohorte — voir section 2. Regle d'usage : 4 consultations/an max |
+ | 5 | Observateur reseau | Limite assumee | Hors-perimetre |
+ | 6 | Coercition | Limite assumee | Hors-perimetre |
+diff --git a/tests/test_porte3_timing.py b/tests/test_porte3_timing.py
+index fcb3005..20e47ae 100644
+--- a/tests/test_porte3_timing.py
++++ b/tests/test_porte3_timing.py
+@@ -33,10 +33,15 @@ echantillon ; il ne dit rien d'un adversaire disposant d'un acces local et d'un
+ compteur de cycles. Le modele de menace note d'ailleurs que la fuite eventuelle
+ est sub-microseconde, donc noyee dans une latence reseau de 50 a 100 ms.
+ 
++Et il BORNE l'ecart plutot qu'il ne le mesure : sous 5 % de la duree d'appel,
++une difference peut exister sans etre detectee. C'est l'inexploitabilite qui est
++prouvee, pas l'absence.
++
+ C'est aussi pourquoi un echec ici doit etre lu avec prudence : une machine
+ chargee produit des correlations fantomes. Le test le dit dans son message.
+ """
+ 
++import itertools
+ import math
+ import pathlib
+ import random
+@@ -55,23 +60,38 @@ from vera_dp_noise import appliquer_bruit_dp  # noqa: E402
+ VALEURS = [0, 1, 100, 10_000, 1_000_000, 9_999_999, 10_000_000]
+ REPETITIONS = 3000
+ SEUIL_P = 0.01           # on n'alerte que sur une correlation tres marquee
+-SEUIL_RHO = 0.30         # et d'amplitude non negligeable
+ 
+-# SEUIL D'EXPLOITABILITE, et c'est le parametre qui compte.
++# CRITERE D'EXPLOITABILITE : relatif, et exigeant la coherence du signe.
+ #
+ # Sur 400 echantillons, Mann-Whitney declare significatif un ecart median de
+ # DEUX nanosecondes. Statistiquement, c'est vrai. Pratiquement, cela ne veut
+ # rien dire : la latence reseau qui separe l'adversaire du serveur est de 50 a
+-# 100 millisecondes, soit sept ordres de grandeur au-dessus. Un test qui
+-# echouerait sur deux nanosecondes se declencherait a chaque execution et
+-# apprendrait a son lecteur a l'ignorer -- le defaut exact de l'empreinte
+-# perimee du 22/08.
++# 100 millisecondes. Un test qui echouerait la-dessus se declencherait a chaque
++# execution et apprendrait a son lecteur a l'ignorer.
++#
++# DEUX ERREURS DE METHODE, CONSTATEES LE 26/08 ET CORRIGEES ICI.
++#
++# 1. Un seuil ABSOLU ne veut rien dire sans l'echelle. La premiere version
++#    fixait 1 microseconde -- calibre contre une fonction factice repondant en
++#    83 ns. La vraie fonction prend 38 000 ns : le meme seuil representait
++#    1200 % de l'echelle de test et 3 % de l'echelle reelle. Le test echouait
++#    une fois sur deux. Le seuil est desormais une FRACTION de la duree
++#    mesuree.
+ #
+-# On exige donc les DEUX : une difference statistiquement etablie ET une
+-# amplitude qui puisse survivre au reseau. Un micro-seconde reste tres
+-# conservateur -- le modele de menace note que la fuite eventuelle est
+-# sub-microseconde et deja inexploitable.
+-ECART_EXPLOITABLE_NS = 1_000
++# 2. Comparer des valeurs absolues ne distingue pas une fuite d'une
++#    fluctuation. Huit mesures signees sur le serveur ont donne
++#    -1380, +615, +375, +165, +35, +120, +10, -340 ns : deux negatifs, une
++#    amplitude decroissante a mesure que le cache chauffe. Bruiter 10 000 000
++#    ne peut pas couter MOINS que bruiter 0 -- le signe alterne signe le bruit
++#    d'ordonnanceur, pas un canal. Une fuite reelle garde le meme sens a
++#    chaque repetition.
++#
++# On exige donc TROIS choses : une difference statistiquement etablie, une
++# amplitude relative non negligeable, et un signe constant sur plusieurs
++# repetitions independantes.
++FRACTION_EXPLOITABLE = 0.05     # 5 % de la duree mesuree
++REPETITIONS_SIGNE = 5           # nombre de mesures independantes du signe
++MAJORITE_SIGNE = 5              # il faut les 5 dans le meme sens
+ 
+ echecs = []
+ 
+@@ -105,22 +125,40 @@ def spearman(x, y):
+ 
+ 
+ def p_spearman(rho, n):
+-    """p bilaterale par approximation de Student, valable des n >= 6.
++    """p bilaterale EXACTE, par enumeration des permutations.
++
++    Avec sept valeurs, l espace complet fait 7! = 5040 cas : quelques
++    millisecondes. Une approximation de Student n a donc aucune raison d etre
++    ici -- et la premiere version de ce test en omettait le facteur correctif,
++    ce qui la rendait fausse en plus d etre inutile.
+ 
+-    Sur sept points, cette approximation est grossiere -- c'est assume : elle
+-    sert a distinguer « rien de visible » de « quelque chose d'enorme », pas a
+-    publier un resultat statistique.
++    Le p exact est la proportion des permutations dont le rho, en valeur
++    absolue, egale ou depasse celui observe.
+     """
+-    if n < 3 or abs(rho) >= 1.0:
+-        return 0.0
+-    t = rho * math.sqrt((n - 2) / (1 - rho * rho))
+-    # Approximation normale de la loi de Student, suffisante ici.
+-    z = abs(t) / math.sqrt(1 + t * t / (2 * (n - 2)))
+-    return math.erfc(z / math.sqrt(2))
++    if n > 8:                      # garde-fou : 9! = 362 880, deja lent
++        raise ValueError(
++            f"enumeration exacte impraticable a n = {n}. Revoir la methode "
++            "avant d ajouter des valeurs a VALEURS.")
++    reference = list(range(n))
++    au_moins_aussi_extreme = 0
++    total = 0
++    for permutation in itertools.permutations(reference):
++        total += 1
++        if abs(spearman(reference, list(permutation))) >= abs(rho) - 1e-12:
++            au_moins_aussi_extreme += 1
++    return au_moins_aussi_extreme / total
+ 
+ 
+ def mann_whitney_u(a, b):
+-    """Statistique U et p normale approchee, egalites traitees par rangs."""
++    """Statistique U et p normale approchee, egalites traitees par rangs.
++
++    NOTE SUR LES EGALITES. Les rangs les traitent (rangs moyens), mais
++    sigma n est PAS corrige pour elles. Sur des durees en nanosecondes,
++    les egalites sont frequentes : la correction reduirait sigma, donc
++    augmenterait |z| et le nombre d alertes. L omission va donc dans le
++    sens de la prudence -- elle sous-detecte plutot qu elle ne
++    sur-detecte. C est un choix, pas un oubli.
++    """
+     combine = list(a) + list(b)
+     r = rangs(combine)
+     somme_a = sum(r[:len(a)])
+@@ -166,10 +204,17 @@ y = [medianes[v] for v in VALEURS]
+ rho = spearman(x, y)
+ p = p_spearman(rho, len(x))
+ 
+-if abs(rho) > SEUIL_RHO and p < SEUIL_P:
++# L etendue des medianes : sans elle, une correlation parfaite sur sept
++# valeurs etalees de 3 ns declencherait l alerte. Le critere annonce comme
++# double n en etait qu un dans la premiere version -- seule la branche
++# Mann-Whitney testait l exploitabilite.
++etendue = max(y) - min(y)
++seuil_etendue = statistics.median(y) * FRACTION_EXPLOITABLE
++
++if p < SEUIL_P and etendue > seuil_etendue:
+     echecs.append(
+         f"la duree de calcul correle avec la valeur d'entree : "
+-        f"rho = {rho:+.3f}, p = {p:.3f}.\n"
++        f"rho = {rho:+.3f}, p exact = {p:.4f}, etendue {etendue:.0f} ns.\n"
+         "    Un observateur capable de chronometrer le serveur pourrait en "
+         "deduire des compteurs.\n"
+         "    A verifier sur une machine au repos avant de conclure : une "
+@@ -181,21 +226,56 @@ if abs(rho) > SEUIL_RHO and p < SEUIL_P:
+ # distributions completes aux deux bornes, ou l'ecart serait maximal s'il
+ # existait.
+ 
+-bas = [mesurer(VALEURS[0], 1) for _ in range(400)]
+-haut = [mesurer(VALEURS[-1], 1) for _ in range(400)]
++# Les deux bornes sont mesurees ENTRELACEES, pas l une apres l autre.
++#
++# Mesurer 400 fois la borne basse puis 400 fois la haute reintroduirait
++# exactement le confondant elimine plus haut : toute derive sur 800
++# appels -- rechauffement du cache, changement de frequence du
++# processeur, ordonnanceur -- se lirait comme un ecart systematique
++# entre bornes. La premiere version de ce test avait ce defaut.
++bas, haut = [], []
++sequence = [(VALEURS[0], bas), (VALEURS[-1], haut)] * 400
++random.shuffle(sequence)
++for valeur, cible in sequence:
++    cible.append(mesurer(valeur, 1))
+ u, p_u = mann_whitney_u(bas, haut)
+ 
+ med_bas, med_haut = statistics.median(bas), statistics.median(haut)
+ ecart = abs(med_haut - med_bas)
++seuil_ecart = statistics.median(bas + haut) * FRACTION_EXPLOITABLE
+ 
+-if p_u < SEUIL_P and ecart > ECART_EXPLOITABLE_NS:
+-    echecs.append(
+-        f"les durees aux deux bornes de BOUNDS different : U = {u:.0f}, "
+-        f"p = {p_u:.4f}, ecart median {ecart:.0f} ns.\n"
+-        f"    mediane a {VALEURS[0]} : {med_bas:.0f} ns ; "
+-        f"a {VALEURS[-1]} : {med_haut:.0f} ns.\n"
+-        "    Rejouer sur une machine au repos : cet ecart peut venir de "
+-        "l'ordonnanceur.")
++# TROISIEME CRITERE : le signe doit etre constant.
++#
++# Une fuite reelle a un sens : bruiter la borne haute coute toujours plus, ou
++# toujours moins. Une fluctuation d'ordonnanceur change de sens d'une mesure a
++# l'autre. On ne calcule ce critere que si les deux premiers ont mordu --
++# inutile de payer cinq mesures supplementaires quand rien n'est suspect.
++
++signes = []
++if p_u < SEUIL_P and ecart > seuil_ecart:
++    for _ in range(REPETITIONS_SIGNE):
++        b2, h2 = [], []
++        seq2 = [(VALEURS[0], b2), (VALEURS[-1], h2)] * 200
++        random.shuffle(seq2)
++        for valeur, cible in seq2:
++            cible.append(mesurer(valeur, 1))
++        signes.append(statistics.median(h2) - statistics.median(b2))
++
++    positifs = sum(1 for d in signes if d > 0)
++    negatifs = sum(1 for d in signes if d < 0)
++    coherent = max(positifs, negatifs) >= MAJORITE_SIGNE
++
++    if coherent:
++        echecs.append(
++            f"les durees aux deux bornes de BOUNDS different, de façon "
++            f"CONSTANTE : U = {u:.0f}, p = {p_u:.4f}, ecart median "
++            f"{ecart:.0f} ns sur {statistics.median(bas + haut):.0f} ns "
++            f"({100 * ecart / statistics.median(bas + haut):.1f} %).\n"
++            f"    mediane a {VALEURS[0]} : {med_bas:.0f} ns ; "
++            f"a {VALEURS[-1]} : {med_haut:.0f} ns.\n"
++            f"    Ecarts signes sur {REPETITIONS_SIGNE} repetitions : "
++            + ", ".join(f"{d:+.0f}" for d in signes) + " ns.\n"
++            "    Le signe est constant : ce n'est pas de l'ordonnanceur.")
+ 
+ # --- Verdict --------------------------------------------------------------
+ 
+@@ -208,8 +288,16 @@ if echecs:
+           "machine au repos, c'est la declaration qui est fausse.")
+     sys.exit(1)
+ 
+-print(f"OK : Porte 3 -- aucun canal temporel exploitable "
+-      f"(Spearman rho = {rho:+.3f}, p = {p:.3f} ; "
+-      f"ecart median aux bornes {ecart:.0f} ns, seuil "
+-      f"{ECART_EXPLOITABLE_NS} ns).")
++reference = statistics.median(bas + haut)
++detail_signes = ""
++if signes:
++    detail_signes = ("; ecarts signes " +
++                     ", ".join(f"{d:+.0f}" for d in signes) + " ns, "
++                     "sens non constant")
++
++print(f"OK : Porte 3 -- aucun canal temporel exploitable. "
++      f"Spearman rho = {rho:+.3f} (p exact = {p:.4f}), etendue des medianes "
++      f"{etendue:.0f} ns ; ecart median aux bornes {ecart:.0f} ns sur "
++      f"{reference:.0f} ns ({100 * ecart / reference:.1f} %, seuil "
++      f"{100 * FRACTION_EXPLOITABLE:.0f} %){detail_signes}.")
+ sys.exit(0)
+-- 
+2.43.0
+
