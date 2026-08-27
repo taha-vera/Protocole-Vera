@@ -740,6 +740,28 @@ conformite. Il confronte desormais la calibration a l'ENGAGEMENT -- 0,5, ce que
 VERA promet a ses participants -- et non a elle-meme. **Une garde qui s'adapte
 au defaut ne garde rien.**
 
+**Cinquieme constat : la suite de tests ne demarrait pas ailleurs que chez le
+mainteneur.** `run_tests.sh` pointait `/root/vera_blind_sig/.venv/bin/python3`
+en dur, et la variable qui permettait d'en changer n'etait documentee nulle
+part. Un tiers qui clonait le depot et suivait la procedure du README executait
+ZERO test. Tout ce que ce depot rend reproductible -- la mesure MIA, le canal
+temporel, le bundle -- lui restait donc inaccessible.
+
+Le script cherche desormais l'interpreteur : variable explicite, puis `.venv/`
+du depot, puis le `python3` du PATH ; et il refuse de continuer, en donnant la
+commande a lancer, si aucun ne dispose des dependances.
+
+**Il exportait aussi VERA_DB_KEY, extraite de l'unite systemd.** C'est la cle de
+PRODUCTION, celle qui rend la base lisible. Les tests travaillent sur des bases
+temporaires : ils n'en ont aucun besoin, et l'exporter la faisait vivre dans
+l'environnement de chaque processus de test, donc lisible dans `/proc`. Une cle
+jetable est desormais tiree a chaque execution.
+
+Et la garde qui interdit aux scripts d'extraire des valeurs de l'unite ne voyait
+pas ce cas : le nom du fichier vivait dans une variable, deux lignes au-dessus
+du `grep`. **Une garde contournable par indirection ne garde pas.** Elle a ete
+elargie.
+
 **Un controle de sante qui ne controle rien.** Le crash test verifiait son
 demarrage par `curl /api/health`. Un serveur fantome d'un essai precedent --
 detenteur du verrou, donc empechant precisement le nouveau de demarrer --

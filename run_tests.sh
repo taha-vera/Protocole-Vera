@@ -15,11 +15,72 @@
 
 set -u
 
-VENV="${VERA_PYTHON:-/root/vera_blind_sig/.venv/bin/python3}"
-UNIT="/etc/systemd/system/vera-consultation.service"
+# CHOIX DE L'INTERPRETEUR : cherche, plutot que de supposer.
+#
+# Ce script pointait /root/vera_blind_sig/.venv/bin/python3 en dur, chemin qui
+# n'existe que sur le serveur du mainteneur. Un tiers qui clonait le depot et
+# suivait la procedure du README -- laquelle cree un venv dans .venv/ -- voyait
+# le script s'arreter sans executer un seul test. La variable VERA_PYTHON, qui
+# permettait de passer outre, n'etait documentee nulle part. Constat d'un audit
+# externe le 27/08/2026.
+#
+# Tout ce que ce depot rend reproductible -- la mesure MIA, le canal temporel,
+# le bundle -- reste hors de portee de qui ne peut pas lancer la suite.
+if [ -n "${VERA_PYTHON:-}" ]; then
+    VENV="$VERA_PYTHON"
+else
+    VENV=""
+    for _candidat in \
+        "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/.venv/bin/python3" \
+        "/root/vera_blind_sig/.venv/bin/python3" \
+        "$(command -v python3 2>/dev/null)"
+    do
+        if [ -n "$_candidat" ] && [ -x "$_candidat" ]; then
+            VENV="$_candidat"
+            break
+        fi
+    done
+fi
 
-if [ -z "${VERA_DB_KEY:-}" ] && [ -r "$UNIT" ]; then
-    VERA_DB_KEY=$(grep VERA_DB_KEY "$UNIT" | sed 's/.*VERA_DB_KEY=//; s/"//g')
+if [ -z "$VENV" ] || [ ! -x "$VENV" ]; then
+    echo "ECHEC : aucun interpreteur Python utilisable." >&2
+    echo "Cherche dans l'ordre : \$VERA_PYTHON, ./.venv/bin/python3," >&2
+    echo "/root/vera_blind_sig/.venv/bin/python3, puis python3 du PATH." >&2
+    echo "Creer l'environnement : python3 -m venv .venv && \\" >&2
+    echo "  source .venv/bin/activate && pip install -r requirements.txt" >&2
+    exit 1
+fi
+
+if ! "$VENV" -c "import opendp" 2>/dev/null; then
+    echo "ECHEC : $VENV n'a pas les dependances du projet." >&2
+    echo "  pip install -r requirements.txt" >&2
+    echo "Et le module Rust, sans lequel rien ne signe :" >&2
+    echo "  cd vera_blind_sig && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 \\" >&2
+    echo "    maturin develop --release" >&2
+    exit 1
+fi
+
+# CLE DE CHIFFREMENT DES BASES DE TEST : TOUJOURS JETABLE.
+#
+# Ce script lisait VERA_DB_KEY dans l'unite systemd. Deux raisons d'arreter.
+#
+# D'abord elle n'existe que sur le serveur : un tiers qui clone le depot n'a
+# pas d'unite, restait sans cle, et plusieurs tests echouaient sans dire
+# pourquoi (constat d'un audit externe, 27/08/2026).
+#
+# Ensuite c'est la CLE DE PRODUCTION. Les tests travaillent sur des bases
+# temporaires creees et detruites par ce script : ils n'ont aucun besoin de la
+# clé qui protege la vraie base, et l'exporter la faisait vivre dans
+# l'environnement de chaque processus de test -- donc lisible dans /proc.
+# Meme motif que charge_paliers.sh, corrige le 23/08 : un secret se saisit ou
+# se tire, il ne se lit pas dans la configuration.
+#
+# Detail au passage : la garde de test_repli_admin_retire.py, qui interdit aux
+# scripts d'extraire des valeurs de l'unite, ne voyait pas ce cas -- le nom du
+# fichier vivait dans une variable, pas sur la ligne du grep. Elle a ete
+# elargie a l'indirection.
+if [ -z "${VERA_DB_KEY:-}" ]; then
+    VERA_DB_KEY=$("$VENV" -c "import secrets; print(secrets.token_hex(32))")
     export VERA_DB_KEY
 fi
 export VERA_ADMIN_USER="${VERA_ADMIN_USER:-compte_de_test}"

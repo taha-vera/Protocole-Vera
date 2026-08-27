@@ -495,6 +495,25 @@ La suite se lance depuis la racine : `./run_tests.sh`. Elle exporte `PYTHONPATH`
 pour que les tests, désormais dans `tests/`, retrouvent les modules — une ligne
 dans le script plutôt qu'un `sys.path` recopié dans trente fichiers.
 
+**Quel interpréteur ?** Le script cherche, dans l'ordre : la variable
+`VERA_PYTHON` si vous la définissez, puis `.venv/bin/python3` à la racine du
+dépôt — celui que crée la procédure d'installation ci-dessus —, puis le
+`python3` du `PATH`. S'il n'en trouve aucun qui dispose des dépendances, il le
+dit et donne la commande à lancer.
+
+```bash
+VERA_PYTHON=/chemin/vers/python3 ./run_tests.sh    # si besoin
+```
+
+Jusqu'au 27/08/2026 le chemin était écrit en dur et ne valait que sur le serveur
+de l'équipe : un tiers qui clonait le dépôt n'exécutait aucun test, et
+`VERA_PYTHON` n'était documentée nulle part. Signalé par un audit externe.
+
+**Sans le module Rust**, une partie des tests s'arrête avec un message qui
+l'explique et donne la commande de compilation — pas une erreur d'attribut trois
+appels plus loin. Les tests JavaScript de `chantier_crypto/` demandent en outre
+`npm ci` dans ce répertoire.
+
 **Note sur Fernet/AES-128 :** ce chiffrement protège l'état transitoire au
 repos, dont la durée de vie est bornée par la clôture. Il n'entre pas dans la
 chaîne de garantie de l'anonymat, qui repose sur RSABSSA et sur la disjonction

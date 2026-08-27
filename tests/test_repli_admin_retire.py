@@ -179,8 +179,18 @@ for chemin in scripts:
     for ligne in texte.splitlines():
         if ligne.lstrip().startswith("#"):
             continue
-        if "vera-consultation.service" in ligne and (
-                "grep" in ligne or "sed" in ligne or "awk" in ligne):
+        # L'indirection ne doit pas suffire a echapper au controle. Le
+        # 27/08, run_tests.sh extrayait VERA_DB_KEY de l'unite systemd sans
+        # que cette garde le voie : le nom du fichier vivait dans une variable
+        # $UNIT deux lignes plus haut, donc pas sur la ligne du grep. On
+        # cherche desormais aussi l'extraction d'un secret nomme, quel que
+        # soit le detour par lequel le fichier est designe.
+        extraction = ("grep" in ligne or "sed" in ligne or "awk" in ligne)
+        vise_unite = "vera-consultation.service" in ligne
+        vise_secret = extraction and any(
+            v in ligne for v in ("VERA_DB_KEY", "VERA_ADMIN_HASH",
+                                 "VERA_SECRET_CREATION_COMPTE"))
+        if (vise_unite and extraction) or vise_secret:
             echecs.append(
                 f"{chemin.relative_to(racine)} extrait une valeur de l'unite "
                 "systemd. Les secrets ne se lisent pas dans la "

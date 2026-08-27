@@ -20,6 +20,16 @@ Invariants verifies par 'if ... raise' (survit a python -O).
 import sys
 import vera_blind_sig as vbs
 
+# Diagnostic explicite plutot qu'un AttributeError trois appels plus loin.
+# `vera_blind_sig/` est un repertoire du depot : Python le resout comme paquet
+# d'espace de noms (PEP 420), donc l'import reussit sans module compile.
+if not callable(getattr(vbs, "generer_cles", None)):
+    print("IGNORE : vera_blind_sig est importable mais n'expose pas "
+          "generer_cles() -- le module Rust n'est pas compile.")
+    print("  cd vera_blind_sig && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 "
+          "maturin develop --release")
+    raise SystemExit(2)
+
 
 class Echec(Exception):
     pass
