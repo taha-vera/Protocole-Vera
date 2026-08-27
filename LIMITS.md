@@ -722,6 +722,24 @@ l'import : elle controle que le module EXPOSE `generer_cles()` et
 un faux module vide et echoue si l'import passe. **Un import qui reussit ne
 prouve pas qu'un module fonctionne.**
 
+**Quatrieme constat : une seconde porte reposait sur une mesure introuvable.**
+La Porte 2 -- inference d'appartenance -- affichait « AUC = 0.6209, IC95 %
+[0.6185, 0.6232], N=100 000, bootstrap », et figurait parmi les portes fermees
+« avec preuve reproductible ». Aucun script du depot ne produisait ces chiffres.
+`validation_opendp.py` calcule une AUC ANALYTIQUE de pire cas (0.621311), qui
+n'est ni la meme valeur, ni la meme nature, ni assortie d'un intervalle.
+
+Mesure rapatriee dans `tests/test_porte2_mia.py` : **AUC = 0.6205, IC95 %
+[0.6181, 0.6229]**, sous la borne 0.6225. Les deux intervalles se recouvrent --
+la mesure d'origine etait juste, elle n'etait simplement pas verifiable.
+
+**Et ce test a revele que rien ne gardait epsilon.** Dans sa premiere version,
+diviser SCALE par deux portait epsilon a 1,0 et le test passait toujours : il
+recalculait la borne depuis la calibration degradee et concluait a la
+conformite. Il confronte desormais la calibration a l'ENGAGEMENT -- 0,5, ce que
+VERA promet a ses participants -- et non a elle-meme. **Une garde qui s'adapte
+au defaut ne garde rien.**
+
 **Un controle de sante qui ne controle rien.** Le crash test verifiait son
 demarrage par `curl /api/health`. Un serveur fantome d'un essai precedent --
 detenteur du verrou, donc empechant precisement le nouveau de demarrer --
