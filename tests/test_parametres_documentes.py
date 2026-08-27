@@ -132,6 +132,43 @@ for chemin in documents:
                         "securitaire, pas cosmetique.\n    "
                         + ligne.strip()[:120])
 
+# --- Les constantes du mecanisme ne sont declarees qu'a UN endroit --------
+#
+# CONSTAT DU 27/08/2026. `validation_opendp.py` -- le fichier qui porte la
+# preuve formelle -- redeclarait DELTA_INT, SCALE et les bornes du domaine,
+# annotes « = prod ». La borne superieure y valait 10 000 alors que la
+# production applique 10 000 000 depuis la recalibration du 04/07 : un facteur
+# mille, huit semaines durant, dans le document qui certifie le mecanisme.
+#
+# La consequence numerique etait nulle -- epsilon = Delta_1 / scale ne depend
+# pas des bornes -- mais la preuve portait sur un mecanisme qui, deploye,
+# aurait la branche dependante des donnees que l'elargissement a supprimee.
+#
+# Le probleme n'est pas ce fichier : c'est qu'une valeur recopiee cree une
+# seconde source qui derive. Ce controle interdit la duplication elle-meme.
+
+DECLARATIONS_UNIQUES = {
+    "DELTA_INT": "vera_dp_noise.py",
+    "SCALE": "vera_dp_noise.py",
+    "BOUNDS": "vera_dp_noise.py",
+    "K_MIN": "vera_consultation_api.py",
+}
+
+for nom, proprietaire in DECLARATIONS_UNIQUES.items():
+    motif_decl = re.compile(rf"^{re.escape(nom)}\s*=", re.MULTILINE)
+    for chemin in sorted(RACINE.glob("*.py")):
+        if chemin.name == proprietaire:
+            continue
+        texte = chemin.read_text(encoding="utf-8", errors="replace")
+        code_seul = "\n".join(
+            l for l in texte.splitlines() if not l.lstrip().startswith("#"))
+        if motif_decl.search(code_seul):
+            echecs.append(
+                f"{chemin.name} declare {nom}, qui appartient a "
+                f"{proprietaire}.\n    Une valeur recopiee devient fausse au "
+                f"premier changement : importer depuis {proprietaire} plutot "
+                f"que redeclarer.")
+
 if echecs:
     print("ECHEC : la documentation contredit le code.\n")
     for e in echecs:

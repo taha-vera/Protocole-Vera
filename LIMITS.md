@@ -668,6 +668,24 @@ garde porte desormais sur tous les fichiers `.sh`, presents et futurs.
 Le motif merite d'etre retenu tel quel : une garde nommant un fichier ferme un
 cas. Une garde parcourant une classe de fichiers ferme une classe.
 
+**Et la preuve formelle certifiait un autre mecanisme que celui en service.**
+Constat d'un audit externe du 27/08/2026. `validation_opendp.py` redeclarait les
+parametres du mecanisme, annotes « = prod », et affirmait certifier
+« EXACTEMENT le mecanisme execute par le serveur ». Sa borne superieure de
+domaine y valait 10 000 alors que la production applique 10 000 000 depuis la
+recalibration du 04/07 -- un facteur mille, reste huit semaines dans le fichier
+qui tient lieu de preuve.
+
+La consequence numerique etait nulle : epsilon = Delta_1 / scale ne depend pas
+des bornes, et le 0,5 certifie restait vrai. Mais la preuve portait sur un
+mecanisme qui, s'il etait deploye, aurait la branche dependante des donnees que
+l'elargissement des bornes a precisement supprimee. **Une preuve qui certifie
+autre chose que ce qui tourne ne prouve rien**, meme lorsque le resultat
+coincide.
+
+Les parametres sont desormais IMPORTES depuis `vera_dp_noise.py` au lieu d'etre
+recopies, et une garde interdit qu'un autre fichier les redeclare.
+
 **Un controle de sante qui ne controle rien.** Le crash test verifiait son
 demarrage par `curl /api/health`. Un serveur fantome d'un essai precedent --
 detenteur du verrou, donc empechant precisement le nouveau de demarrer --

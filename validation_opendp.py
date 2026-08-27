@@ -30,12 +30,28 @@ dp.enable_features("contrib")
 # ---------------------------------------------------------------------
 # Parametres du mecanisme (snapping sur grille AVANT bruit)
 # ---------------------------------------------------------------------
-# Parametres ALIGNES SUR LA PRODUCTION (vera_dp_noise.py), recalibration du
-# 04/07/2026. Avant cette date : Delta=10, scale=20, bounds=(0,100). Cette
-# preuve certifie desormais EXACTEMENT le mecanisme execute par le serveur.
-EPS_CIBLE = 0.5                         # budget epsilon vise
-DELTA_INT = 2                           # sensibilite L1 de production (Delta_1)
-SCALE = DELTA_INT / EPS_CIBLE           # echelle Laplace = 4.0 (= prod)
+# LES PARAMETRES SONT IMPORTES, PLUS RECOPIES.
+#
+# Ce fichier les redeclarait, annotes « = prod ». Le 27/08/2026, un audit
+# externe a constate que BORNE_SUP y valait encore 10 000 alors que la
+# production applique 10 000 000 depuis la recalibration du 04/07 -- un facteur
+# mille, huit semaines durant, dans le fichier qui fait office de preuve
+# formelle. L'en-tete affirmait pourtant certifier « EXACTEMENT le mecanisme
+# execute par le serveur ».
+#
+# La consequence numerique etait nulle : epsilon = Delta_1 / scale ne depend pas
+# des bornes, et le 0,5 certifie restait vrai. Mais la preuve portait sur un
+# mecanisme qui, s'il etait reellement deploye, aurait la branche dependante des
+# donnees que l'elargissement des bornes a precisement supprimee
+# (vera_dp_noise.py, lignes 32-45). Une preuve qui certifie autre chose que ce
+# qui tourne ne prouve rien.
+#
+# Recopier une valeur, c'est en creer une seconde qui derive. Elles sont
+# desormais importees : ce fichier ne peut plus diverger sans cesser de
+# s'executer.
+from vera_dp_noise import DELTA_INT, SCALE, BOUNDS
+
+EPS_CIBLE = DELTA_INT / SCALE           # 0,5 -- deduit, pas redeclare
 
 # Bornes du domaine : la moyenne snappee ne peut pas sortir de cette plage.
 # Necesssaires pour que OpenDP utilise un echantillonnage en temps quasi-constant
@@ -43,8 +59,7 @@ SCALE = DELTA_INT / EPS_CIBLE           # echelle Laplace = 4.0 (= prod)
 # recommandations de la documentation OpenDP et au papier Jin et al. 2021
 # (IEEE S&P) qui montre que l'echantillonnage geometrique sans bounds fuite
 # l'amplitude du bruit via son temps d'execution -- Porte 3 du modele de menace.
-BORNE_INF = 0      # borne inf du domaine (= prod, BOUNDS[0])
-BORNE_SUP = 10000  # borne sup du domaine (= prod, BOUNDS[1])
+BORNE_INF, BORNE_SUP = BOUNDS
 
 # ---------------------------------------------------------------------
 # 1. GARANTIE epsilon-DP EXACTE (certifiee par OpenDP)
@@ -113,14 +128,24 @@ print("\n=== SYNTHESE ===")
 print(f"  Garantie DP exacte : {'OK' if ok_eps else 'ECHEC'}")
 print(f"  MIA pire cas borne : {'OK' if ok_mia else 'ECHEC'}")
 print(f"  Porte 3 (canal temporel) : bounds={BORNE_INF},{BORNE_SUP} active")
-print("  Test timing etendu (30 juin 2026, serveur Hetzner AMD EPYC, Linux) :")
+# CE BLOC EST UNE TRACE HISTORIQUE, PAS UNE MESURE COURANTE.
+#
+# Il rapporte les mesures du 30/06/2026, faites sur bounds=(0,100) et sur les
+# valeurs [0,1,25,50,75,99,100] -- une calibration anterieure. Il etait imprime
+# comme s'il decrivait l'etat courant, ce qui a produit trois bornes
+# differentes dans une meme sortie (audit du 27/08).
+#
+# La mesure a jour, sur les bornes reellement en service, est faite par
+# tests/test_porte3_timing.py : elle s'execute a chaque passage de la suite.
+print("  Test timing du 30 juin 2026 (HISTORIQUE, calibration d'alors :")
+print("  bounds=(0,100), valeurs [0,1,25,50,75,99,100], serveur Hetzner) :")
 print("  - Sans bounds : ecart mediane 3.34%, Mann-Whitney p~0 — fuite confirmee")
 print("  - Avec bounds : ecart mediane 0.18%, Mann-Whitney p=0.937 — pas de fuite")
-print("  - Test etendu 7 valeurs [0,1,25,50,75,99,100], N=10000 par valeur :")
 print("    Spearman rho=-0.1429, p=0.760 — pas de correlation valeur/temps")
-print("    Extremes 0 vs 100 : ecart=0.17%, p=0.571 — pas de fuite aux extremes")
+print("  MESURE COURANTE : tests/test_porte3_timing.py, sur les bornes en")
+print("  service, rejouee a chaque passage de la suite.")
 print("  FORMULATION HONNETE (validee par challenge multi-IA) :")
-print("  'L'ajout de bounds=(0,100) supprime la difference temporelle detectee.")
+print("  'L'ajout de bounds supprime la difference temporelle detectee.")
 print("   Aucune fuite temporelle exploitable mise en evidence dans ces conditions.")
 print("   Ceci ne constitue pas une preuve formelle de temps constant au sens")
 print("   cryptographique, mais constitue une forte indication que le vecteur")
