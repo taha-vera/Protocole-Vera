@@ -139,7 +139,7 @@ il ne prouve PAS l'integrite du scrutin (cf. section 9).
 | 5 | Observateur reseau | Assumee | Hors-perimetre, delegue VPN/Tor |
 | 6 | Coercition | Assumee | Limite partagee par tout systeme de vote |
 | 7 | Differentiation 49/1 | Fermee | RSABSSA RFC 9474, fail-closed teste dans les deux sens |
-| 8 | Inference outlier | Fermee | AUC=0.6209, TPR@1%FPR=1.6% |
+| 8 | Inference outlier | Fermee | AUC etait donnee a 0.6209 au 31/07, valeur en realite celle de la Porte 2 : le meme chiffre servait deux mesures differentes (audit du 27/08). TPR@1%FPR=1.6%, mesure par tests/test_porte8_outlier.py |
 | 9 | Collusion emetteur/agregateur | Fermee | Secret admin distinct, isolation testee |
 | 10 | Sondage binaire K_MIN | Fermee | K_MIN=240 verifie avant consommation de budget |
 | 11 | Acces SQLite / cle RSA | Fermee | Fernet/AES-128, salt PBKDF2 aleatoire, crash-teste + reboot |

@@ -655,10 +655,29 @@ def signer_aveugle_endpoint(payload: SignerAveugleRequete):
     # puisque seul un rejeu identique est accepte. La garantie anti-double-vote
     # est preservee, et la voix cesse d'etre perdue sur un incident reseau.
     #
-    # CE QUE CELA COUTE
-    # La table conserve le lien (jeton -> message aveugle) : exactement ce que
-    # le protocole existe pour ne pas conserver. D'ou une retention d'une heure
-    # seulement, et un effacement a la cloture.
+    # CE QUE CELA COUTE, DIT JUSTE
+    #
+    # Ce n'est pas une table : c'est un dictionnaire en MEMOIRE de processus
+    # (_signatures_emises, vera_persistance.py), jamais ecrit sur disque --
+    # deliberement, parce qu'une table SQLite aurait fait cohabiter ce lien
+    # avec les compteurs dans le meme journal. Le mot « table » laissait croire
+    # au canal precisement ferme le 13/08.
+    #
+    # Il retient (empreinte du jeton -> empreinte du message AVEUGLE). Le
+    # facteur d'aveuglement r ne quitte jamais le navigateur : sans lui, aucune
+    # de ces valeurs ne se raccroche au depot, qui porte hash(K) et la signature
+    # FINALISEE. Le cache etablit donc qu'un jeton a obtenu une signature --
+    # information que jetons_autorisation.utilise = 1 inscrit deja en base, sans
+    # limite de retention. L'apport marginal est proche de zero.
+    #
+    # Ce commentaire disait « exactement ce que le protocole existe pour ne pas
+    # conserver ». Cette formulation a ete corrigee dans vera_persistance.py le
+    # 26/08 comme exageree -- un relecteur l'avait citee pour conclure a une
+    # violation de la garantie centrale -- mais elle subsistait ICI, mot pour
+    # mot. Le correctif avait ferme le cas, pas la classe. Constat d'un audit
+    # externe le 27/08/2026. Analyse complete : LIMITS.md section 1.
+    #
+    # Retention d'une heure, effacement a la cloture.
     try:
         message_aveugle = bytes.fromhex(payload.message_aveugle_hex)
     except ValueError:
@@ -713,7 +732,11 @@ def signer_aveugle_endpoint(payload: SignerAveugleRequete):
         emp_jeton, emp_message, sig_aveugle.hex(), departement)
 
     # 4. Renvoyer la signature aveugle + le departement (le client en a besoin
-    #    pour construire son vote). Aucun lien jeton<->signature n'est stocke.
+    #    pour construire son vote). Rien n'est PERSISTE : le couple
+    #    (jeton -> signature) vit une heure en memoire, pour l'idempotence, et
+    #    jamais sur disque. Ce commentaire disait « aucun lien jeton<->signature
+    #    n'est stocke », a cinquante lignes de l'appel qui le memorise --
+    #    contradiction relevee le 27/08/2026.
     # Bourrage a longueur constante, meme raison que le pad du depot de vote :
     # sans lui, la TAILLE de cette reponse varie avec la longueur du nom de
     # departement, et un observateur passif classe les votants par service a la

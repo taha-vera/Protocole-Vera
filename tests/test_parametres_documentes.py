@@ -50,11 +50,26 @@ SOURCES = {
 }
 
 # Marqueurs qui signalent une mention historique, donc legitime.
+# MARQUEURS HISTORIQUES : ce qui excuse une mention, et ce qui ne l'excuse pas.
+#
+# « depuis le » figurait dans cette liste. C'est un marqueur de PRESENT, pas de
+# passe : « la base tourne en journal_mode=WAL depuis le debut » affirme l'etat
+# COURANT. Un audit externe du 27/08/2026 l'a exploite pour faire passer cette
+# phrase exacte -- une affirmation fausse et securitairement significative,
+# puisque le mode WAL est precisement le canal ferme le 13/08 -- sans que cette
+# garde bronche.
+#
+# Le marqueur avait ete ajoute la veille pour excuser une mention historique
+# legitime. Il ouvrait une porte en en fermant une autre. Retire : une mention
+# vraiment historique dispose de dix-neuf autres formulations.
+#
+# **Un marqueur d'exemption est une faille en puissance.** Chacun de ceux qui
+# restent doit designer sans ambiguite le passe.
 HISTORIQUE = ("jusqu'au", "jusqu'a", "etait", "était", "abandonn", "perime",
               "passee de", "passé de", "passee a", "passé à", "porte de",
               "périmé", "avant le", "ancienne", "anterieur", "antérieur",
               "n'est plus", "a change", "a changé", "remplace", "remplacé",
-              "depuis le", "obsolete", "obsolète", "instantane", "instantané")
+              "obsolete", "obsolète", "instantane", "instantané")
 
 echecs = []
 
@@ -202,6 +217,62 @@ for nom, proprietaire in DECLARATIONS_UNIQUES.items():
                 f"{proprietaire}.\n    Une valeur recopiee devient fausse au "
                 f"premier changement : importer depuis {proprietaire} plutot "
                 f"que redeclarer.")
+
+# --- Aucune formulation retiree ne doit subsister ailleurs ---------------
+#
+# CONSTAT DU 27/08/2026, ET C'EST LE MOTIF QUI REVIENT LE PLUS.
+#
+# Le 26/08, la phrase « exactement ce que le protocole existe pour ne pas
+# conserver » a ete retiree de vera_persistance.py -- jugee exageree apres
+# qu'un relecteur l'eut citee pour conclure a une violation de la garantie
+# centrale. Le commit ne l'a pas cherchee ailleurs. Elle etait dans
+# vera_consultation_api.py, mot pour mot, et y est restee.
+#
+# Le correctif qui denoncait un cas ferme au lieu d'une classe a lui-meme
+# ferme un cas. Cette garde inventorie les formulations retirees et echoue si
+# l'une reapparait, dans n'importe quel fichier -- code, commentaire ou
+# document. Une ligne qui la CITE en la datant est admise : c'est ainsi qu'on
+# garde la trace sans reintroduire l'erreur.
+
+FORMULATIONS_RETIREES = {
+    "exactement ce que le protocole existe pour ne pas conserver":
+        "surestime le risque du cache de signatures ; voir LIMITS.md section 1",
+    "aucun lien jeton<->signature n'est stocke":
+        "contredit enregistrer_signature_emise, appelee cinquante lignes plus haut",
+    "a peine mieux que le hasard":
+        "minimise une AUC de 0,62 ; voir le docstring de test_porte2_mia.py",
+}
+
+# Une citation est admise, mais le marqueur doit etre sur LA MEME LIGNE.
+#
+# Premiere version : un marqueur n'importe ou dans les huit lignes voisines
+# suffisait a exempter. Sur un document en prose, il s'en trouve toujours un --
+# la garde ne se declenchait jamais. C'etait reproduire, dans le correctif
+# meme, le defaut du marqueur « depuis le » qu'il venait de retirer.
+#
+# Sur la meme ligne, l'exemption est verifiable a l'oeil : qui cite doit
+# marquer sa citation la ou elle est.
+CITATION = ("disait", "ecrivait", "affirmait", "formulation", "figurait",
+            "retiree", "retire le", "corrigee le", "\u00ab ", "26/08", "27/08")
+
+for chemin in sorted(RACINE.glob("*.py")) + sorted(RACINE.glob("*.md")) \
+        + sorted(RACINE.glob("tests/*.py")) + sorted(RACINE.glob("docs/**/*.md")):
+    # Ce fichier s'exclut : il DOIT contenir les formulations interdites, c'est
+    # sa raison d'etre. Sans cette ligne, la garde se denonce elle-meme --
+    # constate en l'ecrivant.
+    if chemin.resolve() == pathlib.Path(__file__).resolve():
+        continue
+    lignes = chemin.read_text(encoding="utf-8", errors="replace").splitlines()
+    for numero, ligne in enumerate(lignes, 1):
+        minuscule = ligne.lower()
+        for formulation, motif in FORMULATIONS_RETIREES.items():
+            if formulation not in minuscule:
+                continue
+            if any(c in minuscule for c in CITATION):
+                continue
+            echecs.append(
+                f"{chemin.relative_to(RACINE)}:{numero} reprend une "
+                f"formulation retiree -- {motif}.\n    " + ligne.strip()[:110])
 
 if echecs:
     print("ECHEC : la documentation contredit le code.\n")

@@ -544,7 +544,6 @@ RETENTION_SIGNATURES_SECONDES = 3600
 # Le service tourne en worker unique par construction (_verifier_worker_unique
 # refuse de demarrer autrement), donc un dictionnaire de processus suffit : il
 # n'y a pas d'autre processus avec qui partager cet etat.
-RETENTION_SIGNATURES_SECONDES = 3600
 _signatures_emises = {}
 
 

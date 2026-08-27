@@ -762,6 +762,46 @@ pas ce cas : le nom du fichier vivait dans une variable, deux lignes au-dessus
 du `grep`. **Une garde contournable par indirection ne garde pas.** Elle a ete
 elargie.
 
+### Le motif qui revient, et ce qu'il coute
+
+Un second audit externe, le 27/08 egalement, a montre que **le correctif de la
+veille avait lui-meme ferme un cas au lieu d'une classe** -- dans le commit qui
+denoncait precisement ce defaut.
+
+La phrase « exactement ce que le protocole existe pour ne pas conserver » avait
+ete retiree de `vera_persistance.py` comme exageree. Elle etait aussi dans
+`vera_consultation_api.py`, mot pour mot. Personne ne l'y avait cherchee. Le
+meme fichier affirmait par ailleurs, cinquante lignes sous l'appel qui memorise
+la signature, qu'« aucun lien jeton<->signature n'est stocke », et decrivait le
+cache comme une « table » -- alors que c'est un dictionnaire en memoire, jamais
+ecrit sur disque. Le mot laissait croire au canal ferme le 13/08.
+
+**Et la garde des parametres documentes etait contournable par un marqueur que
+nous avions ajoute la veille.** « depuis le » figurait dans la liste des
+formulations excusant une mention historique. Or c'est un marqueur de PRESENT.
+Une phrase affirmant que la base tourne encore dans l'ancien mode de
+journalisation -- fausse, et portant sur le canal le plus grave que ce projet
+ait ferme -- passait la garde sans broncher, du seul fait qu'elle contenait ces
+deux mots. Verifie en la cassant.
+
+Trois consequences retenues :
+
+1. **Un marqueur d'exemption est une faille en puissance.** « depuis le » est
+   retire ; chacun de ceux qui restent doit designer sans ambiguite le passe.
+2. **Retirer une formulation ne suffit pas : il faut la chercher partout.** Une
+   garde inventorie desormais les formulations retirees et echoue si l'une
+   reapparait, quel que soit le fichier.
+3. Cette garde-la a d'abord souffert du meme defaut -- son exemption acceptait
+   un marqueur de citation n'importe ou dans les lignes voisines, ce qui, sur un
+   texte en prose, l'annulait toujours. Resserree a la ligne meme. Puis elle
+   s'est denoncee elle-meme, son dictionnaire contenant les formulations
+   interdites. **Une garde se teste contre elle-meme avant d'etre gardee.**
+
+Le chiffre de l'AUC illustre le meme motif : corrige dans le modele de menace et
+dans la section 9, il restait a 0,6209 dans la section 14 du present document,
+qualifie de « a peine mieux que le hasard » -- une minimisation que le test
+produisant la mesure contredit explicitement. Corrige.
+
 **Un controle de sante qui ne controle rien.** Le crash test verifiait son
 demarrage par `curl /api/health`. Un serveur fantome d'un essai precedent --
 detenteur du verrou, donc empechant precisement le nouveau de demarrer --
@@ -1158,7 +1198,7 @@ omniscient sur tout le reste, avec la strategie optimale. Un adversaire réel
 fait moins bien.
 
 **Ne pas comparer cette borne a l'AUC mesuree.** La précision 1 ci-dessous rapporte
-AUC = 0,6209 pour une attaque d'appartenance sur VERA. La proximite numerique
+AUC = 0,6205 pour une attaque d'appartenance sur VERA. La proximite numerique
 avec 62,25 % est une coincidence, pas une confirmation : ce sont deux quantites
 differentes.
 
@@ -1203,8 +1243,16 @@ a ses membres.
 1. Les pourcentages ci-dessus sont un **plafond du pire cas théorique** : ils
    supposent un adversaire connaissant déjà toutes les autres réponses sauf
    une, et des questions parfaitement corrélées. L'inference réellement
-   mesuree sur VERA est très inferieure : AUC = 0.6209 (IC95%
-   [0.6185, 0.6232]), a peine mieux que le hasard.
+   mesuree sur VERA est plus basse : AUC = 0.6205 (IC95%
+   [0.6181, 0.6229], `tests/test_porte2_mia.py`).
+
+   **Ne pas lire ce chiffre comme « a peine mieux que le hasard ».** Cette
+   section l'ecrivait ; c'etait minimiser. Une AUC de 0,62 signifie qu'un
+   adversaire omniscient sur tout le reste devine juste 62 fois sur 100 la ou
+   le hasard en donne 50. C'est la garantie epsilon = 0,5, ni plus ni moins --
+   et elle ne porte que sur les sorties publiees. Formulation corrigee le
+   27/08/2026 : le document destine aux organisations disait moins que le test
+   qui produit la mesure.
 2. **K_MIN = 240 aide en pratique, mais ce n'est pas lui qui porte la
    garantie.** Le seuil compte face a un adversaire ordinaire : plus le groupe
    est grand, plus une réponse s'y fond.
