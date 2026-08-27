@@ -686,6 +686,20 @@ coincide.
 Les parametres sont desormais IMPORTES depuis `vera_dp_noise.py` au lieu d'etre
 recopies, et une garde interdit qu'un autre fichier les redeclare.
 
+**Le meme audit a trouve la meme faute dans un commentaire.** Celui qui justifie
+K_MIN au lecteur du code annoncait « n=100 : 9% ». Mesure : 12 % -- les 9 %
+correspondent a une repartition CONCENTREE, c'est-a-dire au cas le plus
+favorable. Le commentaire qui justifie le seuil sous-estimait donc l'erreur, en
+citant le meilleur cas la ou il faut le pire.
+
+Il derive desormais de l'invariant des 12 voix (12 / 240 = 5 %, 12 / 100 = 12 %)
+au lieu de recopier une table. Une valeur deduite ne peut pas deriver.
+
+Et la garde `test_parametres_documentes.py`, qui ne lisait que les fichiers
+Markdown, examine desormais aussi les COMMENTAIRES Python : un commentaire
+pouvait contredire la constante situee trois lignes plus bas sans que rien ne le
+voie.
+
 **Un controle de sante qui ne controle rien.** Le crash test verifiait son
 demarrage par `curl /api/health`. Un serveur fantome d'un essai precedent --
 detenteur du verrou, donc empechant precisement le nouveau de demarrer --

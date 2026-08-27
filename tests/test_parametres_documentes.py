@@ -100,6 +100,40 @@ if persistance.exists():
 # sur des valeurs qui ne sont pas les siennes.
 documents = sorted(RACINE.glob("*.md")) + sorted(RACINE.glob("docs/**/*.md"))
 
+# Les COMMENTAIRES Python sont scrutes au meme titre que la documentation.
+#
+# Constat du 27/08/2026 : le commentaire qui justifie K_MIN au lecteur du code
+# annoncait « n=100 : 9% » la ou la mesure donne 12 % -- il citait le cas le
+# plus favorable pour justifier un seuil. Ce test ne lisait que les .md : un
+# commentaire pouvait contredire la constante situee trois lignes plus bas.
+#
+# Seules les lignes de commentaire sont examinees ; le code, lui, est la
+# reference et ne peut pas se contredire lui-meme.
+commentaires_py = []
+for chemin in sorted(RACINE.glob("*.py")) + sorted(RACINE.glob("tests/*.py")):
+    lignes = chemin.read_text(encoding="utf-8", errors="replace").splitlines()
+    for numero, ligne in enumerate(lignes, 1):
+        nu = ligne.lstrip()
+        if nu.startswith("#"):
+            commentaires_py.append((chemin, numero, ligne))
+
+for chemin, numero, ligne in commentaires_py:
+    minuscule = ligne.lower()
+    if any(marqueur in minuscule for marqueur in HISTORIQUE):
+        continue
+    for nom, attendu in attendus.items():
+        if attendu is None or nom not in ligne:
+            continue
+        # \d+ et non [\d_ ]+ : « K_MIN : seuil MESURE » n'annonce aucune
+        # valeur, et un motif qui accepte le vide produit des faux positifs.
+        for t in re.findall(rf"{re.escape(nom)}\s*(?:=|vaut|:)\s*(\d[\d_ ]*)", ligne):
+            if t.strip().replace("_", "").replace(" ", "") != \
+                    attendu.replace("_", "").replace(" ", ""):
+                echecs.append(
+                    f"{chemin.relative_to(RACINE)}:{numero} — le commentaire "
+                    f"dit {nom} = {t.strip()}, le code dit {attendu}.\n    "
+                    + ligne.strip()[:120])
+
 for chemin in documents:
     lignes = chemin.read_text(encoding="utf-8", errors="replace").splitlines()
     for numero, ligne in enumerate(lignes, 1):

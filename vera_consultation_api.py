@@ -417,12 +417,23 @@ def question_courante():
     }
 
 
-# K_MIN = 240
-
-# K_MIN : seuil MESURE (14/07/2026), pas choisi arbitrairement.
-# A eps=0.5 avec projection sur le simplexe, l'erreur max sur les 3 options
-# reste sous 5% de l'effectif dans 95% des publications a partir de n=240.
-# En dessous (n=100 : 9%, n=200 : 6%), la promesse de precision ne tient pas.
+# K_MIN : seuil MESURE, pas choisi arbitrairement.
+#
+# L'erreur sur la valeur publiee est ABSOLUE, pas proportionnelle : environ
+# 12 voix au 95e centile, projection sur le simplexe comprise, quel que soit
+# l'effectif (mesure a n = 240, 500, 1 000 et 5 000). Le pourcentage n'en est
+# que la traduction : 12 / 240 = 5 %, la borne que VERA s'engage a tenir.
+#
+# En dessous, la meme erreur absolue pese plus lourd -- 12 / 100 = 12 % -- et
+# la promesse de precision ne tient plus.
+#
+# UNE SEULE SOURCE POUR CES CHIFFRES : LIMITS.md section 2, qui fait foi.
+# Ce commentaire donnait sa propre table (« n=100 : 9%, n=200 : 6% ») ; un
+# audit externe du 27/08/2026 a constate que le 9 % correspondait a une
+# repartition CONCENTREE, c'est-a-dire au cas le plus favorable, alors que le
+# pire cas vaut 12 %. Le commentaire qui justifie le seuil au lecteur du code
+# sous-estimait donc l'erreur. Il derive desormais de l'invariant des 12 voix
+# au lieu de recopier une table -- une valeur deduite ne peut pas deriver.
 K_MIN = 240
 
 # Cible de bourrage des reponses portant un nom de departement. Doit depasser
