@@ -106,6 +106,27 @@ jobs:
       - name: Parametres documentes conformes au code
         run: python3 tests/test_parametres_documentes.py
 
+      # LES GARDES QUI N'Y ETAIENT PAS.
+      #
+      # Relecture de notre propre travail, 27/08/2026 : trois gardes ecrites
+      # cette semaine ne tournaient qu'a la demande, sur le serveur. Or leur
+      # raison d'etre est de detecter une regression que personne ne cherche.
+      # Une garde qui ne s'execute pas automatiquement ne garde qu'un jour.
+      #
+      # Celles-ci ne demandent ni base, ni module Rust, ni reseau.
+      - name: Porte 7 -- le fail-closed se declenche
+        run: python3 tests/test_porte7_failclosed.py
+
+      - name: Porte 3 -- pas de canal temporel exploitable
+        run: |
+          pip install --quiet opendp
+          python3 tests/test_porte3_timing.py
+
+      - name: Porte 2 -- inference d'appartenance sous la borne
+        run: |
+          pip install --quiet opendp
+          python3 tests/test_porte2_mia.py
+
       # Les fichiers Python doivent au moins compiler. Ne remplace pas la
       # suite de tests, mais attrape une erreur de syntaxe avant le serveur.
       - name: Compilation des modules
