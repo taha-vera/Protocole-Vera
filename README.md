@@ -483,7 +483,7 @@ n'existe ni `routes/`, ni `models/`, ni `auth/`. Le reste est rangé :
 ```
 vera_*.py              les 6 modules de l'application
 verifier_engagement.py outil du tiers vérificateur
-tests/                 31 tests, dont 5 gardes structurelles
+tests/                 32 tests, dont 5 gardes structurelles
 static/                page du votant, tableau de bord, bundle
 chantier_crypto/       tests JS, crash test, manifeste npm
 vera_blind_sig/        module Rust (liaison PyO3 vers RSABSSA)
@@ -523,7 +523,7 @@ Voir également [SECURITY.md](SECURITY.md).
 Le parcours complet a été validé de bout en bout dans un navigateur ; aucune
 consultation avec de vrais participants n'a encore eu lieu.
 
-**Version courante :** branche `main`, 26 août 2026 — 31 tests automatiques,
+**Version courante :** branche `main`, 26 août 2026 — 32 tests automatiques,
 plus un test de résistance au crash exercé sur le chemin HTTP réel.
 
 **L'équipe d'exploitation est réduite.** Ce n'est pas un détail d'organisation :

@@ -700,6 +700,28 @@ Markdown, examine desormais aussi les COMMENTAIRES Python : un commentaire
 pouvait contredire la constante situee trois lignes plus bas sans que rien ne le
 voie.
 
+**Le troisieme constat du meme audit portait sur une garantie de securite qui
+ne se declenchait pas.** `vera_consultation_api.py` annonce un fail-closed --
+« le serveur refuse de demarrer sans signature aveugle RSABSSA (Porte 7) » --
+repris par le README et `requirements.txt`.
+
+`vera_blind_sig/` est un REPERTOIRE du depot. Depuis la PEP 420, Python le
+resout comme paquet d'espace de noms : l'import reussit sur un simple clone,
+sans qu'une ligne de Rust ait ete compilee, et `ouvrir_consultation()` ne touche
+jamais le module. Le `except` n'etait donc jamais atteint. Le serveur demarrait,
+et l'echec ne survenait qu'a la premiere generation de cle -- consultation deja
+ouverte, organisateur devant ses liens.
+
+Ce n'etait pas exploitable pour desanonymiser : sans cle, aucun lien n'est emis,
+donc aucun vote. Mais l'affirmation etait fausse, et un commentaire situe quinze
+lignes au-dessus du `raise` disait exactement l'inverse de celui-ci.
+
+La verification vit desormais dans `vera_signature_manager.py`, au moment de
+l'import : elle controle que le module EXPOSE `generer_cles()` et
+`signer_aveugle()`. `tests/test_porte7_failclosed.py` reproduit le scenario avec
+un faux module vide et echoue si l'import passe. **Un import qui reussit ne
+prouve pas qu'un module fonctionne.**
+
 **Un controle de sante qui ne controle rien.** Le crash test verifiait son
 demarrage par `curl /api/health`. Un serveur fantome d'un essai precedent --
 detenteur du verrou, donc empechant precisement le nouveau de demarrer --

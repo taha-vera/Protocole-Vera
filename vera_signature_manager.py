@@ -11,6 +11,34 @@ import time
 
 import vera_blind_sig as vbs
 
+# VERIFICATION QUE LE MODULE EST REELLEMENT COMPILE, PAS SEULEMENT IMPORTABLE.
+#
+# `vera_blind_sig/` est un REPERTOIRE du depot (Cargo.toml, src/). Depuis la
+# PEP 420, Python le resout comme paquet d'espace de noms : l'import reussit
+# sur un simple clone, sans que la moindre ligne de Rust ait ete compilee. Le
+# module obtenu est vide.
+#
+# Consequence, constatee par un audit externe le 27/08/2026 : le fail-closed de
+# la Porte 7 dans vera_consultation_api.py -- « le serveur refuse de demarrer
+# sans signature aveugle » -- ne se declenchait jamais. Son try/except
+# entourait un import qui reussit toujours et un ouvrir_consultation() qui ne
+# touche pas vbs. L'echec survenait seulement a la premiere generation de cle,
+# c'est-a-dire quand l'organisateur genere ses liens, consultation deja lancee.
+#
+# Un import qui reussit ne prouve pas que le module fonctionne. On verifie donc
+# la presence des deux fonctions natives reellement appelees, au moment de
+# l'import, pour que l'echec survienne au demarrage.
+for _fonction in ("generer_cles", "signer_aveugle"):
+    if not callable(getattr(vbs, _fonction, None)):
+        raise ImportError(
+            f"vera_blind_sig est importable mais n'expose pas {_fonction}() : "
+            "le module Rust n'est pas compile. Le repertoire du depot est "
+            "resolu comme paquet d'espace de noms (PEP 420), ce qui rend "
+            "l'import trompeur.\n"
+            "Compiler : cd vera_blind_sig && "
+            "PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release"
+        )
+
 # Duree de vie d'une consultation. Passe ce delai le timer detruit les cles
 # (memoire ET base) et plus aucun vote n'est accepte : les votants recoivent un
 # 503 "Aucune consultation active".

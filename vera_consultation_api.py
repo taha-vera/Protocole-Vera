@@ -259,13 +259,29 @@ compteurs_par_departement.update(_compteurs_persistes)
 effectif_par_departement.update(_effectifs_persistes)
 
 # --------------------------------------------------------------------------
-# Porte 7 durcie (signature aveugle RSABSSA) -- mode optionnel, EN PLUS du
-# systeme de tokens actuel, pas a sa place. Le serveur Hetzner (Linux) n'a
-# actuellement PAS le module vera_blind_sig compile (compile uniquement sur
-# Windows/Dell pour l'instant) -- l'import est protege pour que le serveur
-# continue de fonctionner normalement meme sans ce module. A activer
-# reellement seulement apres avoir recompile vera_blind_sig pour Linux et
-# valide ce nouveau chemin en parallele de l'ancien.
+# Porte 7 : la signature aveugle RSABSSA est OBLIGATOIRE. Fail-closed.
+#
+# Le commentaire qui figurait ici datait d'une periode ou le module n'etait
+# compile que sur poste de developpement, et annoncait que « l'import est
+# protege pour que le serveur continue de fonctionner normalement meme sans ce
+# module » -- exactement l'inverse du raise qui le suit. Deux affirmations
+# opposees a quinze lignes d'ecart, relevees par un audit externe le
+# 27/08/2026. C'est le raise qui dit vrai : sans signature aveugle, le serveur
+# ne doit pas servir.
+#
+# ET CE FAIL-CLOSED NE FERMAIT RIEN. `vera_blind_sig/` est un repertoire du
+# depot : Python le resolvait comme paquet d'espace de noms (PEP 420), donc
+# l'import reussissait sans qu'aucune ligne de Rust soit compilee, et
+# ouvrir_consultation() ne touche jamais le module. Le serveur demarrait, et
+# l'echec ne survenait qu'a la premiere generation de cle -- consultation deja
+# ouverte, organisateur devant ses liens. La verification effective vit
+# desormais dans vera_signature_manager.py, au moment de l'import : elle
+# controle que le module EXPOSE generer_cles() et signer_aveugle(), pas
+# seulement qu'il s'importe.
+#
+# SIGNATURE_AVEUGLE_DISPONIBLE n'est lu nulle part ailleurs et ne gouverne
+# rien : le drapeau est conserve comme temoin de reussite de l'amorcage, pas
+# comme interrupteur.
 # --------------------------------------------------------------------------
 try:
     from vera_signature_manager import (
