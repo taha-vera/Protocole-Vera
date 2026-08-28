@@ -16,9 +16,29 @@ cryptography==49.0.0
 numpy==2.5.0
 scikit-learn==1.9.0
 
+# Client HTTP de test, requis par fastapi.testclient.
+#
+# tests/test_parcours_http.py est le SEUL test qui exerce les routes : sans lui,
+# les 1 800 lignes de vera_consultation_api.py ne sont couvertes par aucun test
+# Python. Ecrit le 28/08 apres qu'un audit externe eut constate qu'aucun test
+# n'appelait un endpoint.
+#
+# Le paquet avait ete installe a la main sur le serveur avant de figurer ici, ce
+# qui rendait ce test inexecutable sur un clone -- meme motif que VERA_PYTHON.
+# Le nom compte : starlette exige httpx2, pas httpx.
+httpx2==2.12.0
+
 # NOTE IMPORTANTE : le module de signature aveugle RSABSSA (vera_blind_sig)
 # est un module Rust compile via PyO3, non disponible sur PyPI.
-# Sans lui, l'API refuse de demarrer (fail-closed, Porte 7).
+#
+#   cd vera_blind_sig && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 \
+#       maturin develop --release
+#
+# Sans lui, l'API refuse de demarrer (fail-closed, Porte 7). Ce refus n'a
+# reellement lieu que depuis le 27/08 : le repertoire du depot etant resolu par
+# Python comme paquet d'espace de noms (PEP 420), l'import reussissait sans
+# module compile et le serveur demarrait. La verification porte desormais sur
+# les fonctions exposees, pas sur l'import.
 # Voir VERA_THREAT_MODEL_COMPLETE.md pour le contexte.
 
 # CONTRAINTE DE DEPLOIEMENT : uvicorn doit tourner avec UN SEUL worker.
