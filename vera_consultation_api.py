@@ -5,7 +5,7 @@ vera_consultation_api.py — Serveur complet : vote public (sans auth) +
 interface RH protegee par authentification (generation de tokens,
 consultation des resultats agreges).
 
-Coherent avec ATTRIBUTION_FLOW.md : le compte RH est l'autorite
+Le compte RH est l'autorite
 d'attribution. Il connait departement <-> quantite de tokens demandes,
 jamais l'identite des votants individuels cote serveur -- l'envoi des
 liens reste sous la responsabilite de la personne RH elle-meme, en dehors
@@ -977,9 +977,26 @@ def _publier_departement(departement, effectif):
     try:
         comptes_bruites = publier_histogramme_dp(comptes_ordonnes, effectif)
     except ValueError as e:
-        # Le bruit differentiel refuse les comptages au-dela de sa borne de
-        # calibration, plutot que de les ecreter en silence et de publier un
-        # resultat faux.
+        # BRANCHE MORTE DEPUIS LE 04/07/2026, CONSERVEE COMME FILET.
+        #
+        # Ce commentaire affirmait que « le bruit differentiel refuse les
+        # comptages au-dela de sa borne, plutot que de les ecreter en silence ».
+        # C'est l'inverse du comportement reel : appliquer_bruit_dp ECRETE, et
+        # silencieusement -- c'est precisement l'objet de la correction du
+        # 04/07, la levee d'exception constituant une branche dependante des
+        # donnees qui faisait perdre la propriete epsilon-DP stricte
+        # (vera_dp_noise.py). Ce chemin ne peut donc plus se declencher : la
+        # borne est a 10 000 000, inatteignable.
+        #
+        # Releve par trois audits externes successifs, les 27 et 28/08/2026, et
+        # non corrige les deux premieres fois -- dont une ou le correctif a ete
+        # annonce applique sans l'etre.
+        #
+        # Conserve parce qu'un elargissement futur du domaine, ou un
+        # changement de mecanisme, le rendrait a nouveau vivant : un
+        # depassement silencieux serait alors pire qu'un refus explicite. Le
+        # bloc ci-dessous reste donc valable, mais il decrit desormais une
+        # eventualite, pas le comportement courant.
         #
         # On traduit ce refus dans le contrat de retour de cette fonction, au
         # lieu de laisser l'exception remonter. Sans cela, un seul groupe
@@ -1684,7 +1701,7 @@ def etat_departements(session_vera: Optional[str] = Cookie(None)):
 
 # --------------------------------------------------------------------------
 # Endpoints publics (vote, sans authentification -- le token EST
-# l'autorisation, cf. ATTRIBUTION_FLOW.md)
+# l'autorisation)
 # --------------------------------------------------------------------------
 
 class ReponseEntrante(BaseModel):

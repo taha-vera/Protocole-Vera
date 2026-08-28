@@ -1,5 +1,23 @@
 # Plan : refactor Modele B + cles par departement
 
+> ## ⚠️ DOCUMENT DE TRAVAIL PERIME — NE PAS S'EN SERVIR COMME REFERENCE
+>
+> Notes de chantier du **20/07/2026**, pendant le refactor Modele B. Le refactor
+> est termine depuis le 23/07 : ce document decrit un etat intermediaire.
+>
+> Il se presente par endroits comme une reference (« Reference qui marche : … »)
+> et renvoie a des fichiers qui **n'existent plus** -- `brique5_test_client.mjs`,
+> `test_bundle.html`, `test_couche2.py`, `test_couche3.py`, `test_api_c4.py`.
+> Un auditeur externe l'a releve le 28/08/2026 : dans un depot dont l'argument
+> central est que la documentation ne ment pas, un document de travail versionne
+> qui se donne pour une reference est un defaut, meme sans consequence
+> technique.
+>
+> **Ce qui fait foi :** `VERA_THREAT_MODEL_COMPLETE.md` pour le modele de
+> menace, `LIMITS.md` pour les limites, le code pour les parametres. Ce fichier
+> n'est conserve que comme trace du chantier.
+
+
 ## ETAT AU 20/07 (matinee) -- 4 COUCHES SERVEUR FINIES, REPRENDRE AUX BRIQUES CLIENT
 
 Les 4 couches SERVEUR du Modele B multi-departement sont faites, testees sur

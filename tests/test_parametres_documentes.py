@@ -47,6 +47,13 @@ SOURCES = {
                             r"LONGUEUR_CIBLE_FIXE\s*=\s*(\d+)"),
     "DUREE_VIE_CLE_SECONDES": ("vera_signature_manager.py",
                                r"DUREE_VIE_CLE_SECONDES\s*=\s*([\d\s*_]+)"),
+    # Ajoutes le 28/08 : un audit externe a saborde SCALE de 4.0 a 8.0 --
+    # epsilon passant de 0,5 a 0,25, tout le depot continuant d'annoncer 0,5 --
+    # et cette garde affichait « OK ». Le rattrapage venait d'un autre test
+    # (Porte 2), donc la classe etait couverte, mais par repartition heureuse
+    # plutot que par conception.
+    "SCALE": ("vera_dp_noise.py", r"^SCALE\s*=\s*([\d.]+)"),
+    "DELTA_INT": ("vera_dp_noise.py", r"^DELTA_INT\s*=\s*(\d+)"),
 }
 
 # Marqueurs qui signalent une mention historique, donc legitime.
@@ -158,13 +165,26 @@ for chemin in documents:
 
         # Parametres numeriques nommes explicitement.
         for nom, attendu in attendus.items():
-            if attendu is None or nom not in ligne:
+            if attendu is None or nom.lower() not in ligne.lower():
                 continue
-            trouves = re.findall(rf"{re.escape(nom)}\s*(?:=|vaut|:)\s*([\d_ ]+)",
-                                 ligne)
+            # Insensible a la casse : la documentation ecrit « scale = 4 » et
+            # « Δ₁ = 2 » en minuscules, le code SCALE et DELTA_INT. Un motif
+            # sensible a la casse laissait passer les trois documents qui
+            # annoncent la calibration (constat du 28/08).
+            # Le motif exige un CHIFFRE apres le separateur. Sans cela, une
+            # cellule de tableau « | Scale | 4 | » etait lue comme « Scale = »
+            # suivi de rien, et produisait un faux positif.
+            trouves = re.findall(
+                rf"{re.escape(nom)}\s*(?:=|vaut|:)\s*(\d[\d_. ]*)",
+                ligne, re.IGNORECASE)
             for t in trouves:
-                if t.strip().replace("_", "").replace(" ", "") != \
-                        attendu.replace("_", "").replace(" ", ""):
+                def _norm(x):
+                    x = x.strip().replace("_", "").replace(" ", "")
+                    try:
+                        return f"{float(x):g}"      # 4 et 4.0 sont egaux
+                    except ValueError:
+                        return x
+                if _norm(t) != _norm(attendu):
                     echecs.append(
                         f"{chemin.relative_to(RACINE)}:{numero} — {nom} y vaut {t.strip()}, "
                         f"le code dit {attendu}.\n    " + ligne.strip()[:120])
@@ -273,6 +293,38 @@ for chemin in sorted(RACINE.glob("*.py")) + sorted(RACINE.glob("*.md")) \
             echecs.append(
                 f"{chemin.relative_to(RACINE)}:{numero} reprend une "
                 f"formulation retiree -- {motif}.\n    " + ligne.strip()[:110])
+
+# --- Le seuil de publication, cite SANS son nom --------------------------
+#
+# CONSTAT DU 28/08/2026, et c'est le plus subtil des trois audits.
+#
+# Cette garde exige le nom litteral du parametre sur la ligne. Or le README
+# ecrit « **240** <- seuil de publication » et LIMITS.md « 240 reponses par
+# groupe » sans jamais ecrire K_MIN. Le chiffre le PLUS VISIBLE du projet --
+# celui qu'un DRH retient -- n'etait controle par rien.
+#
+# On verifie donc que la valeur en service apparait bien dans les documents qui
+# parlent du seuil, et qu'aucune autre valeur n'y soit donnee comme seuil.
+seuil = attendus.get("K_MIN")
+if seuil:
+    motif_seuil = re.compile(
+        r"(\d{2,4})\s*(?:reponses?|r\u00e9ponses?)\s+par\s+groupe"
+        r"|seuil de publication\D{0,20}?(\d{2,4})"
+        r"|(\d{2,4})\s*\u2190\s*seuil", re.IGNORECASE)
+    for chemin in documents:
+        for numero, ligne in enumerate(
+                chemin.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+            if any(m in ligne.lower() for m in HISTORIQUE):
+                continue
+            for groupes in motif_seuil.findall(ligne):
+                for valeur in groupes:
+                    if valeur and valeur != seuil:
+                        echecs.append(
+                            f"{chemin.relative_to(RACINE)}:{numero} annonce un "
+                            f"seuil de {valeur}, le code applique {seuil}.\n"
+                            "    Le chiffre est cite sans son nom : sans ce "
+                            "controle, rien ne le verifie.\n    "
+                            + ligne.strip()[:110])
 
 if echecs:
     print("ECHEC : la documentation contredit le code.\n")

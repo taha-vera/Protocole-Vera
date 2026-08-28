@@ -93,7 +93,7 @@ fn verifier_signature(
 // JavaScript ; il valait aussi ici.
 //
 // L'exploration complete, avec la mesure des navigateurs et les six pieges
-// rencontres, est conservee dans RSAPBSSA_EXPLORATION.md.
+// rencontres, est conservee dans LIMITS.md, section 8 (historique).
 
 #[pymodule]
 fn vera_blind_sig(m: &Bound<'_, PyModule>) -> PyResult<()> {

@@ -791,6 +791,35 @@ Trois consequences retenues :
 2. **Retirer une formulation ne suffit pas : il faut la chercher partout.** Une
    garde inventorie desormais les formulations retirees et echoue si l'une
    reapparait, quel que soit le fichier.
+2bis. **Un troisieme audit, le 28/08, a montre que la garde ne voyait pas le
+   chiffre le plus visible du projet.** Elle exige le nom litteral du parametre
+   sur la ligne. Or le README ecrit « **240** <- seuil de publication » et le
+   present document « 240 reponses par groupe » sans jamais ecrire `K_MIN` :
+   aucun de ces deux passages n'etait controle. Elle ignorait aussi `SCALE` et
+   `DELTA_INT`, et son motif etait sensible a la casse, alors que la
+   documentation ecrit « scale = 4 » en minuscules -- saborder `SCALE` de 4 a 8,
+   donc porter epsilon a 0,25 pendant que tout le depot annonce 0,5, laissait la
+   garde afficher « OK ». Le rattrapage venait d'un autre test, par repartition
+   heureuse plutot que par conception.
+
+   Corrige : les deux constantes ajoutees, motif insensible a la casse, et un
+   controle du seuil cite SANS son nom. **Une garde qui exige d'etre nommee ne
+   voit pas ce qui compte le plus.**
+
+   Le meme audit a trouve deux documents cites qui n'existent pas
+   (`ATTRIBUTION_FLOW.md`, `RSAPBSSA_EXPLORATION.md`), un renvoi de section faux
+   dans le modele de menace, un TPR publie tronque plutot qu'arrondi, et un
+   document de travail du 20/07 versionne qui se donne pour une reference en
+   renvoyant a cinq fichiers disparus.
+
+   **Et il a relance un constat que deux audits precedents avaient deja fait :**
+   le commentaire de `publier_histogramme_dp` annonce que le mecanisme « refuse
+   plutot que d'ecreter en silence », quand il ecrete precisement en silence.
+   Signale le 27/08, annonce corrige, il ne l'etait pas -- le script de
+   correction testait la presence du texte par une condition au lieu d'une
+   assertion, et a continue sans rien faire. **Une correction non verifiee n'est
+   pas une correction.**
+
 3. Cette garde-la a d'abord souffert du meme defaut -- son exemption acceptait
    un marqueur de citation n'importe ou dans les lignes voisines, ce qui, sur un
    texte en prose, l'annulait toujours. Resserree a la ligne meme. Puis elle
