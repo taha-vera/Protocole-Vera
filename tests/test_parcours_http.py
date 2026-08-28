@@ -106,7 +106,7 @@ def verifier(condition, message, detail=""):
         print(f"  ECHEC  {message}")
 
 
-client = TestClient(api.app)
+client = TestClient(api.app, base_url="https://testserver")
 
 # --- 1. Authentification --------------------------------------------------
 
@@ -123,7 +123,7 @@ verifier(r.status_code == 200, "1b. connexion acceptee",
 
 # --- 2. Une route RH refuse un appel non authentifie ---------------------
 
-sans_session = TestClient(api.app)
+sans_session = TestClient(api.app, base_url="https://testserver")
 r = sans_session.post("/api/rh/question",
                       json={"intitule": "Question sans session, doit echouer."})
 verifier(r.status_code in (401, 403),
@@ -189,13 +189,18 @@ if jetons:
 
         if r.status_code == 200:
             sig_aveugle = bytes.fromhex(r.json()["signature_aveugle_hex"])
-            finale = vbs.finaliser_signature(
-                list(pub), list(sig_aveugle), list(secret), list(message))
+            # Signature reelle, relue dans vera_blind_sig/src/lib.rs et dans
+            # tests/test_signer_aveugle.py : SIX arguments, dans cet ordre.
+            # Une premiere version en passait quatre, devines -- le test
+            # echouait sur un TypeError apres avoir franchi onze etapes.
+            finale = bytes(vbs.finaliser_signature(
+                list(pub), list(message), list(aveugle), list(secret),
+                list(sig_aveugle), list(randomizer)))
 
             corps_vote = {
                 "K_hex": bytes(message).hex(),
                 "randomizer_hex": bytes(randomizer).hex(),
-                "signature_hex": bytes(finale).hex(),
+                "signature_hex": finale.hex(),
                 "reponse": "oui",
                 "departement": GROUPE,
                 "pad": "x" * 100,
