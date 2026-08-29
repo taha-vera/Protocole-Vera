@@ -148,9 +148,46 @@ pas ce qu'elle a répondu. C'est la seule trace qui survit sur l'appareil, et
 elle n'est pas effacable par VERA.
 
 *Dans la taille des requêtes.* Le parcours de vote est bourré à longueur
-constante — dépôt (490 octets), réponse de signature, requête de clé publique
-(1035 octets) — pour qu'un observateur du réseau ne déduise pas le groupe de la
+constante. **Les trois etapes sont bourrees ; les chiffres qui figuraient ici
+etaient faux ou incomparables** (constat d'un audit externe, 29/08/2026).
+
+Ce qui est vrai : la taille ne varie pas avec le nom du groupe, ce qui est la
+propriete recherchee. Ce qui etait faux : « depot (490 octets) » -- la requete
+mesuree fait environ 1180 octets, le 490 designant la seule portion bourree avec
+son echafaudage JSON, sans que rien ne le dise, tandis que le 1035 de l'URL
+comptait l'URL entiere. Deux chiffres calcules sur deux bases differentes dans
+la meme phrase.
+
+Le cout n'etait pas theorique : un service informatique qui mesure une requete
+sur le reseau lisait 1180 la ou le document annoncait 490, et concluait a une
+divergence entre code publie et code servi -- le signal meme que tout le
+dispositif de verification existe pour emettre.
+
+Les valeurs cibles vivent dans le code, ou une garde les controle
+(`tests/test_bourrage_client_serveur.py`) : `LONGUEUR_CIBLE_FIXE` pour le corps
+du depot, `LONGUEUR_PAD_REPONSE` pour la reponse de signature, et la cible de
+l'URL de cle publique. Les tailles totales en dependent et ne sont pas recopiees
+ici -- une valeur derivee recopiee derive.
+
+Le bourrage sert a ce qu'un observateur du réseau ne déduise pas le groupe de la
 taille du paquet.
+
+**Le correctif de 2021/08 n'avait ferme que le client.** Le 29/08/2026, un audit
+externe a constate que le SERVEUR calculait encore son bourrage en caracteres :
+`pad = "x" * max(0, LONGUEUR_PAD_REPONSE - len(departement))`. La reponse de
+`/api/signer_aveugle` variait donc de 691 a 791 octets selon le nom du groupe --
+« Operations » 691, accentue 692, « Securite generale » 695, « 日本支社 » 699.
+
+C'est **la seule requete du parcours qui porte le jeton d'invitation**, donc
+l'identite. Un observateur passif du trafic TLS partitionnait les demandes de
+signature par service sans rien dechiffrer, et « Securite », « Operations »,
+« Developpement » sont des noms de service ordinaires en France.
+
+La garde `test_bourrage_client_serveur.py` ne controlait que `vote.html` : elle
+a enterine le correctif partiel. **Sixieme occurrence du motif.** Corrige, la
+cible portee de 120 a 400 octets -- `max_length=100` borne des CARACTERES, qui
+valent jusqu'a quatre octets chacun -- et la garde couvre desormais les deux
+cotes.
 
 **Deux précisions qui ont coûté deux correctifs.** Le bourrage se calcule en
 **octets UTF-8**, pas en caractères : un nom de 100 caractères accentués occupe
@@ -500,6 +537,23 @@ Reproduit empiriquement le 13/08. Il lui manque encore la correspondance
 personne → jeton, que détient l'organisation consultante — c'est cette
 séparation qui protège, et elle est procédurale. Voir
 `VERA_THREAT_MODEL_COMPLETE.md`, section « Niveau 1 ».
+
+**L'outil du tiers verificateur echouait en s'ouvrant.** Constat du meme audit.
+Les controles de `verifier_engagement.py` sur le seuil, l'epsilon et les
+invitations etaient conditionnels : un serveur qui OMETTAIT ces champs ne
+declenchait rien, et le script concluait « Aucune anomalie detectee ». Il
+n'avait alors verifie aucun des trois parametres que le README lui attribue. Un
+serveur sans cle sortait de meme en code 0 sans dire que l'empreinte fournie par
+`--attendu` n'avait pas ete comparee, et un champ manquant faisait planter
+l'outil sur une trace Python.
+
+Le delegue du personnel a qui le guide demande de lancer ce script ne pouvait
+pas distinguer « rien a signaler » de « le controle n'a pas eu lieu ».
+
+`static/vote.html` documente pourtant avoir corrige exactement ce defaut : « une
+defense de securite doit echouer en se fermant, pas en s'ouvrant ». Le client
+avait ete mis au fail-closed, l'outil du tiers etait reste au fail-open. Corrige
+le 29/08 : un champ absent est desormais une anomalie, pas un silence.
 
 Un adversaire disposant de l'une de ces sources temporelles **et** d'une lecture
 répétée du fichier reconstitue des votes individuels. Chiffrer les compteurs n'y

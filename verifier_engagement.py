@@ -44,6 +44,10 @@ import sys
 import urllib.request
 
 
+class ChampManquant(Exception):
+    """Le serveur n'a pas fourni de quoi mener un controle."""
+
+
 def calculer_agregat(cles):
     """Recalcule l'empreinte de l'ensemble, exactement comme le serveur.
 
@@ -52,9 +56,29 @@ def calculer_agregat(cles):
     la meme suite d'octets, donc la meme empreinte.
     """
     h = hashlib.sha256()
-    for entree in sorted(cles, key=lambda c: c["departement"]):
+    for entree in sorted(cles, key=lambda c: c.get("departement", "")):
+        # Un champ manquant est une anomalie a signaler, pas une trace Python.
+        #
+        # Constate le 29/08/2026 : un serveur omettant cle_publique_hex faisait
+        # planter cet outil sur un KeyError. Le delegue du personnel a qui le
+        # guide demande de le lancer recevait une trace d'interpreteur, sans
+        # pouvoir distinguer un serveur en faute d'un outil casse. Meme famille
+        # que les controles conditionnels corriges le meme jour : un outil de
+        # verification doit dire ce qui manque, pas s'interrompre.
+        for champ in ("departement", "cle_publique_hex"):
+            if champ not in entree:
+                raise ChampManquant(
+                    f"le serveur annonce une cle sans champ « {champ} ». "
+                    "L'empreinte agregee ne peut pas etre recalculee : ce "
+                    "controle n'a pas pu avoir lieu.")
         nom = entree["departement"].encode("utf-8")
-        pub = bytes.fromhex(entree["cle_publique_hex"])
+        try:
+            pub = bytes.fromhex(entree["cle_publique_hex"])
+        except ValueError:
+            raise ChampManquant(
+                f"la cle publique du groupe « {entree['departement']} » n'est "
+                "pas une suite hexadecimale valide. L'empreinte agregee ne "
+                "peut pas etre recalculee.")
         h.update(len(nom).to_bytes(4, "big"))
         h.update(nom)
         h.update(len(pub).to_bytes(4, "big"))
@@ -85,6 +109,14 @@ def main():
 
     if not cles:
         print("Aucune cle : aucune consultation n'est ouverte sur ce serveur.")
+        # Une empreinte fournie et jamais comparee doit se voir. Le script
+        # sortait ici en code 0 sans dire que --attendu n'avait pas ete
+        # examine : le verificateur croyait avoir controle (29/08).
+        if args.attendu:
+            print("\nATTENTION : l'empreinte fournie par --attendu n'a PAS ete "
+                  "comparee,\nfaute de cle sur ce serveur. Ce n'est pas une "
+                  "verification reussie.")
+            return 1
         return 0
 
     anomalies = []
@@ -130,8 +162,35 @@ def main():
     # valeur tournait REELLEMENT pendant la consultation. Un abaissement en
     # cours de route -- pour obtenir « des resultats par service » -- etait
     # indetectable de l'exterieur.
+    # UN CHAMP ABSENT EST UNE ANOMALIE, PAS UN SILENCE.
+    #
+    # CONSTAT DU 29/08/2026, par un audit externe. Ces controles etaient
+    # conditionnels : `if seuil is not None`. Un serveur qui OMETTAIT simplement
+    # seuil_publication, epsilon_par_publication et invitations_emises ne
+    # declenchait rien, et ce script concluait « Aucune anomalie detectee »,
+    # code de sortie 0. Il n'avait alors verifie AUCUN des trois parametres que
+    # le README lui attribue.
+    #
+    # C'est le defaut que static/vote.html documente avoir corrige : « une
+    # defense de securite doit echouer en se fermant, pas en s'ouvrant ». Le
+    # client avait ete mis au fail-closed ; l'outil du TIERS VERIFICATEUR --
+    # celui que le guide envoie au delegue du personnel -- etait reste au
+    # fail-open. Le delegue ne pouvait pas distinguer « rien a signaler » de
+    # « le controle n'a pas eu lieu ».
     seuil = donnees.get("seuil_publication")
     eps = donnees.get("epsilon_par_publication")
+
+    if seuil is None:
+        anomalies.append(
+            "ANOMALIE : le serveur n'annonce pas son seuil de publication. "
+            "Ce controle n'a donc pas pu avoir lieu -- un serveur qui omet le "
+            "champ echappe a la verification aussi surement qu'un serveur qui "
+            "ment.")
+    if eps is None:
+        anomalies.append(
+            "ANOMALIE : le serveur n'annonce pas son budget epsilon. Ce "
+            "controle n'a donc pas pu avoir lieu.")
+
     if seuil is not None:
         print(f"\nSeuil de publication annonce par le serveur : {seuil}")
         if seuil != 240:
@@ -157,7 +216,14 @@ def main():
     # reelles, voter 225 fois avec des reponses connues, soustraire, et lire le
     # profil des quinze. Comparer ce chiffre a l'effectif reel est le seul
     # controle possible, et il ne demande aucune competence technique.
-    invitations = donnees.get("invitations_emises") or {}
+    invitations = donnees.get("invitations_emises")
+    if invitations is None:
+        anomalies.append(
+            "ANOMALIE : le serveur n'annonce pas le nombre d'invitations "
+            "emises par groupe. C'est le seul controle qu'un representant du "
+            "personnel puisse mener sans competence technique -- comparer ces "
+            "nombres aux effectifs reels. Son absence le rend impossible.")
+    invitations = invitations or {}
     if invitations:
         print("\nInvitations emises par groupe :")
         for nom in sorted(invitations):
@@ -166,7 +232,13 @@ def main():
         print("     Un ecart important doit etre justifie par ecrit.")
 
     # --- 3. Empreinte de l'ensemble ------------------------------------------
-    recalcule = calculer_agregat(cles)
+    try:
+        recalcule = calculer_agregat(cles)
+    except ChampManquant as e:
+        print(f"\n{'=' * 64}")
+        print(f"ANOMALIE : {e}")
+        print("\nNe laissez pas la consultation se poursuivre sans explication.")
+        return 1
     print(f"\nEmpreinte recalculee : {recalcule}")
     print(f"Empreinte annoncee   : {annonce}")
     if recalcule != annonce:

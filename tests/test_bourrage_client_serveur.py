@@ -121,9 +121,56 @@ def main():
                 "100 caracteres occupe 200 octets, et le bourrage retombe a "
                 "zero -- la taille du paquet trahit alors le groupe."
             )
-        _ok("4. le bourrage du corps est calcule en octets UTF-8")
+        _ok("4. le bourrage du corps est calcule en octets UTF-8 (client)")
     except Echec as e:
         print(f"ECHEC 4. {e}")
+        ok = False
+
+    # --- 4bis. LE SERVEUR AUSSI -----------------------------------------
+    #
+    # CONSTAT DU 29/08/2026, par un audit externe.
+    #
+    # Le controle 4 ci-dessus ne regarde que vote.html. Le SERVEUR, lui,
+    # calculait `pad = "x" * max(0, LONGUEUR_PAD_REPONSE - len(departement))`
+    # -- len() sur une str compte des CARACTERES. La reponse de
+    # /api/signer_aveugle variait donc de 691 a 791 octets selon le nom du
+    # groupe : « Operations » 691, avec accent 692, « Securite generale »
+    # accentue 695, « 日本支社 » 699.
+    #
+    # C'est la SEULE requete du parcours qui porte le jeton, donc l'identite.
+    # Un observateur passif du TLS partitionnait les demandes de signature par
+    # service sans rien dechiffrer.
+    #
+    # Le correctif du 21/08 avait ferme le CAS -- le client -- et cette garde
+    # l'avait entérine en ne controlant que lui. Sixieme occurrence du motif.
+    try:
+        api = open(API, encoding="utf-8").read()
+        fautives = [
+            l.strip() for l in api.splitlines()
+            if "LONGUEUR_PAD_REPONSE" in l and "pad" in l
+            and "encode(" not in l and not l.lstrip().startswith("#")
+        ]
+        if fautives:
+            raise Echec(
+                "le bourrage de la reponse est calcule en CARACTERES cote "
+                "serveur, pas en octets UTF-8. Un nom accentue fait varier la "
+                "taille de la reponse a /api/signer_aveugle -- la requete qui "
+                "porte le jeton.\n      " + "\n      ".join(fautives))
+
+        # La cible doit couvrir max_length=100 CARACTERES, soit 400 octets.
+        import re as _re
+        m = _re.search(r"^LONGUEUR_PAD_REPONSE\s*=\s*(\d+)", api, _re.MULTILINE)
+        if not m:
+            raise Echec("LONGUEUR_PAD_REPONSE introuvable : motif perime.")
+        if int(m.group(1)) < 400:
+            raise Echec(
+                f"LONGUEUR_PAD_REPONSE vaut {m.group(1)}, insuffisant : "
+                "max_length=100 borne des CARACTERES, qui valent jusqu'a "
+                "quatre octets chacun en UTF-8. Il faut 400 au minimum.")
+        _ok("4bis. le bourrage du serveur est en octets, et la cible couvre "
+            "max_length")
+    except Echec as e:
+        print(f"ECHEC 4bis. {e}")
         ok = False
 
     try:

@@ -452,10 +452,38 @@ def question_courante():
 # au lieu de recopier une table -- une valeur deduite ne peut pas deriver.
 K_MIN = 240
 
-# Cible de bourrage des reponses portant un nom de departement. Doit depasser
-# la longueur maximale autorisee (Field max_length=100) pour que la taille de
-# la reponse reste constante quel que soit le departement.
-LONGUEUR_PAD_REPONSE = 120
+# Cible de bourrage des reponses portant un nom de departement, EN OCTETS.
+#
+# DEUX DEFAUTS CORRIGES LE 29/08/2026, releves par un audit externe.
+#
+# 1. L'UNITE. Le calcul etait `len(departement)` -- des CARACTERES -- alors que
+#    le corps transporte des OCTETS UTF-8. La compensation etait donc fausse
+#    des qu'un nom sortait de l'ASCII : « Operations » donnait 691 octets,
+#    « Operations » avec accent 692, « Securite generale » accentue 695,
+#    « 日本支社 » 699, et cent caracteres accentues 791. La taille variait de
+#    100 octets selon le service.
+#
+#    C'est exactement le defaut corrige cote CLIENT le 21/08 (LIMITS.md
+#    section 1 : « le bourrage se calcule en octets UTF-8, pas en caracteres »).
+#    Le correctif d'alors a ferme le cas, pas la classe : `vote.html` utilise
+#    TextEncoder().encode(), le serveur est reste en caracteres, et
+#    test_bourrage_client_serveur.py ne controlait que le client.
+#
+#    Ce que cela coutait : /api/signer_aveugle est la SEULE requete du parcours
+#    qui porte le jeton d'invitation, donc l'identite. Un observateur passif du
+#    trafic TLS partitionnait les demandes de signature par service sans rien
+#    dechiffrer -- « Securite », « Operations », « Developpement », « Qualite »
+#    sont des noms ordinaires dans une organisation francaise.
+#
+# 2. LA VALEUR. 120 ne couvrait pas max_length=100 : cette borne compte des
+#    caracteres, qui valent jusqu'a QUATRE octets chacun en UTF-8. Il faut donc
+#    400 au minimum. Le commentaire qui justifiait 120 confondait lui-meme les
+#    deux unites.
+#
+# Cout : environ 280 octets de plus par reponse de signature. Sans consequence
+# a l'echelle d'une consultation, et c'est le prix d'une taille reellement
+# constante.
+LONGUEUR_PAD_REPONSE = 400
 
 
 # --------------------------------------------------------------------------
@@ -689,7 +717,8 @@ def signer_aveugle_endpoint(payload: SignerAveugleRequete):
     deja = persistance.signature_deja_emise(emp_jeton, emp_message)
     if deja is not None:
         sig_hex, dep = deja
-        pad = "x" * max(0, LONGUEUR_PAD_REPONSE - len(dep))
+        # En OCTETS : len() sur une str compte des caracteres (29/08).
+        pad = "x" * max(0, LONGUEUR_PAD_REPONSE - len(dep.encode("utf-8")))
         return {"signature_aveugle_hex": sig_hex, "departement": dep, "pad": pad}
 
     # Meme jeton, message different : refus. C'est la garantie anti-double-vote.
@@ -745,7 +774,8 @@ def signer_aveugle_endpoint(payload: SignerAveugleRequete):
     # celui-ci ferme celle-ci.
     # departement est renvoye parce que le client en a besoin pour finaliser
     # (static/vote.html) : on ne peut pas simplement l'omettre.
-    pad = "x" * max(0, LONGUEUR_PAD_REPONSE - len(departement))
+    # En OCTETS : len() sur une str compte des caracteres (29/08).
+    pad = "x" * max(0, LONGUEUR_PAD_REPONSE - len(departement.encode("utf-8")))
     return {
         "signature_aveugle_hex": sig_aveugle.hex(),
         "departement": departement,
