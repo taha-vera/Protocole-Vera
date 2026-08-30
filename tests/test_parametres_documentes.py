@@ -326,6 +326,59 @@ if seuil:
                             "controle, rien ne le verifie.\n    "
                             + ligne.strip()[:110])
 
+# --- Le decompte des portes, compte reellement -----------------------------
+#
+# CONSTAT DU 29/08/2026. Le README annonce « 26 portes -- 15 fermees avec
+# preuve reproductible, 6 fermees sous condition explicite, 5 limites
+# assumees ». Le bilan de VERA_THREAT_MODEL_COMPLETE.md dit la meme chose. Mais
+# le TABLEAU, seule partie que lit un visiteur presse, portait « Fermee » sans
+# reserve sur les portes 16 et 26 : leur condition n'apparaissait qu'une
+# centaine de lignes plus bas. Le tableau annoncait 17 fermetures pleines
+# quand le bilan en annoncait 15.
+#
+# Aucun test ne comptait. Cette garde recompte le tableau et echoue si les
+# trois sources divergent.
+
+modele = RACINE / "VERA_THREAT_MODEL_COMPLETE.md"
+if modele.exists():
+    texte_modele = modele.read_text(encoding="utf-8", errors="replace")
+    pleines = conditionnelles = limites = 0
+    for ligne in texte_modele.splitlines():
+        m = re.match(r"\|\s*(\d+)\s*\|([^|]*)\|([^|]*)\|", ligne)
+        if not m:
+            continue
+        statut = m.group(3).strip().lower()
+        if "limite" in statut:
+            limites += 1
+        elif statut.replace("*", "") == "fermee":
+            pleines += 1
+        else:
+            conditionnelles += 1
+
+    total = pleines + conditionnelles + limites
+
+    annonces = re.findall(
+        r"(\d+)\s*portes?\s*[—-]+\s*\*?\*?(\d+)\s*ferm[ée]es?",
+        (RACINE / "README.md").read_text(encoding="utf-8", errors="replace"),
+        re.IGNORECASE)
+    for total_annonce, pleines_annoncees in annonces:
+        if int(total_annonce) != total:
+            echecs.append(
+                f"README.md annonce {total_annonce} portes, le tableau du "
+                f"modele de menace en compte {total}.")
+        if int(pleines_annoncees) != pleines:
+            echecs.append(
+                f"README.md annonce {pleines_annoncees} portes fermees sans "
+                f"reserve ; le tableau en porte {pleines}.\n    Une porte "
+                "dont la reserve n'apparait que dans le bilan est comptee "
+                "comme fermeture pleine par qui lit le tableau.")
+
+    m_bilan = re.search(r"\*\*(\d+)\s*fermees sans reserve\*\*", texte_modele)
+    if m_bilan and int(m_bilan.group(1)) != pleines:
+        echecs.append(
+            f"le bilan du modele de menace annonce {m_bilan.group(1)} "
+            f"fermetures pleines, son propre tableau en porte {pleines}.")
+
 if echecs:
     print("ECHEC : la documentation contredit le code.\n")
     for e in echecs:

@@ -366,7 +366,7 @@ deploiement (voir `GUIDE_DEPLOIEMENT.md`).
 | 13 | Soustraction d'agregats | Limite assumee | Limite irreductible de la DP, attenuee par publication unique par consultation — meme reserve que porte 4 |
 | 14 | Persistance de l'etat de confidentialite | Fermee | SQLite en `journal_mode=DELETE` (voir Porte 17 : le WAL joignait les deux registres). Verifie par `kill -9` et par reboot systeme complet. Complete par un effacement ACTIF a la cloture : compteurs, effectifs, jetons, budget, resultats publies et cle de signature detruits en une transaction, suivie de `VACUUM`. **Une exception** : `historique_consultations` survit -- elle ne contient que des noms de groupes et des dates, et sert a l'avertissement de frequence (`LIMITS.md` §14). **Consequence a connaitre** : un resultat publie disparait du serveur a la cloture. Il doit donc etre sauvegarde par l'organisation ET par les representants du personnel avant de cloturer -- `/api/resultats_publies` le sert tant que la consultation vit, pas apres |
 | 15 | Trafic en clair | Fermee | HTTPS via Nginx + Let's Encrypt, redirection 301, renouvellement automatique |
-| 16 | Retention des journaux | Fermee | Purge manuelle a la cloture + logrotate 3 jours. L'access log applicatif est desactive (voir porte 26) |
+| 16 | Retention des journaux | **Fermee sous condition** | Purge manuelle a la cloture + logrotate 3 jours. **Condition d'EXPLOITATION, pas propriete du code** : le test mecanique verifie la configuration du depot, pas celle reellement servie. L'access log applicatif est desactive (voir porte 26) |
 | 17 | Correlation temporelle en base | **Fermee au niveau de la table, bornee au niveau du journal** | Horodatage retire, table anti-rejeu en `WITHOUT ROWID` : ordonnee par empreinte SHA-256 pseudo-aleatoire, l'ordre d'insertion n'existe plus DANS LA TABLE. Le fichier journal, lui, est un autre sujet -- voir ci-dessous |
 | 18 | Generation de cles a la volee (DoS keygen) | Fermee | Les endpoints publics sont en lecture seule (404 si le departement n'existe pas) ; la creation de cle est reservee au flux RH authentifie |
 | 19 | API exposee hors TLS | Fermee | uvicorn ecoute sur `127.0.0.1` ; Nginx est l'unique chemin d'acces |
@@ -376,9 +376,17 @@ deploiement (voir `GUIDE_DEPLOIEMENT.md`).
 | 23 | En-tetes de securite HTTP | Fermee | CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy `no-referrer`. `server_tokens off` : la version exacte du serveur n'est pas annoncee dans les reponses |
 | 24 | Vote accepte puis efface a la cloture | Fermee | Publication et effacement dans le meme verrou : un vote concurrent ne peut plus recevoir « enregistre » puis disparaitre |
 | 25 | Exposition de secrets par un canal hors-code | Fermee | Les trois secrets ont ete rotes apres exposition accidentelle. La rotation de la cle de chiffrement est verifiee de bout en bout |
-| 26 | IP des votants dans le journal applicatif | Fermee | `access_log off` cote Nginx ne coupait que Nginx : uvicorn journalisait en parallele l'IP reelle des votants sur les routes de vote. Corrige par `--no-access-log` ; journal vide apres trafic verifie |
+| 26 | IP des votants dans le journal applicatif | **Fermee sous condition** | **Condition d'EXPLOITATION, pas propriete du code** : le test verifie la configuration du depot, pas celle servie. `access_log off` cote Nginx ne coupait que Nginx : uvicorn journalisait en parallele l'IP reelle des votants sur les routes de vote. Corrige par `--no-access-log` ; journal vide apres trafic verifie |
 
-**Bilan detaille, parce que « 21 fermees » serait optimiste :**
+**Bilan detaille, parce que « 21 fermees » serait optimiste.**
+
+*Les six fermetures conditionnelles portent leur reserve DANS LEUR CASE du
+tableau ci-dessus. Ce n'etait pas le cas des portes 16 et 26 jusqu'au
+29/08/2026 : elles y figuraient « Fermee » sans reserve, celle-ci n'apparaissant
+qu'ici, une centaine de lignes plus bas. Un lecteur qui parcourt le tableau --
+c'est-a-dire tout le monde, c'est la partie lisible du document -- les comptait
+donc comme fermetures pleines. Le tableau annoncait plus que le bilan.*
+
 
 - **15 fermees sans reserve**, avec preuve reproductible sur la production ;
 - **6 fermees sous condition explicite** :
