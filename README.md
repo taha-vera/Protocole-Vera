@@ -198,7 +198,12 @@ limites de ce système.
 ### Prérequis
 
 - Un serveur Linux (testé sur Ubuntu 24.04 et 26.04), 2 Go de RAM suffisent
-- Python 3.11 ou supérieur, et la chaîne de compilation Rust (`rustup`)
+- Python 3.11 ou supérieur, et **Rust 1.85 ou supérieur** (`rustup update stable`).
+  La version compte : une dépendance transitive du module de signature exige
+  `edition2024`. Avec le `rustc` fourni par les dépôts Ubuntu standards, la
+  compilation échoue sur une erreur venue d'un crate tiers, sans indiquer que
+  la chaîne est trop ancienne. Signalé par un audit externe le 30/08/2026,
+  qui n'a pas pu compiler le module.
 - Un nom de domaine et un certificat TLS
 - nginx
 - **Un hébergeur distinct de l'organisation qui consulte** — c'est la condition

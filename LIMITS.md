@@ -905,6 +905,19 @@ iterations est précisément concue pour resister a une attaque hors ligne,
 contrairement a une clé de signature dont la compromission fabrique des votes.
 Persister des empreintes serait moins grave que ce qui est déjà persiste.
 
+**Le commentaire du code disait l'inverse de cette section jusqu'au
+30/08/2026** : « en memoire pour ce prototype -- a migrer vers une vraie base si
+le besoin devient reel ». Un lecteur du code y voyait un raccourci provisoire,
+un lecteur d'ici une decision assumee. Un audit externe a note l'absence de
+persistance comme un defaut de maturite, ce qui etait la lecture logique du
+commentaire. Aligne.
+
+**Et une consequence pratique qui n'etait ecrite nulle part.** Le compte
+d'amorcage est recree a chaque demarrage depuis `VERA_ADMIN_HASH` : il survit.
+Les comptes crees ensuite via `/api/rh/creer_compte`, non -- ils disparaissent a
+chaque redemarrage, donc a chaque deploiement. Un organisateur qui s'en cree un
+perd son acces sans avertissement, potentiellement consultation ouverte.
+
 Le vrai motif est la simplicite operationnelle : une table de comptes demande
 une gestion de cycle de vie -- creation, revocation, rotation, recuperation --
 qu'un mainteneur unique n'assurerait pas de facon fiable. Le choix est assume :

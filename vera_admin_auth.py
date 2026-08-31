@@ -19,9 +19,31 @@ import threading
 import time
 
 # --------------------------------------------------------------------------
-# Stockage des comptes RH (en memoire pour ce prototype -- a migrer vers
-# une vraie base si le besoin de persistance au-dela d'un redemarrage
-# devient reel)
+# Stockage des comptes RH : EN MEMOIRE, ET C'EST UN CHOIX.
+#
+# Ce commentaire disait « en memoire pour ce prototype -- a migrer vers une
+# vraie base si le besoin devient reel ». Il contredisait LIMITS.md section 12,
+# qui pose la non-persistance comme une decision d'architecture : « Ce n'est pas
+# un oubli ». Un lecteur du code y voyait un raccourci provisoire, un lecteur du
+# document une decision assumee. Releve indirectement par un audit externe le
+# 30/08/2026, qui a note l'absence de persistance comme un defaut de maturite.
+#
+# LE MOTIF REEL, tel que LIMITS.md section 12 l'etablit : ce n'est PAS
+# « rien de sensible au repos » -- la cle RSA privee, elle, est persistee
+# chiffree. Ce n'est pas non plus la surface d'attaque : une empreinte PBKDF2 a
+# 200 000 iterations est faite pour resister a une attaque hors ligne, et la
+# persister serait moins grave que ce qui l'est deja.
+#
+# C'est la simplicite operationnelle. Une table de comptes demande creation,
+# revocation, rotation, recuperation -- soit un cycle de vie a tenir pour une
+# equipe reduite. Le compte d'amorcage est recree a chaque demarrage depuis
+# VERA_ADMIN_HASH ; il survit donc aux redemarrages.
+#
+# CE QU'IL FAUT SAVOIR AVANT D'EN CREER D'AUTRES. Les comptes crees via
+# /api/rh/creer_compte, eux, disparaissent au redemarrage -- y compris a chaque
+# deploiement. Un organisateur qui s'en cree un perd son acces sans avertissement.
+# Utiliser le compte d'amorcage, ou reconstituer les autres apres chaque
+# redemarrage.
 # --------------------------------------------------------------------------
 
 _verrou = threading.Lock()
@@ -36,8 +58,25 @@ DUREE_SESSION_SECONDES = 8 * 3600  # 8h, une journee de travail
 
 
 def _hacher_mot_de_passe(mot_de_passe: str, sel: bytes) -> bytes:
-    """PBKDF2-HMAC-SHA256, 200k iterations -- standard raisonnable pour un
-    prototype, a durcir (argon2) si le projet passe en production reelle."""
+    """PBKDF2-HMAC-SHA256, 200 000 iterations.
+
+    POURQUOI PAS ARGON2, ET QUAND IL LE FAUDRAIT.
+
+    PBKDF2 resiste mal aux attaques par materiel dedie (GPU, ASIC) : argon2id,
+    qui consomme de la memoire, est le choix recommande aujourd'hui pour un
+    mot de passe destine a durer.
+
+    Ce que cela protege ici : UN compte d'amorcage, dont l'empreinte vit dans
+    l'unite systemd -- donc deja lisible par quiconque a un acces root au
+    serveur, auquel cas l'attaque par force brute est superflue. Les empreintes
+    ne sont pas persistees en base, donc pas exfiltrables par une lecture de
+    fichier.
+
+    A DURCIR si l'un de ces trois faits change : des comptes persistes en base,
+    une exposition de l'empreinte hors de l'unite systemd, ou un deploiement
+    multi-organisations. Un audit externe l'a signale le 30/08/2026 en le
+    qualifiant d'element « prototype » ; c'est exact, et le declencheur du
+    changement est ecrit ci-dessus plutot que laisse a l'appreciation."""
     return hashlib.pbkdf2_hmac("sha256", mot_de_passe.encode("utf-8"), sel, 200_000)
 
 

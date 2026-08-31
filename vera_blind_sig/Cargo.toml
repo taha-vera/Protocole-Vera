@@ -5,6 +5,25 @@ name = "vera_blind_sig"
 version = "0.1.0"
 edition = "2021"
 
+# VERSION MINIMALE DE LA CHAINE RUST.
+#
+# Constat d'un audit externe le 30/08/2026 : la compilation echouait avec le
+# rustc 1.75 des depots Ubuntu standards, sans que rien dans le depot n'indique
+# la version requise. L'auditeur a du abandonner, et sept tests sur trente-quatre
+# sont restes inexecutables chez lui.
+#
+# Ce projet compile son propre crate en edition 2021, mais une dependance
+# transitive -- const-oid 0.10, via pkcs8 puis blind-rsa-signatures -- exige
+# edition2024, et le Cargo.lock est au format 4. Les deux demandent une chaine
+# recente.
+#
+# rust-version fait echouer cargo avec un message explicite plutot qu'avec une
+# erreur de compilation dans une dependance tierce : l'exploitant sait quoi
+# installer.
+#
+#   rustup update stable
+rust-version = "1.85"
+
 [lib]
 name = "vera_blind_sig"
 crate-type = ["cdylib"]
