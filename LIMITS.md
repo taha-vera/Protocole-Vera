@@ -163,6 +163,18 @@ sur le reseau lisait 1180 la ou le document annoncait 490, et concluait a une
 divergence entre code publie et code servi -- le signal meme que tout le
 dispositif de verification existe pour emettre.
 
+**Et ces memes chiffres ont survecu cinq jours ailleurs.** Retires d'ici le
+29/08, ils sont restes dans `VERA_THREAT_MODEL_COMPLETE.md` -- section 3 et
+porte 21 -- jusqu'au 03/09, releves par un audit externe. Le correctif qui
+denoncait un cas ferme au lieu d'une classe en avait ferme un. **Troisieme
+occurrence de ce motif en deux semaines.** Une garde interdit desormais de
+recopier ces totaux dans n'importe quel document.
+
+Le meme tableau ne decrivait que DEUX des trois etapes bourrees : la reponse de
+`/api/signer_aveugle`, corrigee le 29/08, n'y figurait pas. Et la porte 21
+datait la correction octets/caracteres du 21/08, sans dire qu'elle ne portait
+alors que sur le client -- le serveur a attendu huit jours de plus.
+
 Les valeurs cibles vivent dans le code, ou une garde les controle
 (`tests/test_bourrage_client_serveur.py`) : `LONGUEUR_CIBLE_FIXE` pour le corps
 du depot, `LONGUEUR_PAD_REPONSE` pour la reponse de signature, et la cible de

@@ -379,6 +379,51 @@ if modele.exists():
             f"le bilan du modele de menace annonce {m_bilan.group(1)} "
             f"fermetures pleines, son propre tableau en porte {pleines}.")
 
+# --- Les totaux de bourrage ne se recopient pas ---------------------------
+#
+# CONSTAT DU 03/09/2026, par un audit externe.
+#
+# Le 29/08, « depot (490 octets) » et « URL 1035 octets » ont ete retires de
+# LIMITS.md : ils melaient deux bases de calcul -- le premier ne comptait que la
+# portion bourree avec son echafaudage JSON, le second la requete entiere. Un
+# service informatique qui mesurait sur le reseau lisait 1180 la ou le document
+# annoncait 490, et concluait a une divergence entre code publie et code servi.
+#
+# Le correctif n'a pas cherche ces chiffres ailleurs. Ils sont restes cinq jours
+# dans VERA_THREAT_MODEL_COMPLETE.md, a deux endroits. **Le correctif qui
+# denoncait un cas ferme au lieu d'une classe en a ferme un.** Troisieme fois
+# que ce motif se produit.
+#
+# Ces totaux sont des valeurs DERIVEES : ils dependent de la cible de bourrage,
+# de l'enveloppe JSON et de la longueur de la signature. Une valeur derivee
+# recopiee derive. Les cibles vivent dans le code, ou
+# test_bourrage_client_serveur.py les controle.
+
+TOTAUX_INTERDITS = {
+    "490": "total du corps de depot ; citer LONGUEUR_CIBLE_FIXE",
+    "1035": "total de l'URL de cle publique ; citer la cible dans le code",
+    "691": "total de la reponse de signature avant correctif",
+    "791": "meme total, cas accentue",
+}
+# Une ligne qui RACONTE le retrait est admise : c'est ainsi qu'on garde la
+# trace sans reintroduire l'erreur. Le marqueur doit etre sur la meme ligne.
+RECIT = ("etait", "était", "melait", "disait", "retire", "annoncait",
+         "jusqu'au", "corrige", "29/08", "03/09", "avant correctif",
+         "variait", "variaient", "faisait", "lisait", "concluait")
+
+for chemin in sorted(RACINE.glob("*.md")) + sorted(RACINE.glob("docs/**/*.md")):
+    for numero, ligne in enumerate(
+            chemin.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+        minuscule = ligne.lower()
+        if any(r in minuscule for r in RECIT):
+            continue
+        for total, motif in TOTAUX_INTERDITS.items():
+            if re.search(rf"\b{total}\s*(octets|o\b)", ligne, re.IGNORECASE):
+                echecs.append(
+                    f"{chemin.relative_to(RACINE)}:{numero} recopie un total de "
+                    f"bourrage ({total}) -- {motif}.\n    Une valeur derivee "
+                    "recopiee derive.\n    " + ligne.strip()[:110])
+
 if echecs:
     print("ECHEC : la documentation contredit le code.\n")
     for e in echecs:
