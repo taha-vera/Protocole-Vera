@@ -26,6 +26,14 @@ construction dans ce modèle.
 > bonnes personnes, et à elles seules. Voir
 > [Ce qui reste de votre responsabilité](#ce-qui-reste-de-votre-responsabilité).
 
+> ⚠️ **Statut RGPD : non tranché.** VERA ne revendique pas, à ce stade, que les
+> données produites constituent juridiquement des données **anonymisées** au
+> sens du règlement. Cette qualification — anonymisation ou pseudonymisation —
+> doit être déterminée par le DPO ou le conseil juridique de l'organisation, au
+> regard de son propre contexte. Elle décide si le traitement sort ou non du
+> champ du règlement, et donc de ce que vous devez inscrire à votre registre.
+> Voir [Limites assumées](#limites-assumées), L4.
+
 ---
 
 ## Sommaire
@@ -581,7 +589,11 @@ Voir également [SECURITY.md](SECURITY.md).
 
 ## État du projet et contributions
 
-**Statut :** fonctionnel et audité, **jamais déployé en conditions réelles.**
+**Statut :** fonctionnel sur le parcours testé, soumis à plusieurs audits de
+code externes, **jamais déployé en conditions réelles.** « Audité » ne
+signifie pas certifié : aucun organisme n'a délivré d'attestation, et les
+audits reçus portaient sur le code et la documentation, pas sur une
+installation en service.
 Le parcours complet a été validé de bout en bout dans un navigateur ; aucune
 consultation avec de vrais participants n'a encore eu lieu.
 
@@ -641,10 +653,17 @@ sert un JavaScript modifié défait l'anonymat sans que rien ne le signale
 juridique — quiconque opère une version modifiée de VERA pour des utilisateurs
 distants doit leur en proposer le code source correspondant.
 
-C'est la seule licence qui atteigne un opérateur de service. Sous MIT, ou même
-sous GPL, une version modifiée servie sur un serveur ne déclenche aucune
-obligation de publication : le logiciel n'est pas *distribué*, il est seulement
-*exécuté*. C'est précisément le cas de VERA.
+L'AGPL-3.0 a été retenue parce que sa section 13 impose des obligations
+spécifiques aux opérateurs qui **modifient** le logiciel et le mettent à
+disposition d'utilisateurs distants. Sous MIT, ou sous GPL, une version modifiée
+servie depuis un serveur ne déclenche aucune obligation de publication : le
+logiciel n'est pas *distribué*, il est seulement *exécuté*. C'est précisément le
+cas de VERA — d'où ce choix.
+
+*Cette phrase disait « la seule licence qui atteigne un opérateur de service »
+jusqu'au 03/09/2026. C'était une affirmation générale sur toutes les licences
+possibles, invérifiable et facile à attaquer, là où le raisonnement n'a besoin
+que de la section 13.*
 
 **Ce que cela n'apporte pas, et qu'il ne faut pas confondre.** L'AGPL est une
 obligation, pas un mécanisme de détection. Un opérateur malveillant qui sert un
