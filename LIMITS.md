@@ -1012,13 +1012,23 @@ Le controle SRI de la page de vote ne protège pas de cela : il vérifie la
 bibliotheque cryptographique, pas la page qui porte l'attribut. Qui sert la page
 sert aussi l'empreinte.
 
-**Ce point est aggrave par le deploiement actuel.** Le service tourne sur un
-sous-domaine DuckDNS -- un service gratuit, sans engagement contractuel, sans
-recours en cas de reprise du nom. Pour une consultation réelle, un nom de domaine
-détenu en propre, avec verrouillage du registrar et surveillance des certificats
-émis (Certificate Transparency), est la mitigation minimale.
+**Ce point etait aggrave par le deploiement, et ne l'est plus.** Jusqu'au
+02/09/2026, le service tournait sur un sous-domaine DuckDNS : gratuit, sans
+engagement contractuel, sans recours en cas de reprise du nom. La production est
+depuis sur **vera-consultation.fr**, detenu en propre chez un bureau
+d'enregistrement francais, avec verrouillage du transfert et renouvellement
+automatique. L'AFNIC verifie l'identite du titulaire, ce qu'un DPO peut
+consulter.
 
-**Et le sous-domaine gene deja l'acces, ce qui est un risque distinct.** Le
+**Ce qui reste a faire sur ce point :** la surveillance des certificats emis
+(Certificate Transparency). Sans elle, un certificat obtenu frauduleusement pour
+ce nom ne serait pas detecte -- le verrouillage du registrar rend la reprise du
+nom difficile, il ne la rend pas impossible.
+
+L'ancien sous-domaine continue d'etre servi par nginx, les deux noms figurant au
+meme certificat. Les liens d'invitation portent le nouveau.
+
+**Et le sous-domaine genait deja l'acces, ce qui etait un risque distinct.** Le
 26/08, deux outils tiers ont refuse de charger la page de vote en la declarant
 « hors ligne ou privee », alors que le service repondait normalement -- verifie
 la minute suivante par `curl` depuis le serveur ET depuis un telephone en 4G,
@@ -1038,9 +1048,14 @@ publies. La difference est qu'ici elle frapperait avant meme l'ouverture du
 lien, sans que le destinataire sache qu'il avait quelque chose a ouvrir.
 
 L'ampleur n'a pas ete mesuree et ne peut pas l'etre depuis le serveur. Mais
-c'est le troisieme argument pour un nom de domaine en propre, et le plus
-concret : les deux premiers portent sur ce qu'un adversaire pourrait faire,
-celui-ci sur des votants qui ne recevraient simplement jamais leur lien.
+c'etait le troisieme argument pour un nom de domaine en propre, et le plus
+concret : les deux premiers portaient sur ce qu'un adversaire pourrait faire,
+celui-ci sur des votants qui n'auraient simplement jamais recu leur lien.
+
+**Cette observation reste a refaire sur le nouveau nom.** Un `.fr` recent, sans
+historique, peut lui aussi etre filtre par certaines passerelles -- moins
+probablement qu'un sous-domaine dynamique, mais ce n'est pas verifie. A tester
+avant le premier envoi reel, depuis plusieurs operateurs.
 
 ## 12ter. Une voix peut se perdre en silence, et pas au hasard
 

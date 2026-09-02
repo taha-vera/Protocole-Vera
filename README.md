@@ -255,7 +255,7 @@ Variables d'environnement de l'unité systemd :
 | `VERA_ADMIN_HASH` | Empreinte PBKDF2 du mot de passe, format `sel$hash` | — |
 | `VERA_DB_PATH` | Emplacement de la base | `/root/vera_state.db` |
 | `VERA_VERROU_PROCESSUS` | Verrou d'instance unique | à côté de la base |
-| `VERA_DOMAINE` | Origine HTTPS du service. Sert d'origine CORS et de base aux liens d'invitation. Le démarrage échoue si elle n'est pas en `https://`. | `https://vera-consultation.duckdns.org` |
+| `VERA_DOMAINE` | Origine HTTPS du service. Sert d'origine CORS et de base aux liens d'invitation. Le démarrage échoue si elle n'est pas en `https://`. | `https://vera-consultation.fr` |
 
 La variable de repli `VERA_ADMIN_PASS`, qui acceptait le mot de passe en clair,
 a été retirée le 23/08/2026 — c'était le canal par lequel des secrets ont fuité

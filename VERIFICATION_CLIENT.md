@@ -59,7 +59,7 @@ Voir « Ce qu'elle n'établit pas » plus bas.
 Vérifier vous-même cette empreinte :
 
 ```bash
-curl -s https://vera-consultation.duckdns.org/static/blindrsa-bundle.js \
+curl -s https://vera-consultation.fr/static/blindrsa-bundle.js \
   | openssl dgst -sha384 -binary | openssl base64 -A
 ```
 
@@ -68,8 +68,8 @@ curl -s https://vera-consultation.duckdns.org/static/blindrsa-bundle.js \
 Deux commandes suffisent. Elles n'exigent aucun accès particulier.
 
 ```bash
-curl -s https://vera-consultation.duckdns.org/vote | sha256sum
-curl -s https://vera-consultation.duckdns.org/static/blindrsa-bundle.js | sha256sum
+curl -s https://vera-consultation.fr/vote | sha256sum
+curl -s https://vera-consultation.fr/static/blindrsa-bundle.js | sha256sum
 ```
 
 Comparez avec les empreintes ci-dessus, et avec celles que vous obtenez en

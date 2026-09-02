@@ -2,7 +2,7 @@
 
 **Auteur :** Taha Houari · tahahouari@hotmail.fr
 **Depot :** https://github.com/taha-vera/projet-vera-consultations-
-**Production :** https://vera-consultation.duckdns.org
+**Production :** https://vera-consultation.fr (migre le 02/09/2026 ; l'ancien nom DuckDNS reste servi, meme certificat)
 
 Ce document decrit l'etat actuel du systeme. Il n'est pas un journal : chaque
 enonce porte sur ce que le code fait aujourd'hui.

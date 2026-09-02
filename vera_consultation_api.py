@@ -178,13 +178,19 @@ auth.amorcer_compte_principal()
 # d'exploitation. Le defaut reste le domaine actuel : rien ne change tant que
 # la variable n'est pas definie.
 #
-# Motif du changement a venir : DuckDNS est gratuit, sans engagement, sans
+# MIGRATION FAITE LE 02/09/2026. Le service tourne desormais sur
+# vera-consultation.fr, nom detenu en propre chez un bureau d'enregistrement
+# francais, avec verrouillage du transfert et renouvellement automatique.
+# DuckDNS reste servi par nginx -- les deux noms figurent au meme certificat --
+# mais les liens d'invitation portent le nouveau.
+#
+# Motif de ce changement : DuckDNS etait gratuit, sans engagement, sans
 # recours en cas de reprise du nom. Qui controle la zone DNS peut obtenir un
 # certificat valide pour ce nom et servir son propre JavaScript aux votants --
 # le scenario « operateur actif » de LIMITS.md section 6, ouvert a un tiers qui
 # n'a jamais ete choisi comme tel (section 12bis).
 VERA_DOMAINE = os.environ.get(
-    "VERA_DOMAINE", "https://vera-consultation.duckdns.org").rstrip("/")
+    "VERA_DOMAINE", "https://vera-consultation.fr").rstrip("/")
 
 if not VERA_DOMAINE.startswith("https://"):
     raise RuntimeError(

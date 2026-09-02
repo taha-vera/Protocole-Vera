@@ -32,7 +32,7 @@ facon coherente et durable, et toute modification du jeu de cles apres
 publication devient visible.
 
 USAGE
-    python3 verifier_engagement.py https://vera-consultation.duckdns.org
+    python3 verifier_engagement.py https://vera-consultation.fr
     python3 verifier_engagement.py <url> --attendu <empreinte_publiee>
     python3 verifier_engagement.py <url> --groupes "Atelier,Direction,RH"
 """
@@ -89,7 +89,7 @@ def calculer_agregat(cles):
 def main():
     p = argparse.ArgumentParser(
         description="Verifie l'engagement sur les cles d'une consultation VERA.")
-    p.add_argument("url", help="Adresse du serveur, ex. https://vera-consultation.duckdns.org")
+    p.add_argument("url", help="Adresse du serveur, ex. https://vera-consultation.fr")
     p.add_argument("--attendu", help="Empreinte publiee avant la distribution des liens")
     p.add_argument("--groupes", help="Groupes annonces par l'organisation, separes par des virgules")
     args = p.parse_args()

@@ -163,9 +163,25 @@ def main():
                         "(5 r/s) refusera des requetes -- c'est voulu.")
     args = p.parse_args()
 
-    if "duckdns.org" in args.url or ":8001" in args.url:
-        print("REFUS : cette URL ressemble a la PRODUCTION.")
-        print("Ce script ecrit reellement en base. Utilisez le sandbox (port 8002).")
+    # GARDE-FOU ANTI-PRODUCTION.
+    #
+    # Ce script ECRIT reellement en base : lance contre la production, il
+    # fabrique des votes.
+    #
+    # Il ne cherchait que « duckdns.org ». Le 02/09/2026, la production a migre
+    # vers vera-consultation.fr et ce garde-fou a cesse de couvrir le domaine
+    # reel -- une liste de noms interdits devient fausse au premier changement
+    # d'adresse, exactement comme une valeur recopiee.
+    #
+    # On raisonne donc a l'envers : tout ce qui n'est PAS local est refuse.
+    # Ajouter un domaine de production a l'avenir ne demande rien.
+    hote = urllib.parse.urlparse(args.url).hostname or ""
+    local = hote in ("localhost", "127.0.0.1", "::1") or hote.startswith("192.168.")
+    if not local or ":8001" in args.url:
+        print("REFUS : cette URL n'est pas un bac a sable local.")
+        print(f"  hote demande : {hote or '(illisible)'}")
+        print("Ce script ECRIT en base : contre la production, il fabrique des")
+        print("votes. Utilisez le sandbox local (port 8002).")
         return 1
 
     # VERA_TEST_MDP evite de retaper 40 caracteres hexadecimaux a l'aveugle.
