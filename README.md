@@ -141,28 +141,32 @@ modifié. Les deux sont traitées ci-dessous et dans
 
 ### Ce sur quoi cette garantie repose
 
-La cryptographie supprime le lien **algébrique** entre l'invitation et la
-réponse. Elle ne supprime pas le lien **temporel** : qui lirait la base en
+**Trois acteurs, et aucun ne détient les deux moitiés.**
+
+| Acteur | Connaît | Ne connaît pas |
+|---|---|---|
+| **L'organisation** qui consulte | les personnes, la liste de diffusion | les réponses individuelles — elle ne voit que des totaux dans un tableau de bord |
+| **VERA**, qui héberge | les jetons émis, les compteurs agrégés | les personnes — la liste ne quitte jamais votre organisation, le système ne la demande à aucun moment |
+| **Le transporteur** des invitations | les destinataires et leurs liens | la base — il n'a aucun accès au serveur |
+
+**Relier une réponse à une personne demande deux de ces trois colonnes. Aucun
+acteur n'en détient deux.** C'est là que réside la protection : dans une
+séparation des rôles, pas dans une impossibilité technique.
+
+Et c'est vérifiable sans compétence particulière — le contrat d'hébergement peut
+être communiqué à vos représentants du personnel, et le transporteur choisi doit
+être sans lien avec l'hébergeur.
+
+**Pourquoi cette séparation est nécessaire.** La cryptographie supprime le lien
+**algébrique** entre l'invitation et la réponse : le serveur signe sans voir ce
+qu'il signe. Elle ne supprime pas le lien **temporel** — qui lirait la base en
 continu verrait une invitation être consommée, puis un compteur s'incrémenter
 quelques secondes plus tard. Il lui manquerait la correspondance
-personne → invitation, que détient l'organisation qui consulte, et elle seule.
+personne → invitation, que détient l'organisation, et elle seule.
 
-**La protection tient parce que celui qui héberge n'a pas la liste, et que celui
-qui a la liste n'héberge pas.** C'est une séparation des rôles, pas une
-impossibilité technique.
-
-**Concrètement, dans le service tel qu'il est proposé :** VERA opère le serveur
-et n'a jamais accès à la liste de vos membres — elle ne quitte pas votre
-organisation, le système ne la demande à aucun moment. Vous détenez la liste
-mais n'avez ni accès au serveur, ni à sa base : vous ne voyez que des totaux
-dans un tableau de bord.
-
-Aucune des deux parties ne peut faire le lien seule. C'est ce qui protège vos
-membres, et c'est vérifiable : le contrat d'hébergement peut être communiqué à
-vos représentants du personnel.
-
-**Le cas à éviter.** Si une organisation installait VERA sur ses propres
-serveurs, elle réunirait les deux rôles : elle aurait la liste *et* la base.
+**Le cas à éviter, et il découle du tableau.** Si une organisation installait
+VERA sur ses propres serveurs, elle occuperait deux lignes à la fois : elle
+aurait la liste *et* la base.
 Un administrateur pourrait alors rapprocher la consommation d'une invitation et
 l'incrément d'un compteur survenu quelques secondes plus tard. Le code
 fonctionnerait à l'identique, mais la garantie ne tiendrait plus.
