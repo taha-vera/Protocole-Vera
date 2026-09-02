@@ -118,11 +118,18 @@ d'implémentation — c'est la garantie qui s'exerce.
 
 ### Ce que VERA garantit
 
-Aucune réponse ne peut être reliée à une personne par l'organisateur de la
-consultation, ni par un tiers, ni par quiconque lirait la base à un instant
-donné. Le serveur ne stocke jamais le lien entre une identité et un vote : deux
-registres disjoints coexistent, et la réponse n'existe que dans un compteur
-agrégé.
+**Aucune des parties légitimes, prise isolément, ne dispose de quoi relier une
+réponse à une personne.** Ni l'organisation qui consulte, ni l'hébergeur, ni
+quiconque lirait la base à un instant donné. Le serveur ne stocke jamais ce
+lien : deux registres disjoints coexistent, et la réponse n'existe que dans un
+compteur agrégé.
+
+C'est la formulation exacte, et elle est plus étroite que « aucune réponse ne
+peut être reliée à une personne » — phrase qui figurait ici jusqu'au 03/09/2026
+et qui promettait davantage que le modèle ne démontre. Deux choses en sortent :
+la **collusion** entre parties, et l'**opérateur actif** qui servirait un client
+modifié. Les deux sont traitées ci-dessous et dans
+[LIMITS.md](LIMITS.md) ; aucune n'est couverte par la phrase ci-dessus.
 
 ### Ce sur quoi cette garantie repose
 
@@ -166,6 +173,12 @@ protège. Détail : [modèle de menace](VERA_THREAT_MODEL_COMPLETE.md), section 
 même en connaissant toutes les autres réponses, sa certitude sur une réponse
 individuelle reste bornée à 62,25 %, contre 50 % sans information. C'est une
 propriété du mécanisme, vérifiable, et elle tient.
+
+**Ce n'est PAS un taux de réidentification.** Il ne signifie pas qu'une personne
+a 62 % de chances d'être identifiée : c'est une borne bayésienne théorique,
+atteinte dans un scénario précis, et non une mesure de l'anonymat du service.
+Un adversaire réel fait moins bien — mais c'est ce plafond que vous annoncez à
+vos membres, et c'est lui qui doit rester tenable.
 
 **Ce chiffre suppose trois choses**, et il ne veut rien dire sans elles : un
 adversaire qui connaît déjà toutes les autres réponses, un a priori équilibré
@@ -320,6 +333,28 @@ d'epsilon, l'empreinte de l'ensemble des clés, et le nombre d'invitations émis
 par groupe — que vous pouvez comparer aux effectifs réels que vous connaissez.
 
 Procédure détaillée : [VERIFICATION_CLIENT.md](VERIFICATION_CLIENT.md).
+
+### Où la garantie ε = 0,5 est établie
+
+Un auditeur qui demande « où exactement est démontrée la garantie ? » doit
+trouver le chemin en trois fichiers, pas le reconstituer.
+
+| Étape | Fichier | Ce qu'on y trouve |
+|---|---|---|
+| Les paramètres | `vera_dp_noise.py` | `DELTA_INT`, `SCALE`, `BOUNDS` — **déclarés une seule fois**, importés partout ailleurs |
+| Le mécanisme | `vera_dp_noise.py` | Laplace vectoriel OpenDP, adjacence par **substitution**, projection sur le simplexe en post-traitement (gratuite en ε) |
+| La preuve formelle | `validation_opendp.py` | interroge OpenDP sur le mécanisme réellement construit et vérifie qu'il satisfait ε = 0,5. Importe les paramètres, ne les redéclare pas |
+| La mesure | `tests/test_porte2_mia.py` | attaque d'appartenance optimale, 100 000 tirages, bootstrap : AUC 0,6205 [0,6181 ; 0,6229] sous la borne 0,6225 |
+| Le budget | `vera_epsilon_budget.py` | composition ; `tests/test_accumulation_epsilon.py` et `test_porte8_composition.py` |
+
+```bash
+python3 validation_opendp.py                       # la preuve
+PYTHONPATH=. python3 tests/test_porte2_mia.py      # la mesure
+```
+
+Le test de la mesure confronte aussi la calibration à **l'engagement** — ε = 0,5,
+ce que VERA promet. Dégrader `SCALE` le fait échouer, même si tout le reste
+reste cohérent.
 
 **Vous pouvez aussi reconstruire le bundle vous-même** et vérifier qu'il dérive
 bien du code source publié :

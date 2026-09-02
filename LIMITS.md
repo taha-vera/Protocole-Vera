@@ -123,6 +123,23 @@ retrouver sa signature au lieu de perdre sa voix.
 Retention : une heure, purge physique a chaque lecture et a chaque ecriture,
 vidage complet a la clôture. Il ne survit pas a un redemarrage du service.
 
+**La garantie du README promettait plus que le modele ne demontre.** Elle disait
+« aucune reponse ne peut etre reliee a une personne par l'organisateur, ni par un
+tiers, ni par quiconque lirait la base a un instant donne ». La reserve « a un
+instant donne » ne qualifiait que le TROISIEME terme : « ni par un tiers »
+restait absolu, alors qu'un operateur actif servant un client modifie est
+precisement un tiers, et que la section suivante du meme document le reconnait.
+
+Un relecteur precedent avait cru y voir une contradiction pure et s'etait
+trompe -- la reserve existait bien. Un autre, le 03/09/2026, a vu ce qu'elle ne
+couvrait pas. Reformule : **aucune des parties legitimes, prise isolement, ne
+dispose de quoi relier une reponse a une personne**. La collusion et l'operateur
+actif en sortent explicitement.
+
+**Et les 62,25 % pouvaient se lire comme un taux de reidentification.** Les trois
+hypotheses etaient enoncees, mais un lecteur presse retient le chiffre. Le README
+dit desormais ce que ce n'est PAS avant de dire ce que c'est.
+
 **Un commentaire qui exagere un risque en fabrique un.** Jusqu'au 26/08,
 `vera_persistance.py` decrivait ce cache comme « exactement ce que le protocole
 existe pour ne pas conserver » -- formulation plus alarmante que l'analyse
