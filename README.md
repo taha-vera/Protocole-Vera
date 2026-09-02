@@ -6,8 +6,10 @@ VERA publie le résultat collectif d'une consultation sensible sans jamais rendr
 lisible la contribution d'un individu — ni pour l'organisateur, ni pour
 l'hébergeur, ni pour un tiers.
 
-**VERA est un service hébergé, pas un logiciel à installer.** C'est l'équipe
-VERA qui opère le serveur ; l'organisation qui consulte garde sa liste de
+**VERA est un service hébergé, pas un logiciel à installer.** C'est VERA qui
+opère le serveur — une équipe réduite à une personne aujourd'hui, ce que
+`SECURITY.md` et le modèle de menace disaient déjà et que ce document
+n'écrivait pas ; l'organisation qui consulte garde sa liste de
 membres et n'a rien à déployer. Cette séparation n'est pas une recommandation
 adressée au client : c'est la condition de la garantie, et elle est remplie par
 construction dans ce modèle.
@@ -550,6 +552,25 @@ consultation avec de vrais participants n'a encore eu lieu.
 
 **Version courante :** branche `main`, 27 août 2026 — 34 tests automatiques,
 plus un test de résistance au crash exercé sur le chemin HTTP réel.
+
+**La clé de chiffrement de la base est détenue par une seule personne, sans
+séquestre.** C'est la principale dépendance non technique du système, et vous
+devez le savoir avant de vous engager.
+
+Sans cette clé, la base est définitivement illisible et le service ne redémarre
+pas — le refus est délibéré, il évite de régénérer des clés et d'invalider
+silencieusement les liens en circulation. Elle est conservée hors du serveur,
+ce qui couvre la perte du serveur. **Cela ne couvre pas l'indisponibilité de
+celui qui la détient.** Si le service s'arrête pendant une consultation et n'est
+pas redémarré sous sept jours, les clés de signature expirent : les liens
+deviennent inutilisables et les résultats non publiés sont perdus.
+
+**Pour une consultation à enjeu, exigez le dépôt de cette clé chez un tiers** —
+votre service informatique, un notaire, un séquestre — avec une procédure de
+reprise écrite. C'est la seule façon de rendre la continuité indépendante d'une
+personne. Tant que ce n'est pas fait, considérez qu'une consultation interrompue
+devra être relancée. Détail : `VERA_THREAT_MODEL_COMPLETE.md`, « Continuité de
+service ».
 
 **L'équipe d'exploitation est réduite.** Ce n'est pas un détail d'organisation :
 cela limite ce qui peut être promis en matière de continuité, d'astreinte et de

@@ -26,6 +26,11 @@ scikit-learn==1.9.0
 # Le paquet avait ete installe a la main sur le serveur avant de figurer ici, ce
 # qui rendait ce test inexecutable sur un clone -- meme motif que VERA_PYTHON.
 # Le nom compte : starlette exige httpx2, pas httpx.
+# NOTE : ce paquet n'est importe par AUCUN module du service. Il ne sert qu'a
+# tests/test_parcours_http.py. Il figure ici parce que run_tests.sh utilise le
+# venv de production ; l'installer n'ajoute rien a la surface d'attaque du
+# serveur, qui ne le charge jamais. Releve le 03/09/2026 comme ambiguite du
+# fichier d'installation -- le constat etait juste, la ligne ne le disait pas.
 httpx2==2.12.0
 
 # NOTE IMPORTANTE : le module de signature aveugle RSABSSA (vera_blind_sig)

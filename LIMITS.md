@@ -170,6 +170,16 @@ denoncait un cas ferme au lieu d'une classe en avait ferme un. **Troisieme
 occurrence de ce motif en deux semaines.** Une garde interdit desormais de
 recopier ces totaux dans n'importe quel document.
 
+**Et la sequestre de la cle etait traitee honnetement, mais invisible.** Le
+modele de menace la nomme « la principale dependance non technique du systeme »
+et decrit precisement ce qui arrive sans elle : sept jours d'arret detruisent une
+consultation en cours. Le guide de deploiement y renvoyait une fois, en fin de
+document. Le README n'en disait rien -- or c'est la deuxieme question d'un DPO,
+apres « qui heberge ». Un audit externe l'a releve le 03/09/2026 comme le seul de
+ses constats qui change ce qu'une organisation devrait exiger avant de signer.
+C'est desormais en tete du README, avec l'exigence a formuler : depot de la cle
+chez un tiers et procedure de reprise ecrite.
+
 Le meme tableau ne decrivait que DEUX des trois etapes bourrees : la reponse de
 `/api/signer_aveugle`, corrigee le 29/08, n'y figurait pas. Et la porte 21
 datait la correction octets/caracteres du 21/08, sans dire qu'elle ne portait

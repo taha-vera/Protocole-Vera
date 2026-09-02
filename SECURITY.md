@@ -4,8 +4,15 @@
 
 | Version | Statut |
 |---|---|
-| Code actuel (branche main) | Supporte |
-| Toute version anterieure au 01/07/2026 | Non supporte |
+| Code actuel (branche `main`) | Supporte |
+| Depots Zenodo v1.0 et v1.1 (12/06/2026) | **Non supportes** -- horodatage d'anteriorite uniquement |
+| Toute autre version anterieure | Non supporte |
+
+Les deux depots Zenodo cites dans le README existent pour dater l'anteriorite du
+travail, pas pour etre installes ni audites. Ils decrivent un etat ou la
+signature aveugle n'etait qu'un prototype. Un relecteur a releve le 03/09/2026
+que les seules versions citables etaient formellement hors support : c'est
+exact, et c'est voulu -- ce qui manquait etait de le dire.
 
 ## Signaler une vulnerabilite
 

@@ -26,10 +26,10 @@ précisément celui que ces empreintes ferment.
 
 ## Empreintes de référence
 
-Version du 26 août 2026 (mention de la limite d'intégrité ajoutée à la page de vote) :
+Version du 3 septembre 2026 (justification du calcul de bourrage de l'URL) :
 
 ```
-a6fa2f09d4575afba86fbce66b85537ec91ffd37746bb6ce0886d8cfe197a0a5  static/vote.html
+72c7ccf99dfd627ef92c6bafbacbedcafeea3dfa713f93a6b7c00889fe53d332  static/vote.html
 08e678cc5d64e9996cfe3cf54eb1220a1bb032c54d0c4351651f8aee057baa66  static/blindrsa-bundle.js
 ```
 

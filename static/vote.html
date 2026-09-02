@@ -676,6 +676,15 @@
       // 1000 couvre 100 caracteres a neuf octets encodes, avec marge. Une URL
       // de cette taille reste tres en dessous des limites universelles (2000).
       const _dep = encodeURIComponent(departementVote);
+      // .length et non TextEncoder ici, DELIBEREMENT : encodeURIComponent a
+      // deja transforme tout octet non-ASCII en sequences %XX, donc _dep est
+      // pur ASCII et un caractere y vaut exactement un octet. Le corps du
+      // depot, lui, n'est pas encode et exige TextEncoder -- c'est la
+      // distinction que la correction du 21/08 a etablie.
+      //
+      // Ecrit le 03/09 : un relecteur signalait ce .length comme une nouvelle
+      // occurrence du defaut octets/caracteres. Il avait raison de le signaler,
+      // le code ne disait pas pourquoi il etait correct ici.
       const _pad = 'x'.repeat(Math.max(0, 1000 - _dep.length));
       const rPk = await fetch(`${API_BASE}/cle_publique?departement=${_dep}&pad=${_pad}`);
       if (rPk.status === 404) { showError('Ce département n\'est pas reconnu. Vérifiez que vous avez ouvert le lien en entier, ou demandez-en un nouveau à la personne qui vous l\'a transmis.', 'Département inconnu'); return; }
