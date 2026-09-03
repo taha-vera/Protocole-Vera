@@ -194,6 +194,12 @@ def _connexion():
     # instantanes d'hyperviseur ; les sauvegardes ; le journal du systeme de
     # fichiers ; la memoire vive et le fichier d'echange.
     #
+    # MESURE DU 03/09/2026 (tests/test_effacement_forensique.py) : ce PRAGMA et
+    # le VACUUM final sont REDONDANTS. Sans les deux, les empreintes subsistent
+    # dans les octets ; avec l'un ou l'autre, elles disparaissent. La redondance
+    # est une bonne propriete -- desactiver l'un par megarde ne rouvre pas la
+    # porte -- mais ce commentaire laissait croire que chacun etait necessaire.
+    #
     # Autrement dit : bonne minimisation applicative, PAS destruction forensique
     # garantie du support physique. Un audit externe du 03/09/2026 a releve que
     # le commentaire pouvait se lire comme la seconde. Une organisation dont

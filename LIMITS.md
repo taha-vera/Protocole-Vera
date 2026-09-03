@@ -630,6 +630,27 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+**L'effacement de cloture est verifie sur les OCTETS depuis le 03/09/2026.**
+Douze audits avaient lu le code et approuve le raisonnement -- `secure_delete`,
+les `DELETE`, le `VACUUM` -- sans jamais ouvrir le fichier apres coup.
+`tests/test_effacement_forensique.py` monte une consultation complete, releve
+les empreintes de jetons, les empreintes de secrets et l'intitule de la
+question, verifie qu'ils sont bien dans le fichier AVANT (sans quoi le test ne
+prouverait rien), cloture, puis relit les octets.
+
+**Ils ont disparu.** La Porte 14 tient au niveau ou elle est affirmee.
+
+**Et la mesure a montre autre chose : les deux mecanismes sont redondants.**
+Sans `secure_delete` ET sans `VACUUM`, les onze valeurs subsistent. Avec l'un OU
+l'autre, elles disparaissent. C'est une bonne propriete -- une modification
+involontaire de l'un ne rouvre pas la porte -- mais le commentaire du code
+laissait croire que chacun etait necessaire. Il decrit desormais ce qui est
+mesure.
+
+Ce test etablit une minimisation APPLICATIVE, pas une destruction forensique du
+support : il ne dit rien du nivellement d'usure des SSD, des instantanes
+d'hyperviseur, des sauvegardes ni du fichier d'echange. Voir plus haut.
+
 **La cloture est visible dans les entrees-sorties du serveur.** `VACUUM`
 reecrit integralement le fichier : qui observe le systeme -- pas la base, le
 systeme -- voit une operation d'ecriture massive a un instant precis, et en
