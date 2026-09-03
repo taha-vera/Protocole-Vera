@@ -161,7 +161,15 @@ ligne.
 un rechargement. Il persiste après la fermeture du navigateur. Une organisation
 qui détient le jeton peut en calculer l'empreinte : sur un poste ou un telephone
 qu'elle administre, elle peut donc etablir qu'une personne nommee a participe --
-pas ce qu'elle a répondu. C'est la seule trace qui survit sur l'appareil, et
+pas ce qu'elle a répondu. **Ce n'est pas tout a fait la seule trace.** La page ecrit aussi, dans le
+`sessionStorage`, le contenu du vote avant de le deposer -- reponse comprise --
+et ne l'efface qu'au succes. Si le depot echoue et que le votant abandonne, la
+valeur reste jusqu'a la fermeture de l'onglet ; les navigateurs qui restaurent
+la session peuvent la reecrire sur disque. Le choix de `sessionStorage` plutot
+que `localStorage` est le bon, et la page le justifie -- c'est l'affirmation
+d'EXCLUSIVITE qui etait trop forte, relevee le 03/09/2026.
+
+Le marqueur de participation, lui, est la seule trace PERMANENTE, et
 elle n'est pas effacable par VERA.
 
 *Dans la taille des requêtes.* Le parcours de vote est bourré à longueur
@@ -925,6 +933,40 @@ desormais ici et dit lequel des deux fait foi.
 l'empeche d'atteindre un journal d'acces. Un lien conforme a cette description
 aurait affiche « Lien incomplet » -- et aurait fait passer le jeton par le
 serveur.
+
+### Six faiblesses du meme audit, dont deux qui detruisent la confiance
+
+**Une empreinte correcte en majuscules etait declaree compromission.** La
+comparaison etait `recalcule != args.attendu.strip()` : `hexdigest()` rend des
+minuscules, et `strip()` ne retire que les blancs de bord. Une empreinte juste,
+recopiee depuis un proces-verbal avec une majuscule ou un espace au milieu,
+declenchait « ANOMALIE GRAVE -- le jeu de cles a change ».
+
+Le cout n'est pas l'erreur : c'est ce qu'elle produit. Soit le delegue suspend
+une consultation saine, soit -- plus probable apres une premiere fausse alerte --
+il cesse de croire l'outil. **Un controle qui crie au loup ne protege plus
+personne.** La comparaison normalise desormais casse et espaces.
+
+**« Aucune consultation ouverte » se lisait comme un feu vert.** Le message etait
+exact, mais quelqu'un qui vient de « faire la verification » y lisait une
+validation. Un controle lance avant la declaration des groupes, ou apres la
+cloture, comptait comme un controle reussi. Le script dit maintenant que ce n'en
+est pas un, et quand relancer.
+
+**Un tri divergent pouvait detruire une consultation.** Le serveur trie par point
+de code, le client en unites UTF-16. Les deux ordres coincident partout sauf
+au-dela de U+FFFF : deux groupes nommes « ﬁn » et « 𝐀telier » -- tous deux
+acceptes, `\w` admettant les lettres mathematiques -- produisaient deux agregats
+differents, donc TOUS les votes refuses. L'auditeur l'avait signale sans le
+confirmer ; reproduit le 03/09. Les caracteres hors BMP sont refuses a la source,
+plutot que d'entretenir l'egalite de deux tris dans deux langages.
+
+**Trois constats plus legers.** L'affirmation que le marqueur de participation
+est « la seule trace qui survit sur l'appareil » ignorait le `sessionStorage`,
+qui garde la reponse jusqu'au succes du depot -- corrigee ici meme. La page de
+vote etait accessible sous un second chemin, `/static/vote.html`, sans bloc de
+non-journalisation. Et la configuration nginx publiee annoncait encore le seul
+domaine DuckDNS, ce qui contredisait la procedure de verification.
 
 ### Le motif qui revient, et ce qu'il coute
 

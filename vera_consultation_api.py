@@ -856,6 +856,8 @@ class GenererAutorisationsRequete(BaseModel):
     #
     # Le nom transite jusqu'au SMS et jusqu'a l'ecran de resultats : il est
     # recopie a plusieurs endroits, ce qui multiplie les occasions d'oubli.
+    # Le motif exclut aussi les caracteres hors BMP : voir declarer_groupes,
+    # ou le refus est explique. \w les admettrait sans le [^\U00010000-...].
     departement: str = Field(min_length=1, max_length=100,
                              pattern=r"^[\w \-'()\.À-ÿ]+$")
     quantite: int = Field(ge=1, le=1000)
@@ -1433,6 +1435,35 @@ def declarer_groupes(payload: DeclarerGroupesRequete,
             raise HTTPException(
                 status_code=422,
                 detail=f"Nom de groupe trop long : « {nom[:40]}... »",
+            )
+        # AUCUN CARACTERE HORS DU PLAN MULTILINGUE DE BASE.
+        #
+        # Le serveur trie les groupes par POINT DE CODE (sorted en Python), le
+        # client en UNITES UTF-16 (Array.prototype.sort en JavaScript). Les deux
+        # ordres coincident partout SAUF si un nom contient un caractere au-dela
+        # de U+FFFF : ses substituts UTF-16 commencent par 0xD800, donc il passe
+        # AVANT tout caractere BMP superieur a U+E000 cote client, et APRES cote
+        # serveur.
+        #
+        # Consequence : deux groupes nommes « ﬁn » (U+FB01) et « 𝐀telier »
+        # (U+1D400) -- tous deux acceptes par le motif, `\w` admettant les
+        # lettres mathematiques -- produiraient deux agregats differents. Le
+        # client refuserait TOUS les votes avec « la configuration du serveur ne
+        # correspond pas a ce lien », et la consultation serait perdue.
+        #
+        # Reproduit le 03/09/2026 apres qu'un audit externe l'eut signale comme
+        # non confirme. Improbable en pratique, sans recuperation possible s'il
+        # survient. On refuse a la source plutot que d'aligner deux tris dans
+        # deux langages -- une egalite qu'il faudrait maintenir a chaque
+        # modification de l'un ou de l'autre.
+        if any(ord(c) > 0xFFFF for c in nom):
+            raise HTTPException(
+                status_code=422,
+                detail=f"Le nom « {nom} » contient un caractere hors du plan "
+                       "multilingue de base (emoji, lettre mathematique). Le "
+                       "serveur et le navigateur ne trieraient pas ces noms "
+                       "dans le meme ordre, et tous les votes seraient refuses. "
+                       "Utilisez des lettres ordinaires.",
             )
         if not re.match(r"^[\w \-'()\.À-ÿ]+$", nom):
             raise HTTPException(

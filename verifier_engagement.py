@@ -108,7 +108,17 @@ def main():
     annonce = donnees.get("agregat_sha256")
 
     if not cles:
+        # « Aucune consultation ouverte » n'est PAS un feu vert.
+        #
+        # Le message etait exact et se lisait comme une validation par quelqu'un
+        # qui venait de « faire la verification ». Un controle lance au mauvais
+        # moment -- avant la declaration des groupes, apres la cloture --
+        # comptait comme un controle reussi (03/09/2026).
         print("Aucune cle : aucune consultation n'est ouverte sur ce serveur.")
+        print("\n  ATTENTION : ce n'est PAS une verification reussie, seulement")
+        print("  le constat qu'il n'y a rien a verifier pour l'instant.")
+        print("  Relancez ce script APRES l'ouverture de la consultation et")
+        print("  AVANT la distribution des liens.")
         # TOUT ARGUMENT FOURNI ET JAMAIS COMPARE DOIT SE VOIR.
         #
         # Le script sortait ici en code 0 sans dire que --attendu n'avait pas
@@ -295,7 +305,25 @@ def main():
         print("  OK : le serveur est coherent avec lui-meme.")
 
     if args.attendu:
-        if recalcule != args.attendu.strip():
+        # NORMALISER AVANT DE COMPARER.
+        #
+        # La comparaison etait `recalcule != args.attendu.strip()`. hexdigest()
+        # rend des minuscules, et strip() ne retire que les blancs de bord : une
+        # empreinte CORRECTE recopiee en majuscules, ou collee depuis un
+        # proces-verbal avec un espace au milieu, etait declaree « ANOMALIE
+        # GRAVE -- le jeu de cles a change ».
+        #
+        # Cout, releve par un audit externe le 03/09/2026 : soit le delegue
+        # suspend une consultation saine, soit -- plus probable apres une
+        # premiere fausse alerte -- il cesse de croire l'outil. Un controle qui
+        # crie au loup ne protege plus personne.
+        #
+        # Une empreinte est un nombre en base 16 : sa casse et les espaces qui
+        # l'entourent n'en font pas partie.
+        def _normaliser(empreinte):
+            return "".join(empreinte.split()).lower()
+
+        if _normaliser(recalcule) != _normaliser(args.attendu):
             anomalies.append(
                 "ANOMALIE GRAVE : l'empreinte ne correspond pas a celle publiee "
                 "avant la distribution des liens. Le jeu de cles a change depuis."
