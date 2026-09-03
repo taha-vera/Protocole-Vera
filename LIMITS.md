@@ -1025,6 +1025,32 @@ DECLARE reutilise la cle existante -- `cle_publique()` ne cree que si elle est
 absente -- donc l'empreinte de l'ensemble ne bouge pas. C'est precisement le
 recours prevu, et il fonctionne.
 
+**Sept constats de plus sur le meme fichier, dont deux tiennent.**
+
+`historique_consultations` n'avait aucune contrainte d'unicite. Le scenario
+avance -- double clic, reprise HTTP -- etait deja ferme ailleurs : la seconde
+cloture constate l'etat vide et n'enregistre rien. La contrainte ajoutee couvre
+le cas etroit qui restait, deux appels concurrents au meme horodatage.
+
+Les messages critiques partaient sur `stdout` par `print()`. Sous systemd,
+journald les capture -- ils ne sont donc pas perdus -- mais ils arrivent sans
+niveau, ce qui empeche de filtrer un « CRITIQUE : dechiffrement impossible »
+d'une trace ordinaire.
+
+**Cinq constats ne tenaient pas**, et le detail vaut d'etre garde.
+
+La detection de migration des jetons (« un jeton en clair de 64 caracteres
+hexadecimaux serait ignore ») n'est pas atteignable : `token_urlsafe(24)` produit
+32 caracteres, jamais 64. La migration ne concerne d'ailleurs que des bases
+anterieures au 12/08, dont il n'existe plus aucune.
+
+Les trois autres -- migrations non atomiques, `VACUUM` repete, croissance du
+cache memoire -- decrivent des mecaniques exactes dont la portee ne se realise
+pas : les migrations sont idempotentes et jouees au demarrage, le second
+`VACUUM` ne s'execute que sur une base qui a besoin des deux migrations, et le
+cache est purge a chaque ecriture -- donc a chaque signature emise, ce qui est
+precisement le scenario de croissance decrit.
+
 ### Les 106 lignes de Rust, enfin lues
 
 Dix audits ont liste `vera_blind_sig/src/lib.rs` dans leurs angles morts : deux

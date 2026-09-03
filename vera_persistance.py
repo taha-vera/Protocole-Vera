@@ -73,7 +73,22 @@ _SQL_TABLES = [
     # Une seule ligne (id=1). Les OPTIONS ne sont pas stockees : elles restent
     # a trois (oui/non/abstention) car toute la calibration DP en depend --
     # DELTA_INT=2 et K_MIN=240 ont ete mesures sur trois options.
-    "CREATE TABLE IF NOT EXISTS historique_consultations (groupe TEXT NOT NULL, close_unix REAL NOT NULL)",
+    # PRIMARY KEY (groupe, close_unix), et ce qu'elle couvre EXACTEMENT.
+    #
+    # Un audit externe du 03/09/2026 a signale l'absence de contrainte : une
+    # cloture rejouee inserait des doublons, et compter_consultations_recentes
+    # surestimait -- or ce compteur alimente l'avertissement de frequence, et un
+    # avertissement qui se declenche a tort finit ignore.
+    #
+    # Le scenario decrit -- double clic, reprise HTTP -- est deja ferme
+    # AILLEURS, et mieux : cloturer_consultation constate l'etat vide au second
+    # appel (les jetons et effectifs ont ete effacés) et sort en
+    # « rien_a_cloturer » sans rien reenregistrer. Verifie.
+    #
+    # Cette contrainte couvre le cas etroit qui restait : deux appels
+    # CONCURRENTS franchissant la garde ensemble, donc avec le meme horodatage.
+    # Elle ne remplace pas l'idempotence de l'appelant, elle la complete.
+    "CREATE TABLE IF NOT EXISTS historique_consultations (groupe TEXT NOT NULL, close_unix REAL NOT NULL, PRIMARY KEY (groupe, close_unix))",
     "CREATE TABLE IF NOT EXISTS question_active (id INTEGER PRIMARY KEY CHECK (id = 1), intitule TEXT NOT NULL, ouverture_depots_unix REAL, groupes_declares TEXT)",
     "CREATE TABLE IF NOT EXISTS jetons_autorisation (jeton TEXT PRIMARY KEY, departement TEXT NOT NULL, utilise INTEGER NOT NULL DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS cle_rsa_active (departement TEXT PRIMARY KEY, cle_privee_hex TEXT NOT NULL, cle_publique_hex TEXT NOT NULL, ouverture_unix REAL NOT NULL, salt_hex TEXT)",
@@ -225,6 +240,29 @@ def _migrer_jetons_vers_empreintes(conn):
     conn.execute("VACUUM")
 
 
+def _migrer_historique_unique(conn):
+    """Ajoute PRIMARY KEY (groupe, close_unix) a historique_consultations.
+
+    Idempotente : ne fait rien si la contrainte est deja la. Les doublons
+    eventuels d'une base anterieure sont fusionnes au passage -- c'est le
+    comportement voulu, l'evenement n'ayant eu lieu qu'une fois.
+    """
+    ligne = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' "
+        "AND name='historique_consultations'").fetchone()
+    if not ligne or "PRIMARY KEY" in ligne[0].upper():
+        return
+    conn.execute("CREATE TABLE historique_consultations_v2 "
+                 "(groupe TEXT NOT NULL, close_unix REAL NOT NULL, "
+                 "PRIMARY KEY (groupe, close_unix))")
+    conn.execute("INSERT OR IGNORE INTO historique_consultations_v2 "
+                 "SELECT groupe, close_unix FROM historique_consultations")
+    conn.execute("DROP TABLE historique_consultations")
+    conn.execute("ALTER TABLE historique_consultations_v2 "
+                 "RENAME TO historique_consultations")
+    conn.commit()
+
+
 def _migrer_ouverture_depots(conn):
     """Ajoute la date d'ouverture des depots a la question active.
 
@@ -306,6 +344,7 @@ def initialiser():
         # migrations ci-dessus, elles, transforment des tables preexistantes
         # et doivent donc passer avant.
         _migrer_ouverture_depots(_conn)
+        _migrer_historique_unique(_conn)
         # codes_courts : supprimee, pas seulement videe. Elle conservait le
         # jeton EN CLAIR, alors que le reste du systeme etait passe aux
         # empreintes pour qu'un lecteur de base ne puisse pas rejouer un jeton
@@ -694,8 +733,13 @@ def enregistrer_consultation_close(groupes):
     maintenant = time.time()
     with _verrou_db:
         for g in groupes:
+            # OR IGNORE : la PRIMARY KEY refuse le doublon, on ne veut pas
+            # qu'une cloture rejouee leve. L'idempotence est ici la bonne
+            # reponse -- l'evenement « ce groupe a ete clos a cet instant » est
+            # vrai une fois, pas deux.
             _conn.execute(
-                "INSERT INTO historique_consultations (groupe, close_unix) VALUES (?, ?)",
+                "INSERT OR IGNORE INTO historique_consultations "
+                "(groupe, close_unix) VALUES (?, ?)",
                 (g, maintenant))
         _conn.commit()
 
