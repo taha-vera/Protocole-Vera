@@ -30,6 +30,19 @@ fn aveugler_message(cle_publique_der: Vec<u8>, message: Vec<u8>) -> PyResult<(Ve
         .map_err(|e| PyValueError::new_err(format!("Cle publique invalide: {e}")))?;
     let resultat = pk.blind(&mut DefaultRng, &message)
         .map_err(|e| PyValueError::new_err(format!("Erreur aveuglement: {e}")))?;
+    // unwrap_or_default() rend un vecteur VIDE si le crate ne produit pas de
+    // randomizer. finaliser_signature en exige alors exactement 32 octets et
+    // refuse -- mais l'echec surviendrait APRES que le serveur a signe et
+    // consomme le jeton : le votant perdrait sa voix sans recours.
+    //
+    // Le type Randomized (voir generer_cles) garantit sa presence : le cas ne
+    // peut pas se produire tant que ce parametre de type ne change pas. C'est
+    // une fragilite de forme, relevee lors de la premiere lecture de ce fichier
+    // le 03/09/2026 -- dix audits l'avaient laisse dans leurs angles morts,
+    // faute de chaine Rust.
+    //
+    // Si le type devait changer, echouer ICI plutot qu'a la finalisation : le
+    // jeton n'est pas encore consomme a ce stade.
     let randomizer_bytes: Vec<u8> = resultat.msg_randomizer.map(|r| r.0.to_vec()).unwrap_or_default();
     Ok((resultat.blind_message.into(), resultat.secret.into(), randomizer_bytes))
 }

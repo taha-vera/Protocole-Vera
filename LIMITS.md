@@ -992,6 +992,37 @@ jamais avec votre nom ; en revanche, un appareil ou un reseau professionnel peut
 garder la trace que vous avez participe ». Le votant a besoin de savoir ce qui
 est protege et ce qui ne l'est pas, pas d'etre rassure.
 
+### Les 106 lignes de Rust, enfin lues
+
+Dix audits ont liste `vera_blind_sig/src/lib.rs` dans leurs angles morts : deux
+auditeurs ont tente de compiler et abandonne faute de chaine Rust, les autres ne
+l'ont pas ouvert. C'etait le dernier trou reel du projet -- toute la non-liaison
+repose sur ce fichier, et personne ne l'avait verifie.
+
+Lu le 03/09/2026. **Trois points etablis, aucun correctif necessaire.**
+
+**Aucune primitive n'est reimplementee.** Les cinq fonctions deserialisent une
+cle DER, appellent une methode du crate `blind-rsa-signatures`, et convertissent
+le resultat en octets. Aucune arithmetique, aucun calcul modulaire, aucun
+hachage manuel. L'affirmation centrale du README tient.
+
+**Le facteur d'aveuglement ne remonte jamais vers le serveur, et c'est
+structurel.** `signer_aveugle` ne prend que la cle privee et le message
+aveugle -- il ne recoit ni le secret, ni le message en clair, ni le randomizer.
+Les deux fonctions qui manipulent le secret, `aveugler_message` et
+`finaliser_signature`, ne sont appelees que dans le navigateur. La separation
+tient a la signature des fonctions, pas a une convention d'appel.
+
+**L'alea vient du crate** (`DefaultRng`), sans graine fournie ni generateur
+maison.
+
+**Une fragilite de forme, sans consequence aujourd'hui.** `unwrap_or_default()`
+rendrait un randomizer vide si le crate n'en produisait pas ; la finalisation le
+refuserait alors -- mais APRES que le serveur a signe et consomme le jeton, donc
+le votant perdrait sa voix. Le parametre de type `Randomized` garantit sa
+presence : le cas ne peut pas survenir tant qu'il ne change pas. Commente sur
+place.
+
 ### Le motif qui revient, et ce qu'il coute
 
 Un second audit externe, le 27/08 egalement, a montre que **le correctif de la
