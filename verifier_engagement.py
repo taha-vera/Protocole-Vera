@@ -121,6 +121,34 @@ def main():
 
     anomalies = []
 
+    # --- 0. La reponse est-elle seulement exploitable ? ----------------------
+    #
+    # CONSTAT DU 03/09/2026, par un audit externe.
+    #
+    # Le 29/08, une garde a ete ajoutee dans calculer_agregat pour qu'un champ
+    # manquant devienne une anomalie au lieu d'une trace Python. Elle protegeait
+    # le point ou le defaut etait APPARU -- ligne 236. Elle ne protegeait pas la
+    # ligne 128, cent lignes plus haut, qui accede a c["departement"] sans rien
+    # verifier. Un serveur omettant ce champ faisait toujours planter l'outil,
+    # avant meme que la garde n'entre en jeu.
+    #
+    # Le correctif avait ferme le CAS, pas la CLASSE. On valide donc la forme de
+    # la reponse UNE FOIS, ici, avant tout traitement : ce que le serveur
+    # renvoie est soit exploitable, soit une anomalie -- jamais une exception.
+    for rang, entree in enumerate(cles, 1):
+        if not isinstance(entree, dict):
+            print(f"\nANOMALIE : la cle n°{rang} n'est pas un objet exploitable.")
+            print("Ce controle n'a pas pu avoir lieu.")
+            return 1
+        for champ in ("departement", "cle_publique_hex"):
+            if champ not in entree:
+                print(f"\nANOMALIE : la cle n°{rang} annoncee par le serveur "
+                      f"n'a pas de champ « {champ} ».")
+                print("Aucun des controles ci-dessous ne peut avoir lieu. Ce "
+                      "n'est pas\nune verification reussie : demandez une "
+                      "explication ecrite.")
+                return 1
+
     # --- 1. Une seule cle par groupe -----------------------------------------
     # LE CONTROLE DECISIF. Un serveur peut publier 500 couples (Marketing, cle_i)
     # : l'empreinte agregee sera parfaitement valide, et la desanonymisation

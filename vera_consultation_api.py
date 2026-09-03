@@ -862,17 +862,31 @@ def generer_autorisations(payload: GenererAutorisationsRequete, session_vera: Op
     import hashlib
     compte = exiger_session(session_vera)
 
-    # Empreinte de la cle publique de l'epoque (engagement de cle). Le RH la
-    # met dans chaque lien SMS ; le client verifiera la cle recue contre elle.
-    try:
-        pk_der = gestionnaire_signature.cle_publique(payload.departement)
-    except RuntimeError:
-        raise HTTPException(status_code=503, detail="Aucune consultation active.")
-    # Le groupe doit avoir ete declare AVANT. Sans ce controle, generer des
-    # liens pour un groupe nouveau creerait une cle de plus, changerait
-    # l'empreinte de l'ensemble, et invaliderait tous les liens deja
-    # distribues -- exactement ce que la declaration prealable existe pour
-    # empecher.
+    # LE CONTROLE VIENT AVANT LA CREATION. L'ORDRE EST LA PROTECTION.
+    #
+    # Ce bloc etait place APRES l'appel a cle_publique(), qui est CREATRICE si
+    # la cle est absente (vera_signature_manager.py) et la PERSISTE. Le 409
+    # arrivait donc trop tard : la cle du groupe fautif existait deja, et
+    # l'empreinte de l'ENSEMBLE des cles -- celle inscrite dans chaque lien
+    # deja distribue -- avait change.
+    #
+    # Consequence, constatee par un audit externe le 03/09/2026 : une faute de
+    # frappe du RH suffisait. « Ateliers » pour « Atelier », une majuscule, un
+    # pluriel -- le motif de validation du champ accepte tout nom bien forme.
+    # Le RH voyait un message d'erreur clair et croyait qu'il ne s'etait rien
+    # passe. Tous les votants, TOUS GROUPES CONFONDUS, recevaient ensuite « la
+    # configuration du serveur ne correspond pas a ce lien. Vote refuse par
+    # securite ». Et l'etat etait irrecuperable : aucune route ne retire une
+    # cle, seule la cloture les detruit toutes -- il fallait recommencer la
+    # consultation et redistribuer les liens.
+    #
+    # Le commentaire ci-dessous decrivait exactement ce defaut, en expliquant
+    # pourquoi le controle existe. Il ne disait pas qu'il s'executait trop
+    # tard.
+    #
+    # Le groupe doit avoir ete declare AVANT : generer des liens pour un groupe
+    # nouveau creerait une cle de plus, changerait l'empreinte de l'ensemble, et
+    # invaliderait tous les liens deja distribues.
     declares = persistance.charger_groupes_declares()
     if declares is None:
         raise HTTPException(
@@ -888,6 +902,14 @@ def generer_autorisations(payload: GenererAutorisationsRequete, session_vera: Op
                    f"Groupes declares : {', '.join(declares)}. En ajouter un "
                    "maintenant invaliderait les liens deja distribues.",
         )
+
+    # SEULEMENT MAINTENANT. Empreinte de la cle publique de l'epoque
+    # (engagement de cle) : le RH la met dans chaque lien, le client verifiera
+    # la cle recue contre elle.
+    try:
+        pk_der = gestionnaire_signature.cle_publique(payload.departement)
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Aucune consultation active.")
 
     # Le lien porte l'empreinte de l'ENSEMBLE des cles, pas celle du seul
     # groupe concerne.

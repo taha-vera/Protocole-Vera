@@ -855,6 +855,41 @@ pas ce cas : le nom du fichier vivait dans une variable, deux lignes au-dessus
 du `grep`. **Une garde contournable par indirection ne garde pas.** Elle a ete
 elargie.
 
+### Une faute de frappe pouvait detruire une consultation entiere
+
+Constat d'un audit externe le 03/09/2026. C'est le defaut le plus couteux trouve
+sur ce projet -- il ne casse pas l'anonymat, il rend la consultation
+irrecuperable.
+
+`/api/rh/generer_autorisations` appelait `cle_publique(groupe)` AVANT de verifier
+que le groupe figurait dans la liste declaree. Cette methode est CREATRICE si la
+cle est absente, et elle la persiste. Le refus arrivait donc apres coup :
+l'empreinte de l'ENSEMBLE des cles -- celle inscrite dans chaque lien deja
+distribue -- avait change.
+
+« Ateliers » pour « Atelier », une majuscule, un pluriel : le motif de validation
+du champ accepte tout nom bien forme, il ne verifie aucune appartenance. Le RH
+voyait un message d'erreur clair et croyait qu'il ne s'etait rien passe. **Tous
+les votants, tous groupes confondus**, recevaient ensuite « la configuration du
+serveur ne correspond pas a ce lien. Vote refuse par securite ».
+
+Et l'etat etait irrecuperable : aucune route ne retire une cle, seule la cloture
+les detruit toutes. Il fallait recommencer la consultation et redistribuer les
+liens.
+
+Le commentaire du code decrivait exactement ce defaut -- il expliquait pourquoi
+le controle existe. **Il ne disait pas qu'il s'executait trop tard.** L'ordre est
+corrige, et `tests/test_ordre_creation_cle.py` echoue si on l'inverse, si un
+refus passe apres la creation, ou si un endpoint public appelle la variante
+creatrice.
+
+**Et l'outil du tiers plantait encore.** La garde du 29/08 protegeait
+`calculer_agregat`, ou le defaut etait apparu. Elle ne protegeait pas la ligne
+qui lit `departement` cent lignes plus haut : un serveur omettant ce champ
+faisait toujours planter l'outil. Le correctif avait ferme le point, pas la
+classe. La forme de la reponse est desormais validee une fois, avant tout
+traitement.
+
 ### Le motif qui revient, et ce qu'il coute
 
 Un second audit externe, le 27/08 egalement, a montre que **le correctif de la
