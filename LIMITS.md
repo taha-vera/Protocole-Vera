@@ -630,6 +630,50 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+### Quatre propositions refusees, et pourquoi
+
+Un audit du 03/09/2026 a formule des recommandations qui, appliquees,
+detruiraient ce qu'elles cherchent a proteger. Elles sont consignees ici parce
+qu'elles reviendront : elles sont raisonnables pour un systeme ordinaire, et
+fausses pour celui-ci.
+
+**« Ajouter des empreintes des membres des groupes dans
+`historique_consultations` pour empecher le contournement par renommage. »**
+Refuse, et c'est la plus grave des quatre. VERA ne connait pas vos membres --
+c'est la moitie de la separation des roles. Stocker leurs empreintes exigerait
+que l'organisation transmette sa liste au serveur : celui-ci detiendrait alors
+la liste ET la base, soit exactement la configuration que tout le dispositif
+interdit. On fermerait un avertissement de bonne foi en ouvrant la
+desanonymisation complete. Le contournement par renommage reste, et reste
+documente ; le controle en revient au representant du personnel, a qui le guide
+indique desormais quoi regarder.
+
+**« Utiliser un cache partage, type Redis, pour permettre plusieurs workers. »**
+Refuse. Ce cache contient le couple (empreinte du jeton, empreinte du message
+aveugle). Le placer dans un service reseau, c'est le sortir de la memoire du
+processus -- il devient persistable, observable, sauvegardable. Le choix de la
+memoire n'est pas une limite technique a lever, c'est la mesure de protection.
+
+**« Journaliser les evenements de haut niveau pour la responsabilite. »**
+Refuse en l'etat. Les journaux sont precisement ce que ce projet a passe des
+semaines a couper : `access_log off` sur les routes de vote, `error_log crit`
+pour que la limitation de debit n'y reinscrive pas les adresses IP. Un journal
+d'audit qui note « consultation ouverte a 14h02 » est sans danger ; la frontiere
+avec « jeton consomme a 14h02:47 » est mince, et c'est le canal temporel de la
+section 9. A ne rouvrir qu'avec une regle explicite sur ce qui peut y figurer.
+
+**« Verifier l'atomicite avec EXPLAIN QUERY PLAN. »** Refuse : cet outil montre
+comment SQLite execute une requete -- index utilises, ordre de parcours. Il ne
+dit rien des frontieres de transaction. L'atomicite se verifie en tuant le
+processus entre deux ecritures, ce que fait `tests/test_atomicite_publication.py`.
+
+**Une seule est retenue, et elle etait deja notee** : ecraser la memoire du cache
+avec des `bytearray` plutot que de compter sur `del`. Le module le dit lui-meme
+depuis le 26/08 -- « envisageable, non fait a ce jour ». Le gain est reel mais
+etroit : il ne protege que contre un vidage de memoire pris dans la fenetre
+d'une heure, et Python ne garantit de toute facon pas l'absence de copies
+intermediaires.
+
 **Une cloture interrompue laissait la base dans un etat que rien ne
 signalait.** La cloture enchaine plusieurs effacements -- cles RSA, etat de
 consultation, cache memoire. Si le processus meurt au milieu (coupure, OOM,
