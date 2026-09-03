@@ -630,6 +630,17 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+**La cloture est visible dans les entrees-sorties du serveur.** `VACUUM`
+reecrit integralement le fichier : qui observe le systeme -- pas la base, le
+systeme -- voit une operation d'ecriture massive a un instant precis, et en
+deduit qu'une consultation vient d'etre close. Releve le 03/09/2026.
+
+Ce n'est pas une fuite de reponse, et l'instant de cloture n'est pas un secret :
+il est annonce aux participants, et le resultat est publie. Mais c'est une
+metadonnee que ce document ne listait pas, et elle appartient a la meme famille
+que les canaux de la section 9 -- observable par l'hebergeur, pas par
+l'organisation qui consulte.
+
 **Ce que `journal_mode=DELETE` ne fait pas.** SQLite ecrit toujours un journal de
 rollback PENDANT une transaction d'ecriture, et le supprime au commit. Un
 observateur capable de lire le fichier a cet instant precis -- ou d'observer les

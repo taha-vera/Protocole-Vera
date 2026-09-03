@@ -61,10 +61,22 @@ _SQL_TABLES = [
     # table conserve l'ORDRE D'INSERTION des votes, lisible par SELECT rowid.
     # Retirer l'horodatage supprimait les instants, pas la sequence. En
     # WITHOUT ROWID la table est un B-tree ordonne par l'empreinte (SHA-384,
-    # pseudo-aleatoire) : l'ordre des votes disparait a la racine au lieu de
-    # dependre du maintien d'une hypothese d'environnement (aucun log, aucun
-    # horodatage ailleurs). Lecon de la Porte 19 : une porte fermee peut etre
-    # rouverte par une porte d'infrastructure ulterieure.
+    # pseudo-aleatoire) : l'ordre d'insertion n'est plus LISIBLE DANS LA TABLE,
+    # au lieu de dependre du maintien d'une hypothese d'environnement (aucun
+    # log, aucun horodatage ailleurs). Lecon de la Porte 19 : une porte fermee
+    # peut etre rouverte par une porte d'infrastructure ulterieure.
+    #
+    # CE QUE CELA NE FERME PAS. Un audit externe du 03/09/2026 a releve que ce
+    # commentaire disait « l'ordre des votes disparait a la racine » -- formule
+    # trop large. WITHOUT ROWID ferme le canal `SELECT rowid`, et lui seul.
+    # Subsistent, pour qui observe le FICHIER ou le SYSTEME plutot que la table :
+    # l'organisation des pages sur le disque, la structure du B-tree, les
+    # journaux temporaires pendant une transaction, et l'instant des ecritures.
+    #
+    # Ces canaux-la sont hors modele pour une autre raison -- ils exigent une
+    # lecture repetee ou synchrone du fichier, ce que LIMITS.md section 9 exclut
+    # explicitement. Mais ils ne sont pas fermes par ce mot-cle, et le
+    # commentaire ne doit pas le laisser croire.
     "CREATE TABLE IF NOT EXISTS tokens_consommes (empreinte TEXT PRIMARY KEY) WITHOUT ROWID",
     "CREATE TABLE IF NOT EXISTS compteurs_votes (departement TEXT NOT NULL, reponse TEXT NOT NULL, compte INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (departement, reponse))",
     "CREATE TABLE IF NOT EXISTS effectifs (departement TEXT PRIMARY KEY, effectif INTEGER NOT NULL DEFAULT 0)",
