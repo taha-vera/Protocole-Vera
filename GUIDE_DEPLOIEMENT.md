@@ -139,6 +139,26 @@ communiquez-leur deux chiffres par groupe :
 
 Tout écart doit être justifié par écrit et annexé au procès-verbal.
 
+**Trois autres choses que vos représentants doivent regarder dans cette même
+liste**, et qui ne demandent aucune compétence technique :
+
+- **Des noms de groupes proches les uns des autres** — `Atelier`, `Atelier 2`,
+  `Atelier_bis`. Le budget de confidentialité se compte par nom de groupe :
+  déclarer plusieurs groupes contenant les mêmes personnes permet d'obtenir
+  plusieurs mesures sur elles en une seule consultation. C'est la manœuvre la
+  plus efficace contre l'anonymat, et elle se voit dans cette liste.
+- **Qu'aucun salarié ne reçoive plus d'un lien** pour une même consultation.
+  Chaque lien supplémentaire est une mesure supplémentaire sur la même personne.
+- **Que les groupes forment une partition** : chacun dans un groupe, un seul. Un
+  découpage croisant deux critères — service et statut, site et métier — fait
+  silencieusement payer le double à ceux qui sont à l'intersection.
+
+Ces trois points viennent d'un exercice d'équipe rouge mené le 03/09/2026, où un
+auditeur a joué l'organisation cherchant à désanonymiser. Sa conclusion : la
+garantie tient, aucune attaque ne casse la borne — mais le chemin le plus
+praticable passe par la composition des groupes, que VERA ne peut pas contrôler
+puisqu'il ne connaît pas vos membres.
+
 **Donnez-leur l'outil, pas l'adresse brute.** Ce guide renvoyait vers
 `https://votre-domaine/api/engagement_cles`, qui affiche du JSON contenant des
 clés publiques en hexadécimal — illisible pour qui n'est pas informaticien. Un

@@ -1417,7 +1417,10 @@ faire.
 > autres reponses -- il pourrait deviner juste jusqu'a dix-neuf fois sur vingt.
 > Un employeur reel fait moins bien. Mais c'est ce plafond que vous annoncez a
 > vos membres, et c'est lui qui doit rester tenable.
-> **Regle simple : pas plus de quatre consultations par an sur le même groupe.**
+> **Regle simple : pas plus de quatre publications par an portant sur les
+> mêmes personnes.** Quatre PUBLICATIONS, pas quatre consultations : k
+> groupes contenant les mêmes gens, publies le même jour, coutent autant
+> que k consultations etalees sur l'annee.
 > VERA ne peut pas vous en empecher techniquement -- il ne sait pas qui sont
 > vos membres, c'est ce qui protège leur anonymat. C'est donc a l'organisation
 > de s'y tenir.
@@ -1535,13 +1538,44 @@ cesse d'être defendable.
 
 ### Regle retenue
 
-**Une organisation ne devrait pas publier plus de 4 consultations par periode
-de 12 mois glissants sur la même population** (epsilon cumule = 2.0).
+**Une organisation ne devrait pas publier plus de 4 PUBLICATIONS par periode de
+12 mois glissants sur la même population** (epsilon cumule = 2.0).
 
 Au-dela, la protection sort de la zone defendable publiquement. VERA ne
 l'empeche pas techniquement -- il ne le peut pas -- mais l'organisation qui
 depasse ce rythme doit savoir qu'elle dégrade la garantie qu'elle a annoncee
 a ses membres.
+
+**Ce qui compte est le nombre de PUBLICATIONS portant sur les memes personnes,
+pas le nombre de consultations.** La nuance n'est pas rhetorique, et cette
+section disait « consultations » jusqu'au 03/09/2026 -- un exercice d'equipe
+rouge a montre que le plafond ne bornait pas ce qu'il pretendait borner.
+
+Le budget epsilon est cumule PAR NOM DE GROUPE (`vera_epsilon_budget.py`), et
+l'organisation choisit les noms. Rien ne l'empeche de declarer en une seule fois
+`Cible_1`, `Cible_2`, ... `Cible_k` -- jusqu'a 200 noms, dedoublonnes par nom
+seulement -- contenant tous les MEMES personnes, et de publier les k. Elle
+obtient k tirages de bruit independants **dans une seule consultation**, sans
+cloturer ni attendre douze mois.
+
+Ce que cela change : le calendrier. « Six consultations etalees sur l'annee »
+devient une operation d'un apres-midi.
+
+Ce que cela ne change PAS, et c'est l'essentiel : epsilon s'accumule
+identiquement (0,5 par publication, donc 0,5k), la borne reste
+e^(0,5k) / (1 + e^(0,5k)), et **la personne visee doit voter k fois** -- k liens,
+k depots. Aucun second tirage de bruit sans un second vote reel. C'est le mur, et
+il tient.
+
+L'operation est meme MOINS discrete ainsi : la cible recoit k invitations quasi
+simultanees, et k noms de groupe quasi identiques apparaissent d'un coup dans
+`/api/engagement_cles`, que n'importe qui peut consulter.
+
+**Ce qu'un representant du personnel doit donc verifier**, en plus du nombre
+d'invitations : que les groupes declares forment bien une partition de la
+population -- des noms proches contenant les memes personnes sont le signe de
+cette manoeuvre -- et qu'aucun salarie ne recoit plusieurs liens pour une meme
+consultation.
 
 ### Trois précisions, pour ne pas surestimer le risque
 
