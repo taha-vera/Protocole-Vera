@@ -270,6 +270,21 @@ import vera_persistance as persistance
 
 persistance.initialiser()
 
+# CONTROLE DE COHERENCE AU DEMARRAGE.
+#
+# Une cloture interrompue -- coupure, OOM, redemarrage force au milieu des
+# effacements -- laisse la base sans consultation active mais avec des jetons ou
+# des empreintes de votes. Rien ne le signalait. Or `jetons_autorisation` porte
+# la cinquieme trace de participation (LIMITS.md section 1), celle qu'une
+# organisation detenant la liste peut lire directement.
+#
+# On RAPPORTE, on ne corrige pas : effacer automatiquement detruirait une
+# consultation en cours si le diagnostic se trompait, et ce serait
+# irrattrapable. Propose par un audit externe le 03/09/2026.
+_incoherence = persistance.verifier_coherence_au_demarrage()
+if _incoherence:
+    print(f"\n{'=' * 70}\n{_incoherence}\n{'=' * 70}\n", flush=True)
+
 _budget_persiste = persistance.charger_budget_epsilon()
 for _dep, _etat in _budget_persiste.items():
     budget_epsilon.injecter_etat(_dep, _etat["epsilon_consomme"], _etat["nombre_publications"])

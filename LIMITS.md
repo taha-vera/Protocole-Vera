@@ -630,6 +630,25 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+**Une cloture interrompue laissait la base dans un etat que rien ne
+signalait.** La cloture enchaine plusieurs effacements -- cles RSA, etat de
+consultation, cache memoire. Si le processus meurt au milieu (coupure, OOM,
+redemarrage force), il reste une base sans consultation active mais avec des
+jetons ou des empreintes de votes.
+
+Ce qui subsiste alors n'est pas anodin : `jetons_autorisation` porte la
+cinquieme trace de participation decrite plus haut, celle qu'une organisation
+detenant la liste peut lire directement. Elle etait censee disparaitre.
+
+Le service le RAPPORTE desormais au demarrage, sans corriger : effacer
+automatiquement detruirait une consultation en cours si le diagnostic se
+trompait, et ce serait irrattrapable. Propose par un audit externe le
+03/09/2026.
+
+*Le meme audit recommandait de verifier que `effacer_cle_rsa()` suit bien
+`effacer_etat_consultation()`. C'est le cas : `fermer_consultation()` appelle
+les deux, et l'API l'invoque avant l'effacement de l'etat.*
+
 **L'effacement de cloture est verifie sur les OCTETS depuis le 03/09/2026.**
 Douze audits avaient lu le code et approuve le raisonnement -- `secure_delete`,
 les `DELETE`, le `VACUUM` -- sans jamais ouvrir le fichier apres coup.

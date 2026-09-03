@@ -411,6 +411,56 @@ def initialiser():
         _conn.commit()
 
 
+class EtatIncoherent(Exception):
+    """La base porte les traces d'une consultation sans consultation active."""
+
+
+def verifier_coherence_au_demarrage():
+    """Detecte une cloture interrompue : des donnees sans consultation active.
+
+    POURQUOI CE CONTROLE EXISTE
+
+    La cloture enchaine plusieurs effacements -- cles RSA, etat de consultation,
+    cache memoire. Si le processus meurt au milieu (OOM, coupure, redemarrage
+    force), la base peut rester dans un etat que rien ne signale : plus de
+    question active, mais des jetons ou des empreintes de votes encore la.
+
+    Ce qui reste alors n'est pas anodin. `jetons_autorisation` porte le couple
+    (empreinte du jeton, utilise) -- la cinquieme trace de participation
+    decrite dans LIMITS.md section 1, celle qu'une organisation detenant la
+    liste peut lire directement. Elle etait censee disparaitre a la cloture.
+
+    Propose par un audit externe le 03/09/2026. La cloture appelle bien
+    `effacer_cle_rsa` avant `effacer_etat_consultation` (verifie) ; ce controle
+    couvre le cas ou elle n'est pas allee au bout.
+
+    Ne LEVE PAS et ne corrige RIEN : il rapporte. Effacer automatiquement au
+    demarrage detruirait une consultation en cours si le diagnostic se trompait,
+    et ce serait irrattrapable. C'est a l'exploitant de trancher.
+    """
+    with _verrou_db:
+        question = _conn.execute(
+            "SELECT COUNT(*) FROM question_active").fetchone()[0]
+        jetons = _conn.execute(
+            "SELECT COUNT(*) FROM jetons_autorisation").fetchone()[0]
+        tokens = _conn.execute(
+            "SELECT COUNT(*) FROM tokens_consommes").fetchone()[0]
+        compteurs = _conn.execute(
+            "SELECT COUNT(*) FROM compteurs_votes").fetchone()[0]
+
+    if question == 0 and (jetons or tokens or compteurs):
+        return (
+            "ETAT INCOHERENT : aucune consultation active, mais la base porte "
+            f"encore {jetons} jeton(s), {tokens} empreinte(s) de vote et "
+            f"{compteurs} compteur(s).\n"
+            "  Une cloture a probablement ete interrompue. Les jetons portent "
+            "une trace de\n  participation qu'une organisation detenant la "
+            "liste peut lire.\n"
+            "  Verifier, puis cloturer a nouveau pour terminer l'effacement."
+        )
+    return None
+
+
 def charger_budget_epsilon():
     with _verrou_db:
         rows = _conn.execute("SELECT departement, epsilon_consomme, nb_publications FROM budget_epsilon").fetchall()
