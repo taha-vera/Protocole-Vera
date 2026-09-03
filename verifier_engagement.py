@@ -109,13 +109,30 @@ def main():
 
     if not cles:
         print("Aucune cle : aucune consultation n'est ouverte sur ce serveur.")
-        # Une empreinte fournie et jamais comparee doit se voir. Le script
-        # sortait ici en code 0 sans dire que --attendu n'avait pas ete
-        # examine : le verificateur croyait avoir controle (29/08).
+        # TOUT ARGUMENT FOURNI ET JAMAIS COMPARE DOIT SE VOIR.
+        #
+        # Le script sortait ici en code 0 sans dire que --attendu n'avait pas
+        # ete examine. Corrige le 29/08... pour --attendu SEULEMENT. Un audit
+        # externe a constate le 03/09 que --groupes, declare sur la ligne d'a
+        # cote, restait muet : le delegue fournissait sa liste de reference,
+        # elle n'etait pas regardee, et il obtenait un code 0.
+        #
+        # Le correctif avait ferme l'argument, pas la classe. On les traite
+        # desormais ensemble : ajouter un argument de comparaison sans
+        # l'inscrire ici est une regression que ce bloc rend visible.
+        non_compares = []
         if args.attendu:
-            print("\nATTENTION : l'empreinte fournie par --attendu n'a PAS ete "
-                  "comparee,\nfaute de cle sur ce serveur. Ce n'est pas une "
-                  "verification reussie.")
+            non_compares.append("--attendu (empreinte publiee)")
+        if args.groupes:
+            non_compares.append("--groupes (liste annoncee par l'organisation)")
+        if non_compares:
+            print("\nATTENTION : ce que vous avez fourni n'a PAS ete compare, "
+                  "faute de cle\nsur ce serveur :")
+            for a_ in non_compares:
+                print(f"  - {a_}")
+            print("\nCe n'est pas une verification reussie. Relancez lorsque "
+                  "la consultation\nest ouverte, avant la distribution des "
+                  "liens.")
             return 1
         return 0
 

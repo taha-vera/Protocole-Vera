@@ -212,11 +212,25 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/vote")
 def page_vote():
-    """Page de vote du participant. Le lien SMS distribue par le RH pointe ici
-    (/vote?a=JETON&d=DEPARTEMENT#k=EMPREINTE). Sans cette route, le lien
-    renvoyait 404 alors que le fichier existait sous /static/vote.html : tout
-    votant recevant son SMS tombait sur une erreur. Le fragment #k= n'est pas
-    transmis au serveur (le navigateur le garde), il reste disponible au JS."""
+    """Page de vote du participant. Le lien SMS distribue par le RH pointe ici.
+
+    FORMAT REEL -- TOUT vit dans le FRAGMENT :
+
+        /vote#a=JETON&d=DEPARTEMENT&k=EMPREINTE&c=CONTACT
+
+    Le fragment n'est jamais transmis au serveur : le navigateur le garde, et il
+    reste disponible au JavaScript. C'est ce qui empeche le jeton d'apparaitre
+    dans un journal d'acces ou dans un en-tete Referer.
+
+    Cette docstring annoncait « /vote?a=JETON&d=DEPARTEMENT#k=EMPREINTE », soit
+    le jeton en query string. Un lien de cette forme donnerait « Lien incomplet »
+    au votant, le client ne lisant que le fragment -- et il ferait passer le
+    jeton par le serveur, ce que le format existe pour eviter. Ce n'etait pas la
+    description d'un etat passe : la ligne decrivait le format courant, et se
+    trompait. Releve par un audit externe le 03/09/2026.
+
+    Sans cette route, le lien renvoyait 404 alors que le fichier existait sous
+    /static/vote.html : tout votant recevant son SMS tombait sur une erreur."""
     return FileResponse("static/vote.html")
 
 verrou = threading.Lock()

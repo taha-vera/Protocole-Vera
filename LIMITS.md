@@ -890,6 +890,42 @@ faisait toujours planter l'outil. Le correctif avait ferme le point, pas la
 classe. La forme de la reponse est desormais validee une fois, avant tout
 traitement.
 
+### Ce que le representant du personnel pouvait reellement faire : rien
+
+Quatre constats du meme audit, le 03/09/2026, tous sur la seule verification que
+ce document confie a un non-technicien.
+
+**Le guide ne nommait pas l'outil prevu pour lui.** Il renvoyait le delegue vers
+`/api/engagement_cles` -- du JSON contenant des cles publiques en hexadecimal.
+`verifier_engagement.py` existe, affiche les chiffres en clair et signale les
+anomalies, mais n'etait cite que dans deux documents techniques que le guide ne
+demande pas de transmettre. Zero occurrence dans le guide.
+
+**L'option `--groupes` n'etait jamais comparee, sans le dire.** Le correctif du
+29/08 avait protege `--attendu` ; `--groupes`, declare sur la ligne d'a cote,
+restait muet. Le delegue fournissait sa liste de reference, elle n'etait pas
+regardee, et il obtenait un code 0. **Reponse litterale a la question posee :
+non, il ne savait pas distinguer « rien a signaler » de « le controle n'a pas eu
+lieu ».** Les arguments de comparaison sont desormais traites ensemble.
+
+**Deux listes de cinq, avec la meme formule d'autorite.** Ce document enonce
+cinq CONDITIONS -- 240 reponses, hebergement tiers, attestation d'effectif,
+groupes disjoints, transporteur independant. Le guide enonce cinq TACHES --
+liste des invites, destruction de cette liste, information RGPD, decoupage,
+choix du transporteur. Rien ne les distinguait.
+
+L'ecart de fond porte sur **l'hebergement par un tiers** : non optionnel ici,
+presente dans le guide comme une question a trancher avec le DPO, l'auto-
+hebergement y apparaissant comme une option degradee mais praticable. Un delegue
+qui n'ouvrait que le guide ne savait pas qu'il devait l'exiger. Le guide renvoie
+desormais ici et dit lequel des deux fait foi.
+
+**Et le format du lien etait mal documente dans le code.** La docstring de
+`/vote` annoncait le jeton en query string ; il vit dans le fragment, ce qui
+l'empeche d'atteindre un journal d'acces. Un lien conforme a cette description
+aurait affiche « Lien incomplet » -- et aurait fait passer le jeton par le
+serveur.
+
 ### Le motif qui revient, et ce qu'il coute
 
 Un second audit externe, le 27/08 egalement, a montre que **le correctif de la

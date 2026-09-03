@@ -12,9 +12,25 @@ informatique, `LIMITS.md` pour un délégué à la protection des données.
 ## Avant de commencer : ce qui relève de vous
 
 VERA protège les réponses. Il ne connaît ni vos membres, ni votre organisation,
-ni votre question. Cinq choses restent donc entièrement sous votre
+ni votre question. Cinq **tâches** restent donc entièrement sous votre
 responsabilité — et la garantie annoncée à vos membres ne tient que si les cinq
 sont respectées.
+
+> **À ne pas confondre avec les cinq *conditions* du dispositif**, qui sont
+> autre chose et figurent dans [LIMITS.md](LIMITS.md) §0 : 240 réponses par
+> groupe, hébergement par un tiers distinct, attestation de l'effectif par un
+> tiers mandaté, groupes sans recoupement, transporteur indépendant de
+> l'hébergeur. **Aucune n'est optionnelle.** Deux listes de cinq, deux objets
+> différents : celle-ci décrit ce que vous avez à faire, celle-là ce sans quoi
+> la garantie ne tient pas. Un audit externe a relevé le 03/09/2026 qu'elles
+> portaient la même formule d'autorité sans que rien ne les distingue.
+>
+> **L'écart qui compte : l'hébergement par un tiers.** `LIMITS.md` le pose comme
+> non optionnel ; ce guide le présente plus bas comme une question à trancher
+> avec votre DPO, l'auto-hébergement apparaissant comme une option dégradée mais
+> praticable. C'est `LIMITS.md` qui fait foi : si vous hébergez vous-même, vous
+> détenez la liste **et** la base, et la séparation des rôles qui protège vos
+> membres n'existe plus.
 
 **La liste des personnes invitées.** VERA génère des liens anonymes ; c'est vous
 qui décidez à qui les envoyer. La fiabilité du résultat dépend entièrement de
@@ -118,11 +134,37 @@ personnel le liront.
 **Ce qu'il faut faire, et c'est simple.** Avant d'ouvrir les dépôts,
 communiquez-leur deux chiffres par groupe :
 
-- le **nombre d'invitations émises** — qu'ils peuvent vérifier eux-mêmes en
-  consultant `https://votre-domaine/api/engagement_cles` ;
+- le **nombre d'invitations émises** — qu'ils peuvent vérifier eux-mêmes ;
 - l'**effectif inscrit au registre du personnel** pour ce même groupe.
 
 Tout écart doit être justifié par écrit et annexé au procès-verbal.
+
+**Donnez-leur l'outil, pas l'adresse brute.** Ce guide renvoyait vers
+`https://votre-domaine/api/engagement_cles`, qui affiche du JSON contenant des
+clés publiques en hexadécimal — illisible pour qui n'est pas informaticien. Un
+script est prévu pour eux, et le guide ne le nommait pas ; signalé par un audit
+externe le 03/09/2026.
+
+```bash
+python3 verifier_engagement.py https://votre-domaine
+```
+
+Il affiche les invitations émises par groupe, en clair, avec la consigne de les
+comparer aux effectifs réels. Il signale une anomalie s'il en trouve une, et
+**dit explicitement quand un contrôle n'a pas pu avoir lieu** — un délégué doit
+pouvoir distinguer « rien à signaler » de « je n'ai rien vérifié ».
+
+Deux options utiles, à leur transmettre avec l'outil :
+
+```bash
+python3 verifier_engagement.py https://votre-domaine \
+    --attendu <empreinte publiée avant l'envoi des liens> \
+    --groupes "Atelier,Direction,RH"
+```
+
+Le script est dans le dépôt public, il ne demande aucune installation autre que
+Python, et il n'a besoin d'aucun accès privilégié : il interroge une adresse
+publique. Procédure complète : `VERIFICATION_CLIENT.md`.
 
 **Pourquoi cela vous sert.** Ce contrôle ne vous coûte rien et transforme votre
 consultation : vos membres savent qu'un tiers a vérifié, et le résultat devient
