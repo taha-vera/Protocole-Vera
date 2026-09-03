@@ -992,6 +992,39 @@ jamais avec votre nom ; en revanche, un appareil ou un reseau professionnel peut
 garder la trace que vous avez participe ». Le votant a besoin de savoir ce qui
 est protege et ce qui ne l'est pas, pas d'etre rassure.
 
+### `vera_persistance.py`, 980 lignes, enfin auditees
+
+Un auditeur l'avait nommee comme non auditee ; c'est fait le 03/09/2026. Quatre
+constats, deux qui tiennent et deux dont la portee etait surevaluee.
+
+**Le delai de connexion SQLite n'etait pas fixe** : le module prenait la valeur
+par defaut de la distribution -- cinq secondes le plus souvent, mais rien ne le
+garantit. Un verrou pose par une sauvegarde ou un agent de supervision faisait
+echouer une transaction en `OperationalError`, sans aucune reprise : le vote
+etait perdu. Porte a trente secondes, explicitement.
+
+**`initialiser()` n'etait pas idempotente** : un second appel remplacait la
+connexion sans fermer l'ancienne -- fuite de descripteur, verrous SQLite
+conserves par la connexion orpheline. Le cas ne survient pas en exploitation
+normale, mais un module de persistance ne doit pas dependre de la discipline de
+son appelant. Garde ajoutee.
+
+**Deux constats dont la portee etait surevaluee**, et il vaut de dire pourquoi.
+
+Le `VACUUM` sous verrou global etait qualifie de « deni de service par
+construction ». La mecanique est exacte -- la reecriture du fichier bloque tout
+-- mais cette fonction n'est appelee que par la CLOTURE : la consultation est
+alors fermee, plus aucun vote n'est accepte. Les autres `VACUUM` sont dans les
+migrations, jouees au demarrage. Le sortir du verrou serait pire : une lecture
+concurrente verrait un fichier a moitie reecrit.
+
+Et la perte de voix par redemarrage etait accompagnee d'une recommandation
+fondee sur une premisse fausse : « le RH ne peut pas regenerer de liens sans
+invalider la consultation ». Il le peut. Regenerer des liens pour un groupe DEJA
+DECLARE reutilise la cle existante -- `cle_publique()` ne cree que si elle est
+absente -- donc l'empreinte de l'ensemble ne bouge pas. C'est precisement le
+recours prevu, et il fonctionne.
+
 ### Les 106 lignes de Rust, enfin lues
 
 Dix audits ont liste `vera_blind_sig/src/lib.rs` dans leurs angles morts : deux

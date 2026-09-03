@@ -81,7 +81,19 @@ _SQL_TABLES = [
 
 
 def _connexion():
-    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False)
+    # TIMEOUT EXPLICITE, et non celui de la distribution.
+    #
+    # Sans ce parametre, SQLite prend la valeur par defaut du binding -- 5
+    # secondes le plus souvent, mais rien ne le garantit d'une distribution a
+    # l'autre. Si un processus externe pose un verrou sur le fichier (sauvegarde,
+    # `sqlite3` en ligne de commande, agent de supervision), une transaction
+    # echoue en OperationalError, et ce module n'a aucun mecanisme de reprise :
+    # le vote est perdu.
+    #
+    # Trente secondes couvrent largement une sauvegarde, et restent tres en deca
+    # du delai au bout duquel un votant abandonnerait. Constat d'un audit externe
+    # du 03/09/2026 : la valeur ne doit pas dependre de l'environnement.
+    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=30.0)
     # journal_mode=DELETE et non WAL, deliberement.
     #
     # LE PROBLEME QUE CELA FERME
@@ -267,8 +279,20 @@ def _migrer_tokens_sans_rowid(conn):
 
 
 def initialiser():
+    """Ouvre la connexion et applique les migrations. Idempotente.
+
+    Un second appel fermait l'ancienne connexion sans la relacher : fuite de
+    descripteur de fichier, et verrous SQLite potentiellement conserves par la
+    connexion orpheline jusqu'au passage du ramasse-miettes. Le cas se produit
+    lors d'un rechargement dynamique ou d'un appelant qui se trompe -- pas en
+    exploitation normale, mais un module de persistance ne doit pas dependre de
+    la discipline de son appelant. Constat d'un audit externe du 03/09/2026.
+    """
     global _conn
     with _verrou_db:
+        if _conn is not None:
+            # Deja initialise : on ne rejoue ni la connexion ni les migrations.
+            return
         _conn = _connexion()
         _migrer_schema_cles(_conn)
         _migrer_schema_tokens(_conn)
@@ -807,6 +831,22 @@ def effacer_etat_consultation():
     # Le wal_checkpoint qui figurait ici n'a plus d'objet depuis le passage en
     # journal_mode=DELETE (13/08) : aucun journal ne persiste entre deux
     # transactions. VACUUM suffit et fait le travail.
+    #
+    # LE VERROU EST TENU PENDANT LE VACUUM, ET C'EST ACCEPTABLE ICI.
+    #
+    # Un audit externe du 03/09/2026 l'a qualifie de « deni de service par
+    # construction » : VACUUM reecrit tout le fichier, ce qui peut durer
+    # plusieurs secondes, et rien ne passe pendant ce temps.
+    #
+    # Le constat est exact, la portee ne l'est pas. Cette fonction n'est appelee
+    # que par la CLOTURE (vera_consultation_api.py) : a cet instant la
+    # consultation est fermee, plus aucun vote n'est accepte, et il n'y a rien a
+    # bloquer. Les autres VACUUM de ce module sont dans les migrations, jouees au
+    # DEMARRAGE, avant que le service ne serve.
+    #
+    # Le sortir du verrou serait pire : une lecture concurrente pendant la
+    # reecriture du fichier verrait un etat intermediaire. La minimisation des
+    # octets doit etre atomique -- c'est tout l'objet de cette fonction.
     with _verrou_db:
         _conn.execute("VACUUM")
 
