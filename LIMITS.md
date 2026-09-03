@@ -1051,6 +1051,20 @@ pas : les migrations sont idempotentes et jouees au demarrage, le second
 cache est purge a chaque ecriture -- donc a chaque signature emise, ce qui est
 precisement le scenario de croissance decrit.
 
+**Un dernier constat, et c'est le seul des onze qui touchait une garantie.** La
+retention du cache de signatures se mesurait sur `time.time()`, l'horloge murale.
+Un ajustement NTP, un changement manuel, un decalage au demarrage faisaient
+varier la duree reelle : vers l'avant, le cache est purge trop tot et un votant
+perd son rattrapage ; **vers l'arriere, il est conserve PLUS d'une heure** -- le
+couple (empreinte du jeton, empreinte du message aveugle) restait en memoire
+au-dela de ce que ce module annonce, sans que rien ne le signale.
+
+Bascule sur `time.monotonic()`, qui ne recule jamais. Elle ne survit pas a un
+redemarrage, mais ce cache non plus : il est en memoire, il meurt avec le
+processus. Les deux autres usages de l'horloge -- la fenetre de douze mois
+glissants d'`historique_consultations` -- gardent l'horloge murale, qui doit
+traverser les redemarrages.
+
 ### Les 106 lignes de Rust, enfin lues
 
 Dix audits ont liste `vera_blind_sig/src/lib.rs` dans leurs angles morts : deux

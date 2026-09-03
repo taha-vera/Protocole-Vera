@@ -610,6 +610,29 @@ RETENTION_SIGNATURES_SECONDES = 3600
 _signatures_emises = {}
 
 
+def _horloge_cache():
+    """Horloge MONOTONE pour la retention du cache de signatures.
+
+    `time.time()` suit l'horloge murale : un ajustement NTP, un changement
+    manuel, un decalage au demarrage font varier la duree de retention reelle.
+    Vers l'avant, le cache est purge trop tot -- un votant perd son rattrapage.
+    Vers l'arriere, il est conserve PLUS d'une heure : le couple
+    (empreinte du jeton -> empreinte du message aveugle) reste en memoire au-dela
+    de ce que ce module annonce, sans que rien ne le signale.
+
+    `time.monotonic()` ne recule jamais et ignore les ajustements d'horloge.
+    Elle ne survit pas a un redemarrage du processus -- mais ce cache non plus :
+    il est en memoire, il meurt avec lui. C'est donc l'horloge exacte pour cet
+    usage.
+
+    A NE PAS ETENDRE a historique_consultations : sa fenetre de douze mois
+    glissants doit traverser les redemarrages, et exige l'horloge murale.
+
+    Constat d'un audit externe du 03/09/2026.
+    """
+    return time.monotonic()
+
+
 def _purger_signatures_expirees(seuil):
     """Efface physiquement les entrees expirees. A appeler SOUS _verrou_db.
 
@@ -647,7 +670,7 @@ def signature_deja_emise(empreinte_jeton, empreinte_message):
     rien : c'est une tentative d'obtenir un second credential, et l'appelant
     la refuse.
     """
-    seuil = time.time() - RETENTION_SIGNATURES_SECONDES
+    seuil = _horloge_cache() - RETENTION_SIGNATURES_SECONDES
     with _verrou_db:
         _purger_signatures_expirees(seuil)
         entree = _signatures_emises.get((empreinte_jeton, empreinte_message))
@@ -662,7 +685,7 @@ def jeton_a_deja_signe(empreinte_jeton):
     Distingue deux cas que l'echec de consommation confond : un rejeu identique
     (rattrapable) et une tentative de SECOND message aveugle (refus).
     """
-    seuil = time.time() - RETENTION_SIGNATURES_SECONDES
+    seuil = _horloge_cache() - RETENTION_SIGNATURES_SECONDES
     with _verrou_db:
         _purger_signatures_expirees(seuil)
         for jeton, _msg in _signatures_emises:
@@ -677,7 +700,7 @@ def enregistrer_signature_emise(empreinte_jeton, empreinte_message, signature_he
     Purge les entrees expirees au passage : pas de tache de fond, et le cache
     reste borne par le nombre de signatures d'une heure.
     """
-    maintenant = time.time()
+    maintenant = _horloge_cache()
     seuil = maintenant - RETENTION_SIGNATURES_SECONDES
     with _verrou_db:
         _signatures_emises[(empreinte_jeton, empreinte_message)] = (
