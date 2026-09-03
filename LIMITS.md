@@ -154,7 +154,7 @@ mentionnons parce que cette section inventorie ce que le système conserve, et
 qu'une structure gardant précisément ce qu'on promet de ne pas garder merite sa
 ligne.
 
-**Quatre traces de participation, a connaitre.**
+**Cinq traces de participation, a connaitre.**
 
 *Sur l'appareil du votant.* La page de vote inscrit un marqueur local
 (`vera_vote:` suivi de l'empreinte du jeton) pour reconnaitre un double clic ou
@@ -235,6 +235,23 @@ a enterine le correctif partiel. **Sixieme occurrence du motif.** Corrige, la
 cible portee de 120 a 400 octets -- `max_length=100` borne des CARACTERES, qui
 valent jusqu'a quatre octets chacun -- et la garde couvre desormais les deux
 cotes.
+
+*Dans la base, pendant toute la consultation.* La table `jetons_autorisation`
+conserve le couple (empreinte SHA-256 du jeton, `utilise = 0 ou 1`) jusqu'a la
+cloture. C'est l'anti-rejeu, il est necessaire -- mais **une organisation qui
+detient la liste des invitations peut calculer ces empreintes**, et donc lire
+qui a participe, exactement, si elle obtient la base.
+
+C'est la plus precise des cinq traces : pas une inference, une correspondance
+directe. Elle suppose un acces a la base, ce que la separation des roles
+interdit -- mais c'est precisement pourquoi cette separation n'est pas
+negociable, et pourquoi une organisation qui s'auto-heberge perd bien plus que
+ce qu'elle croit : elle obtient la liste de participation nominative de ses
+propres salaries.
+
+Relevee le 03/09/2026 par un audit externe. Elle etait mentionnee ailleurs dans
+ce document -- le cache de signatures y renvoie -- mais ne figurait pas dans
+cette liste, qui est celle qu'on lit pour savoir ce qui subsiste.
 
 **Deux précisions qui ont coûté deux correctifs.** Le bourrage se calcule en
 **octets UTF-8**, pas en caractères : un nom de 100 caractères accentués occupe

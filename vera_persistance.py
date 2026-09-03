@@ -170,6 +170,23 @@ def _connexion():
     # recuperables forensiquement. La promesse "apres cloture le serveur ne
     # revele plus rien" ne tient au niveau des OCTETS que si ce PRAGMA est
     # actif. Cout : ecritures un peu plus lentes, negligeable a cette echelle.
+    #
+    # CE QU'IL NE GARANTIT PAS, ET IL FAUT LE DIRE.
+    #
+    # secure_delete + VACUUM minimisent AU NIVEAU DE SQLITE : les lignes
+    # supprimees sont ecrasees, les pages mortes liberees, le fichier reecrit.
+    # C'est tout ce que ce module controle.
+    #
+    # Restent hors de sa portee, et hors de celle de VERA : le nivellement
+    # d'usure des SSD, qui conserve des copies de blocs reecrits ; les
+    # instantanes d'hyperviseur ; les sauvegardes ; le journal du systeme de
+    # fichiers ; la memoire vive et le fichier d'echange.
+    #
+    # Autrement dit : bonne minimisation applicative, PAS destruction forensique
+    # garantie du support physique. Un audit externe du 03/09/2026 a releve que
+    # le commentaire pouvait se lire comme la seconde. Une organisation dont
+    # l'effacement doit etre opposable a besoin d'un chiffrement au niveau du
+    # volume (LUKS), qui sort du perimetre de ce projet.
     conn.execute("PRAGMA secure_delete=ON")
     return conn
 
