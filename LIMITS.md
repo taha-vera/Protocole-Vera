@@ -968,6 +968,30 @@ vote etait accessible sous un second chemin, `/static/vote.html`, sans bloc de
 non-journalisation. Et la configuration nginx publiee annoncait encore le seul
 domaine DuckDNS, ce qui contredisait la procedure de verification.
 
+### La phrase la plus absolue du projet etait celle que lit le votant
+
+Le meme audit, le 03/09/2026, en la donnant comme son constat le moins assure --
+« cela releve du jugement, pas de la verification ». Il avait raison sur les deux
+points : c'est un jugement, et il est juste.
+
+La page de vote conseillait de repondre depuis un telephone personnel, et
+ajoutait : « **Votre reponse est protegee dans tous les cas**, mais un appareil
+professionnel peut garder la trace que vous avez participe ».
+
+Deux choses n'allaient pas. La formule est categorique -- « dans tous les cas » --
+sur un systeme dont le README dit desormais « aucune partie legitime, prise
+isolement », et dont la section 9 du present document enumere les canaux
+temporels qui ne sont pas couverts. **La phrase la plus absolue du projet etait
+celle adressee a la personne qu'il s'agit de proteger.**
+
+Et elle etait mal placee : elle servait a rassurer sur l'usage d'un appareil
+professionnel, c'est-a-dire dans le cas ou la protection est la plus faible.
+
+Remplacee par ce qui est vrai et suffisant : « ce que vous repondez ne part
+jamais avec votre nom ; en revanche, un appareil ou un reseau professionnel peut
+garder la trace que vous avez participe ». Le votant a besoin de savoir ce qui
+est protege et ce qui ne l'est pas, pas d'etre rassure.
+
 ### Le motif qui revient, et ce qu'il coute
 
 Un second audit externe, le 27/08 egalement, a montre que **le correctif de la
