@@ -26,10 +26,10 @@ précisément celui que ces empreintes ferment.
 
 ## Empreintes de référence
 
-Version du 3 septembre 2026 (justification du calcul de bourrage de l'URL) :
+Version du 3 septembre 2026 (accents de la mention AGPL) :
 
 ```
-72c7ccf99dfd627ef92c6bafbacbedcafeea3dfa713f93a6b7c00889fe53d332  static/vote.html
+a6bccfb1edd86b722f6b0e54d59444e7a4c941da04bc2e97423b2912e9fbea7e  static/vote.html
 08e678cc5d64e9996cfe3cf54eb1220a1bb032c54d0c4351651f8aee057baa66  static/blindrsa-bundle.js
 ```
 

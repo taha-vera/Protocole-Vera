@@ -1091,10 +1091,28 @@ c'etait le troisieme argument pour un nom de domaine en propre, et le plus
 concret : les deux premiers portaient sur ce qu'un adversaire pourrait faire,
 celui-ci sur des votants qui n'auraient simplement jamais recu leur lien.
 
-**Cette observation reste a refaire sur le nouveau nom.** Un `.fr` recent, sans
-historique, peut lui aussi etre filtre par certaines passerelles -- moins
-probablement qu'un sous-domaine dynamique, mais ce n'est pas verifie. A tester
-avant le premier envoi reel, depuis plusieurs operateurs.
+**Refait sur le nouveau nom le 03/09/2026. Trois chemins testes, trois
+succes :**
+
+| Chemin | Resultat |
+|---|---|
+| 4G, operateur mobile grand public | code 200 |
+| SMS, passerelle de l'operateur | lien intact, page ouverte |
+| Courriel Hotmail vers Gmail | boite de reception, pas d'indesirables |
+
+`vera-consultation.fr` ne se heurte a aucun des filtres qui bloquaient DuckDNS.
+
+**Ce que ces trois mesures NE disent pas, et c'est le risque qui comptait.**
+Elles portent sur des reseaux grand public. Elles ne disent rien des proxys et
+filtres d'ENTREPRISE -- or c'est precisement la que la perte serait correlee au
+terrain : un salarie derriere l'infrastructure de son employeur peut voir autre
+chose, et l'organisateur n'aurait aucun moyen de le savoir. Un envoi teste
+depuis une boite personnelle vers une autre boite personnelle ne prouve rien sur
+ce point.
+
+Cela ne se saura qu'au premier envoi reel. **Prevoir un canal de secours** --
+le parametre `c=` de contact independant existe pour cela -- et considerer
+qu'un groupe entier silencieux peut signifier un filtrage, pas un desinteret.
 
 ## 12ter. Une voix peut se perdre en silence, et pas au hasard
 
