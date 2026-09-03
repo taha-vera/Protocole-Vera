@@ -131,10 +131,31 @@ def _connexion():
     #
     # POURQUOI DELETE PLUTOT QU'UNE SECONDE BASE
     # Attacher une base separee pour les jetons aurait ferme CETTE instance du
-    # canal. DELETE ferme la classe : aucun journal ne persiste entre deux
+    # canal. DELETE couvre la classe : aucun journal ne persiste ENTRE deux
     # transactions, pour aucune table, y compris celles qu'on n'a pas encore
     # identifiees. C'est la lecon d'un correctif precedent, qui avait sorti du
     # WAL une table sur les deux qui portaient une empreinte de jeton.
+    #
+    # CE QUE DELETE NE FAIT PAS, ET LE COMMENTAIRE LE LAISSAIT CROIRE.
+    #
+    # Ce texte disait « DELETE ferme la classe ». Un audit externe du 03/09/2026
+    # a releve la formulation : SQLite ecrit toujours un journal de rollback
+    # PENDANT une transaction d'ecriture, et le supprime au commit. Un
+    # observateur capable de lire le fichier a cet instant precis -- ou
+    # d'observer les metadonnees du systeme de fichiers, dates et tailles --
+    # peut donc encore voir passer une ecriture.
+    #
+    # La difference avec le WAL reste entiere : la fenetre passe de PERMANENTE a
+    # quelques millisecondes, et elle exige une lecture SYNCHRONE du disque, pas
+    # un instantane pris apres coup. C'est ce qui distingue une correlation que
+    # n'importe quelle sauvegarde revelait d'une attaque qui demande un acces
+    # continu au systeme de fichiers -- lequel est deja exclu par le modele de
+    # menace (LIMITS.md section 9 : « toute lecture repetee » est hors
+    # perimetre).
+    #
+    # Formulation exacte : DELETE empeche le journal de PERSISTER entre les
+    # transactions. Il ne protege pas contre un observateur capable de lire le
+    # fichier PENDANT l'une d'elles.
     #
     # LE COUT, MESURE
     # 632 votes/seconde contre 1450 en WAL sur le seul chemin de persistance.

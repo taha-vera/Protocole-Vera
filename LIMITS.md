@@ -613,6 +613,20 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+**Ce que `journal_mode=DELETE` ne fait pas.** SQLite ecrit toujours un journal de
+rollback PENDANT une transaction d'ecriture, et le supprime au commit. Un
+observateur capable de lire le fichier a cet instant precis -- ou d'observer les
+metadonnees du systeme de fichiers -- peut donc encore voir passer une ecriture.
+Le passage au mode DELETE fait passer la fenetre de PERMANENTE a quelques
+millisecondes, et exige desormais une lecture SYNCHRONE plutot qu'un instantane
+pris apres coup ; il ne la supprime pas.
+
+Cette nuance ne change pas le perimetre -- « toute lecture repetee » est deja
+hors modele -- mais elle change ce qu'on peut affirmer. Le commentaire du code
+disait « DELETE ferme la classe » ; un audit externe l'a releve le 03/09/2026
+comme trop fort. Formulation exacte : DELETE empeche le journal de PERSISTER
+entre les transactions.
+
 **Deux fonctions de dérivation distinctes, à ne pas confondre.** Les mots de
 passe d'administration utilisent PBKDF2-HMAC-SHA256 à **200 000** itérations
 (`vera_admin_auth.py`). La clé de chiffrement de la base est dérivée de
