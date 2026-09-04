@@ -643,6 +643,29 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+### Un resultat faux pouvait etre publie sans bruit
+
+Constat d'un audit externe le 04/09/2026, et le plus serieux de son lot.
+`_projeter_sur_simplexe` bouclait cent fois puis sortait **sans verifier qu'elle
+avait converge**. Et sa correction d'arrondi, `max(0, entiers[i_max] + delta)`,
+pouvait casser l'invariant de somme qu'elle venait de retablir.
+
+Aucune fuite : tout ceci est du post-traitement, gratuit en epsilon. Mais un
+vecteur hors du simplexe -- somme differente de l'effectif, ou case negative --
+aurait ete publie sans que rien ne le signale. **Un resultat faux publie en
+silence, c'est exactement ce que ce projet refuse partout ailleurs.**
+
+Deux fail-closed ajoutes : la non-convergence leve, et le contrat de la fonction
+est verifie avant de rendre. Mesure sur 20 000 projections a quatre effectifs,
+cas extremes compris : aucun declenchement. La garde ne crie pas au loup.
+
+**Et « garantie DP calculee par OpenDP » surpromettait.** Le code appelle
+`enable_features("contrib")` -- composants qu'OpenDP declare explicitement non
+vettes -- et la bibliotheque ne fournit que l'echantillonneur Laplace SCALAIRE.
+La comptabilite du vecteur a trois cases est un raisonnement de ce projet,
+demontre en section 14. La page d'accueil dit desormais « bruit echantillonne
+par OpenDP, comptabilite demontree dans les limites ».
+
 ### Le document le plus lu etait le moins controle
 
 Constat d'un audit externe le 04/09/2026. `test_parametres_documentes.py`

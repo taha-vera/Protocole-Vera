@@ -26,7 +26,10 @@
 **Version :** 2.0 -- 31/07/2026
 **Depot :** https://github.com/taha-vera/projet-vera-consultations-
 **Contact :** tahahouari@hotmail.fr
-**URL production :** https://vera-consultation.duckdns.org
+**URL production A LA DATE DE CE DOCUMENT :** https://vera-consultation.duckdns.org
+*(La production est sur `vera-consultation.fr` depuis le 02/09/2026. Ce
+document est un instantane date, conserve comme trace : il n'est pas mis a
+jour. Signale par un audit externe le 04/09.)*
 
 **Note sur cette version.** La version 1.0 (09/07/2026) pointait par erreur vers
 un depot obsolete et n'integrait pas trois semaines

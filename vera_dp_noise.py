@@ -23,6 +23,17 @@ fuite sub-microseconde detectee, non exploitable en conditions reelles.
 
 import opendp.prelude as dp
 
+# enable_features("contrib") active des composants qu'OpenDP declare
+# explicitement NON VETTES. Ce que la bibliotheque garantit ici est
+# l'echantillonneur Laplace SCALAIRE ; la comptabilite epsilon du vecteur a
+# trois cases -- Delta_1 = 2 sous substitution, donc scale = 4 pour eps = 0,5 --
+# est un raisonnement de CE projet, demontre dans LIMITS.md section 14 et
+# verifie par validation_opendp.py et tests/test_porte2_mia.py.
+#
+# La distinction compte : « garantie DP calculee par OpenDP » surpromettait, et
+# figurait sur la page d'accueil jusqu'au 04/09/2026. Un audit externe l'a
+# relevee. Formulation exacte : bruit echantillonne par OpenDP, comptabilite
+# demontree ici.
 dp.enable_features("contrib")
 
 DELTA_INT = 2
@@ -113,12 +124,43 @@ def _projeter_sur_simplexe(valeurs_bruitees: list[float], total: int) -> list[in
         v = [x + ecart for x in v]
         if abs(sum(v) - total) < 1e-9 and all(x >= -1e-9 for x in v):
             break
+    else:
+        # La boucle s'est terminee sans converger.
+        #
+        # 100 iterations suffisent tres largement -- la projection converge en
+        # quelques passes sur trois cases -- mais sortir en silence publierait
+        # un vecteur hors du simplexe : somme differente de N, ou case negative.
+        # Ce n'est pas une fuite (tout ceci est du post-traitement, gratuit en
+        # epsilon), c'est un RESULTAT FAUX publie sans que rien ne le signale.
+        # Constat d'un audit externe le 04/09/2026.
+        raise ValueError(
+            f"projection non convergee apres 100 iterations : somme "
+            f"{sum(v):.6f} pour un total attendu de {total}. Publier ce "
+            "vecteur donnerait un histogramme incoherent.")
+
     entiers = [max(0, int(round(x))) for x in v]
-    # Correction d'arrondi : forcer la somme exacte
+
+    # CORRECTION D'ARRONDI, ET SON GARDE-FOU.
+    #
+    # `max(0, entiers[i_max] + delta)` protege contre une case negative -- mais
+    # si le clamp mordait, il casserait l'invariant que cette ligne vient de
+    # retablir : la somme ne vaudrait plus `total`. Inatteignable a n >= 240,
+    # ou |delta| <= 1,5 et ou i_max est la plus grande case ; mais la garantie
+    # ne doit pas dependre d'un raisonnement tenu ailleurs.
     delta = total - sum(entiers)
     if delta != 0:
         i_max = entiers.index(max(entiers))
         entiers[i_max] = max(0, entiers[i_max] + delta)
+
+    # FAIL-CLOSED. Le contrat de cette fonction est verifiable en deux lignes :
+    # on le verifie, plutot que de le supposer.
+    if sum(entiers) != total or any(e < 0 for e in entiers):
+        raise ValueError(
+            f"projection invalide : {entiers}, somme {sum(entiers)} pour un "
+            f"total attendu de {total}. Refus de publier un histogramme qui ne "
+            "somme pas a l'effectif -- un resultat faux serait pire qu'une "
+            "absence de resultat.")
+
     return entiers
 
 
