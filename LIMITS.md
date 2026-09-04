@@ -643,6 +643,31 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+### L'historique complet balaye : aucun secret
+
+La garde `test_repli_admin_retire.py` verifie l'arbre de travail. Un audit
+externe a note le 04/09/2026 qu'elle ne dit rien des commits passes -- remarque
+pertinente sur ce projet precisement, puisque des secrets y ont reellement fuite
+le 31/07/2026, par le mot de passe en clair dans l'unite systemd. **Un secret
+retire d'un fichier reste dans l'historique**, et un depot public le rend
+consultable indefiniment.
+
+Les **525 commits** ont ete balayes. Resultat : aucun secret. Cinq occurrences
+de `VERA_ADMIN_PASS`, toutes des constantes de test explicites --
+`mdp_de_test`, `motdepasse_de_test`, `CONSTANTE_DE_TEST_PAS_UN_SECRET`,
+`test1234` -- plus la ligne d'extraction depuis l'unite systemd, corrigee le
+23/08. Aucune cle privee. Aucun fichier `.db`, `.env`, `.key` ou `.pem` n'a
+jamais ete versionne. Les seules chaines de haute entropie sont les empreintes
+publiees de la page de vote, dont c'est la raison d'etre.
+
+**La fuite du 31/07 n'est donc jamais passee par git** : elle a eu lieu dans
+l'unite systemd du serveur, qui n'est pas versionnee. C'est coherent avec ce que
+la section 12 en dit, et cela vaut d'etre etabli plutot que suppose.
+
+Le balayage tourne desormais a chaque poussee (`.github/workflows/gardes.yml`),
+sur l'historique complet -- `fetch-depth: 0`, sans quoi il ne verrait qu'un
+commit.
+
 ### `unsafe-inline` etait le cran ouvert du scenario « operateur actif »
 
 Constat d'un audit externe le 04/09/2026. La section 6 pose le scenario de

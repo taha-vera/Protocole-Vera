@@ -127,6 +127,43 @@ jobs:
           pip install --quiet opendp
           python3 tests/test_porte2_mia.py
 
+      # AUCUN SECRET DANS L'HISTORIQUE, PAS SEULEMENT DANS L'ARBRE.
+      #
+      # La garde `test_repli_admin_retire.py` verifie l'arbre de travail. Un
+      # audit externe a note le 04/09/2026 qu'elle ne dit rien des commits
+      # passes -- or des secrets ont reellement fuite sur ce projet le
+      # 31/07/2026, par le mot de passe en clair dans l'unite systemd.
+      #
+      # Un secret retire d'un fichier reste dans l'historique git, et un depot
+      # public le rend consultable indefiniment. Le balayage du 04/09 sur les
+      # 525 commits n'a rien trouve : cinq occurrences, toutes des constantes de
+      # test explicites. Cette etape empeche que cela cesse d'etre vrai.
+      #
+      # fetch-depth: 0 est requis -- sans lui, actions/checkout ne recupere
+      # qu'un commit et le balayage ne verifierait rien.
+      - name: Aucun secret dans l'historique complet
+        run: |
+          git rev-list --count HEAD
+          TROUVES=$(git log --all -p --format="" \
+            | grep -inE "^\+.*(BEGIN [A-Z ]*PRIVATE KEY|VERA_DB_KEY=[0-9a-f]{16,}|[0-9a-f]{32}\\\$[0-9a-f]{64})" \
+            || true)
+          if [ -n "$TROUVES" ]; then
+            echo "SECRET DANS L'HISTORIQUE :"
+            echo "$TROUVES" | head -20
+            echo ""
+            echo "Un secret retire d'un fichier reste dans les commits."
+            echo "Le revoquer, puis reecrire l'historique si le depot est public."
+            exit 1
+          fi
+          if git log --all --diff-filter=A --name-only --format="" \
+             | grep -qE "\.(db|env|key|pem)$"; then
+            echo "Un fichier .db/.env/.key/.pem a ete versionne un jour."
+            git log --all --diff-filter=A --name-only --format="" \
+              | grep -E "\.(db|env|key|pem)$" | sort -u
+            exit 1
+          fi
+          echo "Aucun secret ni fichier sensible dans l'historique."
+
       # Les fichiers Python doivent au moins compiler. Ne remplace pas la
       # suite de tests, mais attrape une erreur de syntaxe avant le serveur.
       - name: Compilation des modules
