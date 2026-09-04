@@ -1,6 +1,30 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""vera_persistance.py - Persistance SQLite Porte 14."""
+"""vera_persistance.py - Persistance SQLite Porte 14.
+
+CE QUI EST CHIFFRE AU REPOS, ET CE QUI NE L'EST PAS.
+
+`VERA_DB_KEY` chiffre **la cle privee RSA**, et elle seule : `_get_fernet` n'est
+appele que par les trois fonctions de `cle_rsa_active`. Le reste du fichier
+SQLite est en clair -- `jetons_autorisation`, `compteurs_votes`, `effectifs`,
+`resultats_publies`, `tokens_consommes`.
+
+Ce n'est pas un oubli : ces tables ne contiennent aucune donnee en clair. Les
+jetons y sont sous forme d'empreintes SHA-256, les secrets de vote sous forme
+d'empreintes SHA-384, et les compteurs sont des agregats destines a etre
+publies. Chiffrer ne protegerait que contre un vol du fichier -- lequel donne
+deja acces a la cle, puisqu'elle vit dans l'environnement du processus.
+
+**Mais le module se decrivait comme « persistance chiffree de l'etat »**, ce
+qu'un lecteur pouvait entendre comme « le fichier est chiffre ». Il ne l'est
+pas. Un instantane d'hyperviseur revele qui a participe : l'organisation qui
+detient la liste recalcule les empreintes de jetons. C'est la cinquieme trace
+de participation de LIMITS.md section 1.
+
+Formulation exacte, apres un audit externe du 04/09/2026 : seule la cle privee
+RSA est chiffree au repos ; le reste repose sur le controle d'acces au serveur.
+Pour chiffrer le volume, c'est LUKS -- hors perimetre de ce projet.
+"""
 
 import sqlite3
 import os

@@ -173,6 +173,44 @@ def main():
         print(f"ECHEC 4bis. {e}")
         ok = False
 
+    # --- 4ter. LA COMPRESSION DOIT ETRE COUPEE -------------------------
+    #
+    # CONSTAT DU 04/09/2026, par un audit externe.
+    #
+    # Le bourrage suppose que la reponse n'est pas compressee. Ses octets de
+    # remplissage sont des « x » repetes : gzip ramene 971 octets constants a
+    # 85 pour « RH » et 105 pour « Securite generale » -- mesure. L'ecart entre
+    # services redevient lisible, et le bourrage ne sert plus a rien.
+    #
+    # Cela tenait parce que la configuration Ubuntu par defaut ne compresse que
+    # text/html. Une protection qui repose sur un defaut d'environnement n'est
+    # pas une protection : c'est la lecon de la Porte 19, et celle du canal des
+    # journaux uvicorn.
+    try:
+        conf = os.path.join(RACINE, "infra", "nginx-vera-consultation.conf")
+        if not os.path.exists(conf):
+            raise Echec("configuration nginx introuvable : motif perime.")
+        texte = open(conf, encoding="utf-8").read()
+        actives = [
+            l.strip() for l in texte.splitlines()
+            if l.strip().startswith("gzip") and "off" not in l
+            and not l.strip().startswith("#")
+        ]
+        if actives:
+            raise Echec(
+                "la compression est activee dans la configuration nginx : "
+                "elle defait le bourrage.\n      " + "\n      ".join(actives))
+        if "gzip off;" not in texte:
+            raise Echec(
+                "la configuration nginx ne coupe pas explicitement gzip. Cela "
+                "tient aujourd'hui\n      parce que le defaut Ubuntu ne "
+                "compresse que text/html -- un defaut d'environnement\n      "
+                "n'est pas une protection. Ajouter `gzip off;` au bloc server.")
+        _ok("4ter. la compression est coupee explicitement")
+    except Echec as e:
+        print(f"ECHEC 4ter. {e}")
+        ok = False
+
     try:
         c = cible_url()
         if c < 900:

@@ -705,16 +705,39 @@ def connexion_rh(payload: IdentifiantsRH, response: Response, request: Request):
     # ICI, avant `verifier_identifiants`, evite de payer les 200 000 iterations
     # pour une tentative qu'on refusera de toute facon -- c'est ce qui coupe
     # l'amplification. Ajoute le 04/09/2026.
-    restant = _compte_bloque(payload.identifiant)
-    if restant > 0:
-        raise HTTPException(
-            status_code=429,
-            detail=(f"Trop de tentatives sur ce compte. Reessayez dans "
-                    f"{int(restant // 60) + 1} minute(s)."),
-        )
+    # LE BLOCAGE PAR COMPTE NE DOIT PAS ENFERMER SON PROPRIETAIRE DEHORS.
+    #
+    # Premiere version (04/09, matin) : le blocage etait verifie AVANT le mot de
+    # passe, pour ne pas payer le PBKDF2 sur une tentative condamnee. Un audit
+    # externe a montre le meme jour que cela creait un deni de service sur
+    # l'organisateur : qui connait l'identifiant RH le maintient bloque en
+    # permanence a 1,4 tentative par minute. Sur sept jours, il perd son tableau
+    # de bord et surtout `POST /api/rh/cloturer` -- c'est-a-dire l'effacement
+    # promis aux participants.
+    #
+    # Un blocage qui empeche la CLOTURE est pire que la force brute qu'il
+    # arrete.
+    #
+    # On verifie donc les identifiants d'abord. Les bons passent, blocage ou
+    # non. Le mauvais mot de passe se voit refuser, et c'est la que le blocage
+    # s'applique.
+    #
+    # POURQUOI CELA NE ROUVRE PAS L'AMPLIFICATION. nginx limite deja cette route
+    # a 1 r/s par adresse (`limit_req zone=vera_login`), soit au pire 10 % d'un
+    # coeur en PBKDF2. Le cout est borne en amont, et le blocage par IP -- lui
+    # inchange, croissant jusqu'a une heure -- reste la premiere ligne.
+    identifiants_valides = auth.verifier_identifiants(
+        payload.identifiant, payload.mot_de_passe)
 
-    if not auth.verifier_identifiants(payload.identifiant, payload.mot_de_passe):
+    if not identifiants_valides:
         _enregistrer_echec(ip_client, payload.identifiant)
+        restant = _compte_bloque(payload.identifiant)
+        if restant > 0:
+            raise HTTPException(
+                status_code=429,
+                detail=(f"Trop de tentatives sur ce compte. Reessayez dans "
+                        f"{int(restant // 60) + 1} minute(s)."),
+            )
         raise HTTPException(status_code=401, detail="Identifiant ou mot de passe incorrect")
 
     _reinitialiser_echecs(ip_client, payload.identifiant)
@@ -784,7 +807,18 @@ def creer_compte_rh(payload: CreerCompteRequete):
             status_code=503,
             detail="Création de compte désactivée (VERA_SECRET_CREATION_COMPTE non configuré sur ce serveur).",
         )
-    if not hmac.compare_digest(payload.secret_admin, _secret_admin_creation):
+    # .encode() DES DEUX COTES.
+    #
+    # compare_digest accepte deux str, mais SEULEMENT si elles sont
+    # ASCII-only : sur un caractere accentue il leve TypeError, que rien
+    # n'attrape -- l'appelant recevait un 500 au lieu d'un 403, et le message
+    # d'erreur ne disait rien d'utile. Un secret d'administration contenant un
+    # accent est parfaitement legitime. Releve par un audit externe le
+    # 04/09/2026.
+    #
+    # En octets, la comparaison reste a temps constant et accepte tout.
+    if not hmac.compare_digest(payload.secret_admin.encode("utf-8"),
+                               _secret_admin_creation.encode("utf-8")):
         raise HTTPException(status_code=403, detail="Secret administrateur incorrect")
 
     if len(payload.mot_de_passe) < 8:

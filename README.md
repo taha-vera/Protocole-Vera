@@ -252,7 +252,7 @@ cd vera_blind_sig
 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release
 cd ..
 
-# Clé de chiffrement de la base — À CONSERVER HORS DU SERVEUR.
+# Clé qui chiffre la clé privée RSA — À CONSERVER HORS DU SERVEUR.
 # Sans elle, aucun redémarrage n'est possible et les données sont illisibles.
 python3 -c "import secrets; print(secrets.token_hex(32))"
 
@@ -277,7 +277,7 @@ Variables d'environnement de l'unité systemd :
 
 | Variable | Rôle | Défaut |
 |---|---|---|
-| `VERA_DB_KEY` | Clé de chiffrement de la base (64 caractères hexadécimaux). **Obligatoire.** | — |
+| `VERA_DB_KEY` | Chiffre **la clé privée RSA** au repos (64 caractères hexadécimaux). **Obligatoire.** Ne chiffre pas le reste de la base — voir ci-dessous. | — |
 | `VERA_ADMIN_USER` | Identifiant du compte d'amorçage | — |
 | `VERA_ADMIN_HASH` | Empreinte PBKDF2 du mot de passe, format `sel$hash` | — |
 | `VERA_DB_PATH` | Emplacement de la base | `/root/vera_state.db` |
@@ -604,7 +604,20 @@ consultation avec de vrais participants n'a encore eu lieu.
 **Version courante :** branche `main`, 27 août 2026 — 36 tests automatiques,
 plus un test de résistance au crash exercé sur le chemin HTTP réel.
 
-**La clé de chiffrement de la base est détenue par une seule personne, sans
+**Ce que `VERA_DB_KEY` chiffre, exactement.** Elle chiffre **la clé privée
+RSA**, et elle seule. Le reste du fichier SQLite est en clair : empreintes de
+jetons, compteurs de réponses, effectifs, résultats publiés. L'impact est borné
+— les jetons et les secrets de vote y sont sous forme d'empreintes, jamais en
+clair — mais **un instantané d'hyperviseur ou une sauvegarde n'est pas
+inoffensif pour autant** : il révèle qui a participé, par les empreintes de
+jetons que l'organisation détentrice de la liste peut recalculer.
+
+Ce document parlait de « clé de chiffrement de la base », ce qu'un DPO aurait
+lu comme « le fichier est chiffré ». Corrigé le 04/09/2026 après un audit
+externe. Pour un chiffrement du volume entier, c'est LUKS ou dm-crypt qu'il
+faut, au niveau système — hors du périmètre de VERA.
+
+**La clé qui chiffre la clé privée RSA est détenue par une seule personne, sans
 séquestre.** C'est la principale dépendance non technique du système, et vous
 devez le savoir avant de vous engager.
 

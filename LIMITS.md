@@ -643,6 +643,65 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+### « Base chiffree » promettait plus que le code ne fait
+
+Constat d'un audit externe le 04/09/2026. `VERA_DB_KEY` etait decrite comme la
+« cle de chiffrement de la base », et le module de persistance comme
+« persistance chiffree de l'etat ». En realite, Fernet n'est appele que par les
+trois fonctions de `cle_rsa_active` : **seule la cle privee RSA est chiffree au
+repos.**
+
+Les autres tables sont en clair. Ce n'est pas un oubli -- elles ne contiennent
+aucune donnee en clair : empreintes SHA-256 des jetons, empreintes SHA-384 des
+secrets, compteurs agreges destines a etre publies. Et chiffrer ne protegerait
+que contre le vol du fichier, lequel donne deja acces a la cle, qui vit dans
+l'environnement du processus.
+
+**Mais un DPO qui lit « base chiffree » conclut qu'un instantane d'hyperviseur
+est inoffensif. Il ne l'est pas** : il revele qui a participe, par les
+empreintes de jetons que l'organisation detentrice de la liste peut recalculer.
+C'est la cinquieme trace de participation decrite en section 1.
+
+Formulation corrigee partout. Pour chiffrer le volume entier, c'est LUKS, au
+niveau systeme -- hors perimetre, comme pour l'effacement forensique.
+
+### La compression aurait defait tout le bourrage
+
+`gzip` n'etait jamais coupe dans la configuration nginx. Les octets de
+remplissage sont des « x » repetes : mesure faite le 04/09, **971 octets
+constants tombent a 85 pour « RH » et 105 pour « Securite generale »**. L'ecart
+entre services redevient lisible, et le bourrage -- corrige au prix de deux
+passes en aout -- ne sert plus a rien.
+
+Cela tenait pour une raison fragile : la configuration Ubuntu par defaut ne
+compresse que `text/html`. Le jour ou quelqu'un ajoute `gzip_types
+application/json`, la protection tombe **sans qu'aucun test ne le voie**. Meme
+motif que les journaux uvicorn : une protection qui repose sur un defaut
+d'environnement n'en est pas une.
+
+`gzip off;` est desormais explicite, et `tests/test_bourrage_client_serveur.py`
+echoue si la compression revient ou si la ligne disparait.
+
+### Le blocage par compte enfermait son proprietaire dehors
+
+Le compteur par compte ajoute le matin meme -- pour contrer une attaque
+distribuee -- etait verifie AVANT le mot de passe, afin de ne pas payer le
+PBKDF2 sur une tentative condamnee. Le meme audit a montre l'effet : qui connait
+l'identifiant RH le maintient bloque en permanence a 1,4 tentative par minute.
+Sur sept jours, l'organisateur perd son tableau de bord et surtout
+`POST /api/rh/cloturer` -- **l'effacement promis aux participants**.
+
+Un blocage qui empeche la cloture est pire que la force brute qu'il arrete.
+
+Les identifiants sont desormais verifies d'abord : les bons passent, blocage ou
+non ; le blocage ne s'applique qu'a un echec. L'amplification ne rouvre pas pour
+autant -- nginx limite cette route a 1 r/s par adresse, soit au pire 10 % d'un
+coeur, et le blocage par IP reste la premiere ligne.
+
+*Au passage : `hmac.compare_digest` recevait deux `str`. Il leve `TypeError` sur
+un caractere non-ASCII -- un secret d'administration accentue produisait un 500
+au lieu d'un 403. Compare en octets desormais.*
+
 ### Nginx etait contournable sans que rien ne le verifie
 
 Toute la protection reseau vit dans nginx : `access_log off` sur les routes de
