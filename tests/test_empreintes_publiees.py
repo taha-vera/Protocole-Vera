@@ -99,6 +99,85 @@ elif sri_reel not in attributs:
         f"\n    -> le navigateur refuserait de charger le module : aucun vote "
         f"n'aboutirait.")
 
+# --- Les empreintes CSP suivent-elles les scripts inline ? ----------------
+#
+# CONSTAT DU 04/09/2026. La CSP autorisait 'unsafe-inline' sur script-src :
+# n'importe quel script injecte s'executait, ce qui laissait ouvert le cran
+# exact du scenario « operateur actif » de LIMITS.md section 6.
+#
+# Le remplacer par les empreintes des scripts inline ferme ce cran -- et cree
+# un couplage : modifier une ligne du script de vote.html sans mettre a jour la
+# configuration nginx rend la page SILENCIEUSEMENT inerte. Le navigateur bloque
+# le script, le votant voit une page qui ne repond pas, et rien ne l'explique.
+#
+# C'est la desynchronisation manuelle que ce projet traque partout. On la ferme
+# ici : les empreintes sont recalculees a chaque passage de la suite.
+
+import base64 as _b64
+import re as _re
+
+CONF_NGINX = RACINE / "infra" / "nginx-vera-consultation.conf"
+
+if CONF_NGINX.exists():
+    conf = CONF_NGINX.read_text(encoding="utf-8", errors="replace")
+
+    # On isole la DIRECTIVE, pas la premiere occurrence du mot : les
+    # commentaires de la conf citent « script-src » avant elle, et un split naif
+    # analysait donc du commentaire. Constate en cassant ce test le 04/09/2026 :
+    # il ne se declenchait ni dans un sens ni dans l'autre.
+    directive = ""
+    for ligne in conf.splitlines():
+        if "add_header Content-Security-Policy" in ligne and "script-src" in ligne:
+            m = _re.search(r"script-src([^;]*);", ligne)
+            if m:
+                directive = m.group(1)
+            break
+
+    if not directive:
+        echecs.append(
+            "aucune directive script-src trouvee dans la configuration nginx : "
+            "le motif de ce test est perime, ou la CSP a disparu.")
+    elif "'unsafe-inline'" in directive:
+        echecs.append(
+            "la CSP autorise 'unsafe-inline' sur script-src : n'importe quel "
+            "script injecte s'executerait.\n    C'est le cran ouvert du "
+            "scenario « operateur actif » (LIMITS.md section 6).")
+    else:
+        attendues = set(_re.findall(r"'(sha256-[A-Za-z0-9+/=]+)'", conf))
+        calculees = set()
+        pages = []
+        for chemin in (RACINE / "static" / "vote.html",
+                       RACINE / "static" / "admin.html",
+                       RACINE / "index.html"):
+            if not chemin.exists():
+                continue
+            texte = chemin.read_text(encoding="utf-8", errors="replace")
+            for contenu in _re.findall(
+                    r"<script(?![^>]*\ssrc=)[^>]*>(.*?)</script>", texte, _re.S):
+                emp = "sha256-" + _b64.b64encode(
+                    hashlib.sha256(contenu.encode("utf-8")).digest()).decode()
+                calculees.add(emp)
+                pages.append((chemin.name, emp))
+
+        manquantes = calculees - attendues
+        if manquantes:
+            detail = "\n      ".join(
+                f"{nom} : {emp}" for nom, emp in pages if emp in manquantes)
+            echecs.append(
+                "un script inline n'est pas couvert par la CSP -- il ne "
+                "s'executera PAS dans le navigateur,\n    et la page sera "
+                "silencieusement inerte pour le votant :\n      " + detail
+                + "\n    Reporter ces empreintes dans script-src de "
+                  "infra/nginx-vera-consultation.conf.")
+
+        orphelines = attendues - calculees
+        if orphelines:
+            echecs.append(
+                "la CSP autorise des empreintes qui ne correspondent a aucun "
+                "script du depot :\n      " + "\n      ".join(sorted(orphelines))
+                + "\n    Soit un script a ete modifie sans mettre a jour la "
+                  "conf, soit la conf garde une valeur morte.")
+
 if echecs:
     print("ECHEC : empreintes publiees et fichiers du depot divergent.\n")
     for e in echecs:

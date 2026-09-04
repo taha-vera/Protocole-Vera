@@ -643,6 +643,37 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+### `unsafe-inline` etait le cran ouvert du scenario « operateur actif »
+
+Constat d'un audit externe le 04/09/2026. La section 6 pose le scenario de
+l'operateur qui sert un JavaScript modifie, et conclut qu'aucune verification
+executee dans un navigateur n'en protege. La CSP autorisait `'unsafe-inline'`
+sur `script-src` : n'importe quel script injecte dans une page s'executait.
+
+L'auditeur notait a juste titre que la fermeture etait bon marche -- les pages
+sont statiques, et leurs empreintes sont deja publiees. `script-src` porte
+desormais les empreintes des deux scripts inline du projet. Un troisieme, ou une
+modification de l'un des deux, ne s'executerait pas.
+
+**Cela ne ferme pas la section 6**, et il ne faut pas le laisser croire : un
+operateur qui sert la page sert aussi l'en-tete qui la contraint. Ce qui est
+ferme, c'est l'injection par un tiers -- une faille de la page elle-meme, un
+intermediaire reseau. C'est un cran, pas la porte.
+
+**Et le correctif cree un couplage qu'il faut garder.** Modifier une ligne du
+script inline de `vote.html` sans mettre a jour la configuration nginx rend la
+page SILENCIEUSEMENT inerte : le navigateur bloque le script, le votant voit une
+page qui ne repond pas, et rien ne l'explique. C'est la desynchronisation
+manuelle que ce document traque ailleurs.
+
+`tests/test_empreintes_publiees.py` recalcule ces empreintes a chaque passage et
+echoue dans les trois sens : `unsafe-inline` retabli, script modifie sans la
+conf, empreinte de la conf ne correspondant a aucun script.
+
+*`style-src` garde `'unsafe-inline'` : les pages utilisent des attributs
+`style="..."` que les empreintes CSP ne couvrent pas. Un style injecte
+n'execute pas de code -- le gain serait cosmetique, le cout reel.*
+
 ### Le verrouillage anti-force brute ne ralentissait jamais
 
 Constat d'un audit externe le 04/09/2026. Cinq echecs declenchaient un blocage
