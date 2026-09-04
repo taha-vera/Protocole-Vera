@@ -291,9 +291,33 @@ verifiabilite -- un tiers doit pouvoir controler l'engagement de clés sans
 compte -- mais cela signifie que les noms de vos groupes ne sont pas
 confidentiels. Nommez-les en conséquence.
 
-L'effectif total N d'un departement est publié exact. Cela repose sur un modèle
-d'adjacence par SUBSTITUTION : sous ce modèle N est invariant, le publier ne
-coute rien.
+**LA CAUSE, DITE UNE FOIS POUR TOUTES.** Ce document repete que la garantie
+epsilon ne protege pas le fait d'avoir participe. Il ne disait nulle part
+POURQUOI, et un auditeur externe l'a fait remarquer le 04/09/2026 : « un
+relecteur qui fait le lien lui-meme se demandera ce que vous n'avez pas vu --
+alors que vous l'avez vu ».
+
+La cause est ici : **VERA publie l'effectif total N exact, sans bruit.**
+
+Ce n'est pas une negligence, c'est la consequence du modele d'adjacence. Sous
+SUBSTITUTION -- un repondant remplace par un autre du meme groupe -- N ne change
+pas d'une base a sa voisine : sa sensibilite est nulle, le publier ne coute donc
+rien en epsilon, et c'est mathematiquement exact.
+
+Mais cela veut dire que la garantie porte sur CE QUI A ETE REPONDU, jamais sur
+QUI A REPONDU. Un adversaire qui apprend N apprend combien de personnes ont
+participe, exactement. Sous un modele d'AJOUT/RETRAIT -- celui qu'il faudrait
+pour proteger la participation -- N varierait, et le publier exact reviendrait a
+revendiquer une protection qu'on n'a pas.
+
+**Les cinq traces de participation listees plus haut ne sont donc pas des fuites
+residuelles : elles sont coherentes avec ce que le mecanisme protege.** Si votre
+contexte rend le simple fait d'avoir participe sensible, VERA sous sa forme
+actuelle n'est pas l'outil -- et aucun reglage d'epsilon n'y changerait rien.
+
+L'effectif total N d'un departement est donc publié exact. Cela repose sur le
+modèle d'adjacence par SUBSTITUTION : sous ce modèle N est invariant, le publier
+ne coute rien.
 
 **Precision sur ce modèle, a ne pas laisser implicite.** La substitution
 remplace un répondant par un autre DU MEME GROUPE. L'appartenance au groupe est

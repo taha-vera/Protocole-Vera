@@ -204,6 +204,14 @@ participé, ni le moment où elle l'a fait, ni ce qu'un adversaire apprendrait e
 observant le serveur pendant la consultation. Ces canaux existent, ils sont
 décrits dans [LIMITS.md](LIMITS.md), et aucune valeur d'epsilon ne les ferme.
 
+**Et voici pourquoi, parce que la cause vaut mieux que le constat.** VERA publie
+l'effectif total exact, sans bruit. C'est mathématiquement gratuit sous le modèle
+retenu — remplacer un répondant par un autre du même groupe ne change pas ce
+total, donc le publier ne coûte rien en epsilon. Mais cela signifie que **la
+garantie porte sur ce qui a été répondu, jamais sur qui a répondu.** Si le simple
+fait de participer est sensible dans votre contexte, VERA n'est pas l'outil — et
+ce n'est pas une question de réglage.
+
 Un lecteur pressé retient « confidentialité différentielle » comme un label de
 protection totale. Ce n'en est pas un : c'est une garantie précise sur un
 périmètre précis, et c'est hors de ce périmètre que se trouvent les vraies
