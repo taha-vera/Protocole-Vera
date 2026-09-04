@@ -120,7 +120,22 @@ if persistance.exists():
 # Racine + docs/, jamais un rglob nu : node_modules/ contient des .md de
 # dependances, qui n'engagent pas ce projet et feraient echouer le test
 # sur des valeurs qui ne sont pas les siennes.
-documents = sorted(RACINE.glob("*.md")) + sorted(RACINE.glob("docs/**/*.md"))
+# LES PAGES HTML AUSSI, ET D'ABORD index.html.
+#
+# CONSTAT DU 04/09/2026, par un audit externe. Cette garde parcourait les .md,
+# les .py et static/vote.html -- jamais index.html, qui est **le document le plus
+# lu du projet** : c'est la page d'accueil, celle qu'ouvre un DRH ou un delegue
+# avant tout le reste.
+#
+# Elle divergeait deja : sa liste des cinq conditions n'etait pas celle de
+# LIMITS.md section 0. En l'occurrence c'est index.html qui avait raison -- mais
+# personne ne pouvait le savoir, puisque rien ne comparait les deux.
+#
+# Le document le plus lu ne doit pas etre le moins controle.
+documents = (sorted(RACINE.glob("*.md"))
+             + sorted(RACINE.glob("docs/**/*.md"))
+             + sorted(RACINE.glob("*.html"))
+             + sorted(RACINE.glob("static/*.html")))
 
 # Les COMMENTAIRES Python sont scrutes au meme titre que la documentation.
 #
@@ -165,7 +180,8 @@ for chemin in documents:
 
         # Parametres numeriques nommes explicitement.
         for nom, attendu in attendus.items():
-            if attendu is None or nom.lower() not in ligne.lower():
+            if attendu is None or not re.search(
+                    rf"(?<![\w-]){re.escape(nom)}", ligne, re.IGNORECASE):
                 continue
             # Insensible a la casse : la documentation ecrit « scale = 4 » et
             # « Δ₁ = 2 » en minuscules, le code SCALE et DELTA_INT. Un motif
@@ -174,8 +190,19 @@ for chemin in documents:
             # Le motif exige un CHIFFRE apres le separateur. Sans cela, une
             # cellule de tableau « | Scale | 4 | » etait lue comme « Scale = »
             # suivi de rien, et produisait un faux positif.
+            # \b devant le nom : sans lui, « initial-scale=1.0 » d'une balise
+            # viewport HTML etait lu comme « SCALE = 1.0 » et declarait une
+            # divergence sur les trois pages du projet. Constate en etendant
+            # cette garde au HTML le 04/09/2026 -- le motif etait tolerable tant
+            # qu'il ne voyait que du Markdown et du Python.
+            # (?<![\w-]) et non \b : « initial-scale=1.0 » d'une balise viewport
+            # HTML etait lu comme « SCALE = 1.0 ». \b ne coupe pas apres un
+            # tiret -- il le considere comme une frontiere de mot, donc
+            # « -scale » correspondait. Constate en etendant cette garde au HTML
+            # le 04/09/2026 : le motif etait tolerable tant qu'il ne voyait que
+            # du Markdown et du Python.
             trouves = re.findall(
-                rf"{re.escape(nom)}\s*(?:=|vaut|:)\s*(\d[\d_. ]*)",
+                rf"(?<![\w-]){re.escape(nom)}\s*(?:=|vaut|:)\s*(\d[\d_. ]*)",
                 ligne, re.IGNORECASE)
             for t in trouves:
                 def _norm(x):

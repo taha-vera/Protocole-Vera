@@ -49,15 +49,26 @@ Si votre besoin est un questionnaire, VERA n'est pas l'outil.
 
 ### Les cinq conditions du dispositif
 
-Aucune n'est optionnelle, et aucune n'est tenue par le code seul.
+Aucune n'est optionnelle, et **aucune n'est tenue par le code** -- c'est ce qui
+les reunit, et c'est pourquoi elles forment une liste a part.
 
 | Condition | Ce qu'elle protège | Ce qui arrive sans elle |
 |---|---|---|
-| **240 réponses par groupe** | la dilution d'une réponse individuelle | rien n'est publié -- VERA refuse |
 | **Hebergement par un tiers distinct** | la non-liaison identite/réponse | l'organisation détient la liste ET la base : elle peut apparier |
 | **Attestation de l'effectif par un tiers mandate** | la sincérité du resultat | l'organisation peut fabriquer une partie des réponses, sans que rien ne le montre (section 13) |
 | **Groupes sans recoupement** | l'exactitude du barème d'exposition | une personne presente dans deux groupes publiés subit L1 = 4, donc epsilon = 1,0 en une seule consultation (section 11bis) |
 | **Transporteur independant de l'hebergeur** | la separation des demi-secrets | transporteur + hebergeur reunis reconstituent personne -> reponse (section 12bis) |
+| **Pas plus de 4 publications / 12 mois sur les mêmes personnes** | le budget epsilon cumule | la borne annoncee cesse d'etre tenable : 6 publications portent la certitude d'un adversaire a 95 % (section 14) |
+
+**Le seuil de 240 reponses ne figure PAS dans cette liste, et c'est voulu.** Il
+est applique par le code : VERA refuse de publier en dessous, un test le
+verifie, et vous n'avez a faire confiance a personne pour cela. Le mettre parmi
+les conditions ci-dessus brouillerait ce qui les reunit.
+
+Cette liste l'incluait pourtant, sous une phrase disant qu'« aucune n'est tenue
+par le code seul » -- contradiction relevee par un audit externe le 04/09/2026,
+et introduite le 26/08 en ajoutant la grille des quatre natures sans revoir le
+texte qu'elle contredisait. `index.html` portait deja la version coherente.
 
 ### Quatre natures de garantie, a ne pas confondre
 
@@ -75,7 +86,9 @@ la bonne volonte de quelqu'un.
 
 **Les cinq conditions ci-dessus relèvent toutes des deux dernieres lignes.**
 C'est le fait le plus important de ce document : ce qui protège reellement les
-participants n'est pas garanti par le code, et ne peut pas l'être.
+participants n'est pas garanti par le code, et ne peut pas l'être. Le seuil de
+240, lui, est un invariant logiciel -- deuxieme ligne de la grille -- et c'est
+precisement pourquoi il ne figure pas dans la liste.
 
 Les deux premieres sont connues. **Les trois dernieres le sont moins, et elles
 sont de même rang.** Sans tiers qui compare le nombre d'invitations émises a
@@ -629,6 +642,32 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 `journal_mode=DELETE`, le journal de rollback ne contient que l'image d'avant
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
+
+### Le document le plus lu etait le moins controle
+
+Constat d'un audit externe le 04/09/2026. `test_parametres_documentes.py`
+parcourait les `.md`, les `.py` et `static/vote.html` -- **jamais
+`index.html`**, qui est la page d'accueil du projet : celle qu'ouvre un DRH ou
+un delegue avant tout le reste.
+
+Elle divergeait deja. Sa liste des cinq conditions n'etait pas celle de la
+section 0 de ce document. Et c'est `index.html` qui avait raison : la liste
+d'ici incluait le seuil de 240 sous une phrase affirmant qu'« aucune n'est tenue
+par le code seul », alors que ce seuil est precisement applique par le code --
+la grille des quatre natures, ajoutee le 26/08 juste en dessous, le classe en
+invariant logiciel. J'avais ajoute la grille sans revoir le texte qu'elle
+contredisait.
+
+Corrige dans les deux sens : la liste des cinq conditions est desormais
+homogene -- toutes hors du code, la regle des 4 publications / 12 mois y prenant
+la place du seuil -- et la garde parcourt les pages HTML.
+
+**Un faux positif est apparu en l'etendant**, et il vaut d'etre note : la balise
+`viewport` de chaque page fixe une echelle initiale de 1, que le motif lisait
+comme une declaration du parametre SCALE -- lequel vaut 4 dans le code. Il
+utilisait `\b`, qui ne coupe pas apres un tiret. Il exige desormais que le caractere precedent ne soit ni lettre ni tiret.
+Le motif etait tolerable tant que la garde ne voyait que du Markdown et du
+Python -- etendre une garde, c'est aussi decouvrir ce qu'elle tolerait.
 
 ### Quatre propositions refusees, et pourquoi
 
