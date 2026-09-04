@@ -348,7 +348,36 @@ except Exception as e:
 import time
 _tentatives_par_ip: dict[str, dict] = {}
 SEUIL_ECHECS_AVANT_BLOCAGE = 5
-DUREE_BLOCAGE_SECONDES = 300  # 5 minutes
+
+# BLOCAGE CROISSANT, ET NON PLUS FIXE.
+#
+# Le blocage durait 300 secondes, puis `echecs` repassait a 0 : en regime
+# permanent, une IP obtenait 5 tentatives toutes les 5 minutes, soit 60 par
+# heure, indefiniment et sans jamais ralentir. Constat d'un audit externe le
+# 04/09/2026.
+#
+# Deux consequences, et la seconde compte autant que la premiere. D'abord la
+# force brute reste possible pour qui a du temps. Ensuite chaque tentative
+# coute environ 100 ms de PBKDF2 a 200 000 iterations sur un service
+# MONO-PROCESSUS -- c'est donc aussi un amplificateur de deni de service : 60
+# tentatives par heure et par IP, multipliees par un nombre d'IP quelconque,
+# occupent le seul worker qui sert aussi les votants.
+#
+# Le blocage double a chaque recidive, jusqu'a une heure. Cinq echecs coutent
+# 5 minutes, dix en coutent 10, quinze en coutent 20. Un operateur legitime qui
+# se trompe deux fois ne voit rien ; une attaque soutenue s'arrete d'elle-meme.
+DUREE_BLOCAGE_INITIALE = 300      # 5 minutes
+DUREE_BLOCAGE_MAX = 3600          # 1 heure
+
+# Compteur PAR COMPTE, en plus de celui par IP.
+#
+# Le compteur par IP est contournable en distribuant les tentatives. Celui-ci
+# ne l'est pas : il suit l'identifiant vise, quelle que soit la provenance.
+# C'est la seule defense contre une attaque repartie, et elle protege le compte
+# plutot que le reseau.
+_tentatives_par_compte: dict[str, dict] = {}
+SEUIL_ECHECS_PAR_COMPTE = 20
+DUREE_BLOCAGE_COMPTE = 900        # 15 minutes
 
 
 def _ip_client(request) -> str:
@@ -393,21 +422,78 @@ def _purger_ip_expirees() -> None:
     for ip in a_supprimer:
         _tentatives_par_ip.pop(ip, None)
 
+    # LE COMPTEUR PAR COMPTE SE PURGE AUSSI, ET IL LE FAUT.
+    #
+    # Sa cle est l'identifiant ESSAYE, que l'attaquant choisit : sans purge, un
+    # million de tentatives sur un million d'identifiants distincts feraient
+    # croitre ce dictionnaire indefiniment. On aurait remplace une
+    # amplification CPU par une fuite memoire. Constate en ecrivant ce
+    # compteur, le 04/09/2026.
+    #
+    # Meme regle que pour les IP : on ne supprime que si le blocage est expire
+    # ET l'entree inactive, pour ne jamais liberer un compte encore bloque.
+    a_supprimer_comptes = [
+        c for c, info in _tentatives_par_compte.items()
+        if info.get("bloque_jusqu_a", 0) < maintenant
+        and (maintenant - info.get("derniere_activite", 0)) > DUREE_RETENTION_IP_SECONDES
+    ]
+    for compte in a_supprimer_comptes:
+        _tentatives_par_compte.pop(compte, None)
 
-def _enregistrer_echec(ip: str) -> None:
+
+def _enregistrer_echec(ip: str, compte: str = "") -> None:
+    """Compte un echec, cote IP et cote compte, avec blocage croissant."""
     with verrou:
         _purger_ip_expirees()
-        info = _tentatives_par_ip.setdefault(ip, {"echecs": 0, "bloque_jusqu_a": 0, "derniere_activite": 0})
+        maintenant = time.time()
+
+        info = _tentatives_par_ip.setdefault(
+            ip, {"echecs": 0, "bloque_jusqu_a": 0, "derniere_activite": 0,
+                 "blocages": 0})
         info["echecs"] += 1
-        info["derniere_activite"] = time.time()
+        info["derniere_activite"] = maintenant
         if info["echecs"] >= SEUIL_ECHECS_AVANT_BLOCAGE:
-            info["bloque_jusqu_a"] = time.time() + DUREE_BLOCAGE_SECONDES
+            # `blocages` n'est PAS remis a zero avec `echecs` : c'est lui qui
+            # porte la memoire de la recidive, et c'est tout l'objet du
+            # correctif. Il expire avec l'entree, par _purger_ip_expirees.
+            info["blocages"] = info.get("blocages", 0) + 1
+            duree = min(DUREE_BLOCAGE_INITIALE * (2 ** (info["blocages"] - 1)),
+                        DUREE_BLOCAGE_MAX)
+            info["bloque_jusqu_a"] = maintenant + duree
             info["echecs"] = 0
 
+        if compte:
+            par_compte = _tentatives_par_compte.setdefault(
+                compte, {"echecs": 0, "bloque_jusqu_a": 0,
+                         "derniere_activite": 0})
+            par_compte["echecs"] += 1
+            par_compte["derniere_activite"] = maintenant
+            if par_compte["echecs"] >= SEUIL_ECHECS_PAR_COMPTE:
+                par_compte["bloque_jusqu_a"] = maintenant + DUREE_BLOCAGE_COMPTE
+                par_compte["echecs"] = 0
 
-def _reinitialiser_echecs(ip: str) -> None:
+
+def _compte_bloque(compte: str) -> float:
+    """Secondes restantes de blocage pour ce compte, 0 s'il est libre.
+
+    Independant de l'IP : c'est la defense contre une attaque repartie sur
+    plusieurs adresses, que le compteur par IP ne voit pas.
+    """
+    if not compte:
+        return 0
+    with verrou:
+        info = _tentatives_par_compte.get(compte)
+        if not info:
+            return 0
+        return max(0, info.get("bloque_jusqu_a", 0) - time.time())
+
+
+def _reinitialiser_echecs(ip: str, compte: str = "") -> None:
+    """Une authentification reussie efface les deux compteurs."""
     with verrou:
         _tentatives_par_ip.pop(ip, None)
+        if compte:
+            _tentatives_par_compte.pop(compte, None)
 
 
 # Valeur par DEFAUT. L'intitule reel est defini par l'organisation via
@@ -555,11 +641,26 @@ def connexion_rh(payload: IdentifiantsRH, response: Response, request: Request):
     ip_client = _ip_client(request)
     _verifier_anti_bruteforce(ip_client)
 
+    # BLOCAGE PAR COMPTE, verifie AVANT le PBKDF2.
+    #
+    # Le compteur par IP se contourne en distribuant les tentatives ; celui-ci
+    # suit l'identifiant vise, quelle que soit la provenance. Et le verifier
+    # ICI, avant `verifier_identifiants`, evite de payer les 200 000 iterations
+    # pour une tentative qu'on refusera de toute facon -- c'est ce qui coupe
+    # l'amplification. Ajoute le 04/09/2026.
+    restant = _compte_bloque(payload.identifiant)
+    if restant > 0:
+        raise HTTPException(
+            status_code=429,
+            detail=(f"Trop de tentatives sur ce compte. Reessayez dans "
+                    f"{int(restant // 60) + 1} minute(s)."),
+        )
+
     if not auth.verifier_identifiants(payload.identifiant, payload.mot_de_passe):
-        _enregistrer_echec(ip_client)
+        _enregistrer_echec(ip_client, payload.identifiant)
         raise HTTPException(status_code=401, detail="Identifiant ou mot de passe incorrect")
 
-    _reinitialiser_echecs(ip_client)
+    _reinitialiser_echecs(ip_client, payload.identifiant)
     jeton_session = auth.ouvrir_session(payload.identifiant)
     response.set_cookie(
         key="session_vera",

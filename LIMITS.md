@@ -643,6 +643,32 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+### Le verrouillage anti-force brute ne ralentissait jamais
+
+Constat d'un audit externe le 04/09/2026. Cinq echecs declenchaient un blocage
+de cinq minutes, puis le compteur repassait a zero : en regime permanent, une
+adresse obtenait **60 tentatives par heure, indefiniment et sans jamais
+ralentir**. Sans compteur par compte, l'attaque se distribuait sur plusieurs
+adresses sans rien couter.
+
+**Et c'etait aussi un amplificateur de deni de service.** Chaque tentative
+declenche un PBKDF2 a 200 000 iterations -- environ 100 ms -- sur un service
+mono-processus, celui-la meme qui sert les votants. Occuper le seul worker
+n'exigeait pas de trouver le mot de passe.
+
+Deux corrections. Le blocage **double a chaque recidive**, jusqu'a une heure :
+quarante tentatives coutent desormais 315 minutes d'attente cumulee contre 40
+auparavant. Et un **compteur par compte** suit l'identifiant vise quelle que
+soit la provenance -- verifie AVANT le PBKDF2, ce qui coupe l'amplification a la
+racine.
+
+*En ecrivant ce second compteur, un defaut a ete introduit puis corrige : sa cle
+est l'identifiant ESSAYE, que l'attaquant choisit. Sans purge, un million
+d'identifiants distincts auraient fait croitre le dictionnaire indefiniment --
+une fuite memoire a la place d'une amplification CPU. La purge suit la meme
+regle que celle des adresses : liberer seulement si le blocage est expire ET
+l'entree inactive.*
+
 ### Un resultat faux pouvait etre publie sans bruit
 
 Constat d'un audit externe le 04/09/2026, et le plus serieux de son lot.
