@@ -42,6 +42,62 @@ app = FastAPI(title="VERA Consultation")
 # composition sequentielle DP est cassee silencieusement (epsilon reel
 # double). On refuse donc de demarrer si plus d'un worker est detecte.
 # --------------------------------------------------------------------------
+def _verifier_ecoute_loopback():
+    """Refuse de demarrer si uvicorn ecoute ailleurs que sur la boucle locale.
+
+    POURQUOI CETTE GARDE EXISTE
+
+    Toute la protection reseau de ce service vit dans nginx : `access_log off`
+    sur les routes de vote, `error_log crit` pour que la limitation de debit n'y
+    reinscrive pas les adresses IP, les en-tetes CSP, la limitation elle-meme.
+    Si uvicorn ecoutait sur 0.0.0.0, un client atteignant directement le port
+    **contournerait la totalite de cette couche** -- ses requetes seraient
+    journalisees par uvicorn, sans limitation ni en-tete.
+
+    `_ip_client` reste correct dans ce cas (il n'accorde sa confiance a
+    X-Real-IP que si le pair est en boucle locale), mais ce n'est pas le sujet :
+    ce qui tombe, c'est nginx entier.
+
+    Signale par un audit externe le 04/09/2026 comme « la lecon de la Porte 19
+    appliquee a moitie » -- une protection qui repose sur une hypothese
+    d'environnement que rien ne verifie. Meme remede que pour les workers :
+    inspecter sys.argv plutot que supposer.
+
+    VERA_ECOUTE_PUBLIQUE=1 permet de passer outre, pour un developpement en
+    reseau local. La variable doit etre posee volontairement : c'est ce qui
+    distingue un choix d'un oubli.
+    """
+    import os, sys
+
+    if os.environ.get("VERA_ECOUTE_PUBLIQUE") == "1":
+        return
+
+    argv = sys.argv
+    hote = None
+    for i, a in enumerate(argv):
+        if a in ("--host",) and i + 1 < len(argv):
+            hote = argv[i + 1]
+        elif a.startswith("--host="):
+            hote = a.split("=", 1)[1]
+
+    # Pas de --host : uvicorn ecoute sur 127.0.0.1 par defaut. Rien a signaler.
+    if hote is None:
+        return
+
+    if hote not in ("127.0.0.1", "::1", "localhost"):
+        raise RuntimeError(
+            f"REFUS : uvicorn est lance avec --host {hote}.\n"
+            "Le service doit ecouter sur la boucle locale et n'etre atteint que "
+            "par nginx.\n"
+            "Sinon un client joint directement le port et contourne TOUTE la "
+            "couche nginx :\n"
+            "  journaux coupes sur les routes de vote, limitation de debit, "
+            "en-tetes CSP.\n"
+            "Corriger l'unite systemd, ou poser VERA_ECOUTE_PUBLIQUE=1 si "
+            "c'est delibere."
+        )
+
+
 def _verifier_worker_unique():
     import os, sys
     # Deux sources a verifier, et la premiere ne suffit PAS :
@@ -76,6 +132,7 @@ def _verifier_worker_unique():
             pass
 
 _verifier_worker_unique()
+_verifier_ecoute_loopback()
 
 
 # VERROU DE PROCESSUS -- un fait observable, la ou _verifier_worker_unique ne

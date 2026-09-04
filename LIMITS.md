@@ -643,6 +643,30 @@ version successive ». C'était vrai en `journal_mode=WAL`, abandonne le 13/08. 
 pendant la transaction et disparait au commit : il n'y a plus d'historique
 persistant. La lecture répétée du fichier `.db` lui-même reste le vecteur.)*
 
+### Nginx etait contournable sans que rien ne le verifie
+
+Toute la protection reseau vit dans nginx : `access_log off` sur les routes de
+vote, `error_log crit` pour que la limitation de debit n'y reinscrive pas les
+adresses, les en-tetes CSP, la limitation elle-meme. Si uvicorn ecoutait sur
+`0.0.0.0`, un client atteignant directement le port **contournerait la totalite
+de cette couche**.
+
+Rien ne l'empechait. Un audit externe l'a qualifie le 04/09/2026 de « lecon de
+la Porte 19 appliquee a moitie » -- une protection qui repose sur une hypothese
+d'environnement que rien ne verifie. La formule est juste, et c'est exactement
+le motif que ce document poursuit.
+
+Le service refuse desormais de demarrer si `--host` designe autre chose que la
+boucle locale, sur le modele de la garde worker unique : inspection de
+`sys.argv`, pas de supposition. `VERA_ECOUTE_PUBLIQUE=1` permet de passer outre
+en developpement -- il faut la poser volontairement, ce qui distingue un choix
+d'un oubli.
+
+*Deux durcissements de la CI au passage : `opendp` est epingle sur la version de
+production (les portes 2 et 3 etaient validees sur une version quelconque), et
+le workflow declare `permissions: contents: read` -- il ne fait que lire, un
+jeton en ecriture n'a aucune raison d'y exister.*
+
 ### L'historique complet balaye : aucun secret
 
 La garde `test_repli_admin_retire.py` verifie l'arbre de travail. Un audit

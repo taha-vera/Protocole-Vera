@@ -20,6 +20,16 @@ name: Gardes structurelles
 
 on: [push, pull_request]
 
+# PERMISSIONS MINIMALES, explicitement.
+#
+# Sans ce bloc, le jeton fourni au workflow herite des permissions par defaut du
+# depot -- historiquement en ecriture. Ces gardes ne font que LIRE le code : un
+# jeton en ecriture n'a aucune raison d'exister ici, et une action tierce
+# compromise l'utiliserait. `codeql.yml` en avait un, pas celui-ci -- releve par
+# un audit externe le 04/09/2026.
+permissions:
+  contents: read
+
 jobs:
   gardes:
     runs-on: ubuntu-latest
@@ -119,12 +129,12 @@ jobs:
 
       - name: Porte 3 -- pas de canal temporel exploitable
         run: |
-          pip install --quiet opendp
+          pip install --quiet opendp==0.15.1   # MEME version que requirements.txt
           python3 tests/test_porte3_timing.py
 
       - name: Porte 2 -- inference d'appartenance sous la borne
         run: |
-          pip install --quiet opendp
+          pip install --quiet opendp==0.15.1   # MEME version que requirements.txt
           python3 tests/test_porte2_mia.py
 
       # AUCUN SECRET DANS L'HISTORIQUE, PAS SEULEMENT DANS L'ARBRE.
