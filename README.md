@@ -326,7 +326,17 @@ seraient contournables.
    sauvegarder — puis efface définitivement compteurs, effectifs, jetons,
    secrets consommés, budget ε, résultats publiés et clé de signature.
 
-Après clôture, un accès au serveur ne révèle plus rien de la consultation passée.
+Après clôture, il reste **une seule chose** : `historique_consultations`, qui
+note le nom de chaque groupe consulté et la date. Ni réponse, ni identité, ni
+compteur. Elle survit délibérément — c'est elle qui alimente l'avertissement de
+fréquence, sans lequel une organisation pourrait reconsulter les mêmes personnes
+sans que rien ne le signale.
+
+Ce document affirmait qu'« un accès au serveur ne révèle plus rien de la
+consultation passée ». C'était une sous-estimation du résidu, relevée par un
+audit externe le 05/09/2026 — et sur un projet dont la doctrine est qu'une
+formulation inexacte fabrique de fausses alertes, se tromper dans ce sens-là est
+pire.
 C'est la minimisation des données (RGPD art. 5) rendue opérationnelle et
 testable. Vérifié sur le serveur de production : un état de dix départements
 ramené à zéro après clôture.

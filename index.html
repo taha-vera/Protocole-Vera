@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VERA — Consultation d'entreprise a confidentialite differentielle</title>
+<title>VERA — Consultation d'entreprise a confidentialité différentielle</title>
 <meta name="description" content="VERA est un service heberge, au code public, qui publie le resultat d'une consultation sensible sans rendre lisible la reponse d'un individu. Confidentialite differentielle a epsilon = 0,5 (OpenDP) et signatures aveugles RSABSSA.">
 <meta name="keywords" content="confidentialite differentielle, consultation anonyme, climat social, RGPD, OpenDP, differential privacy, signature aveugle, RSABSSA">
 <style>
@@ -33,8 +33,8 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <body>
 <header>
 <div class="container">
-<h1>Publier le resultat d'une consultation sensible, sans rendre lisible aucune reponse individuelle.</h1>
-<p>VERA publie un resultat collectif (consultation interne, climat social) sans rendre lisible la contribution d'un individu. La garantie repose sur deux choses inseparables : un mecanisme mathematique verifiable, et une separation des roles — celui qui heberge n'a pas la liste des membres, celui qui a la liste n'heberge pas.</p>
+<h1>Publier le résultat d'une consultation sensible, sans rendre lisible aucune réponse individuelle.</h1>
+<p>VERA publie un résultat collectif (consultation interne, climat social) sans rendre lisible la contribution d'un individu. La garantie repose sur deux choses inseparables : un mécanisme mathematique vérifiable, et une separation des roles — celui qui heberge n'a pas la liste des membres, celui qui a la liste n'heberge pas.</p>
 <div class="cta">
 <a href="https://github.com/taha-vera/projet-vera-consultations-" class="btn btn-primary">Voir sur GitHub</a>
 <a href="https://github.com/taha-vera/projet-vera-consultations-/blob/main/VERA_THREAT_MODEL_COMPLETE.md" class="btn btn-secondary">Modele de menace</a>
@@ -44,19 +44,19 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <main>
 <section>
 <div class="container">
-<h2>Le probleme</h2>
+<h2>Le problème</h2>
 <div class="grid">
 <div class="card">
 <h3>"Faites-nous confiance"</h3>
-<p>Les outils de sondage classiques stockent les reponses et promettent de ne pas regarder. L'anonymat repose sur la confiance, pas sur une preuve.</p>
+<p>Les outils de sondage classiques stockent les réponses et promettent de ne pas regarder. L'anonymat repose sur la confiance, pas sur une preuve.</p>
 </div>
 <div class="card">
-<h3>Le repondant atypique</h3>
+<h3>Le répondant atypique</h3>
 <p>Sur un sujet sensible, celui qui repond differemment des autres (le "1 non sur 99") reste identifiable dans un decompte exact.</p>
 </div>
 <div class="card">
-<h3>Aucune verification possible</h3>
-<p>Ni le repondant ni un tiers ne peut verifier que les donnees brutes ont reellement ete detruites.</p>
+<h3>Aucune vérification possible</h3>
+<p>Ni le répondant ni un tiers ne peut verifier que les donnees brutes ont reellement ete détruites.</p>
 </div>
 </div>
 </div>
@@ -66,15 +66,15 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <h2>Ce que VERA garantit</h2>
 <div class="grid">
 <div class="card">
-<h3>Une garantie chiffree, pas un engagement moral</h3>
-<p>Le bruit ajoute aux resultats publies est calcule analytiquement par OpenDP, une bibliotheque auditee : epsilon = 0,5 exact, inscrit dans le code et expose publiquement. Ce que cette garantie couvre, et ce qu'elle ne couvre pas, est ecrit noir sur blanc dans les limites.</p>
+<h3>Une garantie chiffrée, pas un engagement moral</h3>
+<p>Le bruit ajoute aux résultats publies est calcule analytiquement par OpenDP, une bibliotheque auditee : epsilon = 0,5 exact, inscrit dans le code et expose publiquement. Ce que cette garantie couvre, et ce qu'elle ne couvre pas, est ecrit noir sur blanc dans les limites.</p>
 </div>
 <div class="card">
 <h3>Non-persistance</h3>
-<p>Aucune reponse individuelle n'est jamais stockee : seuls des compteurs agreges existent, et ils sont detruits a la cloture. Le serveur ne conserve alors plus rien.</p>
+<p>Aucune réponse individuelle n'est jamais stockee : seuls des compteurs agreges existent, et ils sont detruits a la cloture. Le serveur ne conserve alors plus rien.</p>
 </div>
 <div class="card">
-<h3>Protection du repondant atypique</h3>
+<h3>Protection du répondant atypique</h3>
 <p>Le bruit differentiel protege chaque participant, y compris celui qui repond differemment des autres.</p>
 </div>
 <div class="card">
@@ -91,19 +91,19 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 <ul>
 <li>La donnee brute n'est jamais stockee ni exposee</li>
 <li>Les sorties sont des agregats statistiques bruites, irreversibles</li>
-<li>Confidentialite differentielle : budget epsilon plafonne et borne</li>
+<li>Confidentialité différentielle : budget epsilon plafonne et borne</li>
 <li>Seuil minimum de participants (K = 240) : refus de publier en dessous</li>
 <li>Une invitation a usage unique : un jeton consomme ne peut plus servir</li>
-<li>Limites du modele de menace documentees, pas dissimulees</li>
+<li>Limites du modèle de menace documentees, pas dissimulees</li>
 </ul>
-<p style="margin-top:1.5rem;" data-vera-conditions><strong>Ce que le code ne peut pas garantir seul.</strong> L'anonymat tient aussi a cinq conditions que le code ne verifie pas : un hebergement assure par un tiers distinct de l'organisation, un transporteur d'invitations independant de cet hebergeur, l'attestation de l'effectif par un representant du personnel, des groupes qui ne se recoupent pas, et pas plus de quatre consultations par an sur la meme population. Elles sont detaillees dans les <a href="https://github.com/taha-vera/projet-vera-consultations-/blob/main/LIMITS.md">limites</a>, et aucune n'est optionnelle.</p>
+<p style="margin-top:1.5rem;" data-vera-conditions><strong>Ce que le code ne peut pas garantir seul.</strong> L'anonymat tient aussi a cinq conditions que le code ne vérifié pas : un hébergement assure par un tiers distinct de l'organisation, un transporteur d'invitations independant de cet hébergeur, l'attestation de l'effectif par un representant du personnel, des groupes qui ne se recoupent pas, et pas plus de quatre consultations par an sur la meme population. Elles sont detaillees dans les <a href="https://github.com/taha-vera/projet-vera-consultations-/blob/main/LIMITS.md">limites</a>, et aucune n'est optionnelle.</p>
 <p><strong>Etat du projet.</strong> Fonctionnel et audite, jamais deploye en conditions reelles : aucune consultation avec de vrais participants n'a encore eu lieu.</p>
 
 </div>
 </section>
 <section>
 <div class="container">
-<h2>Garanties verifiables</h2>
+<h2>Garanties vérifiables</h2>
 <div class="grid">
 <div class="card" style="text-align:center">
 <div class="metric">0,5</div>
@@ -115,57 +115,91 @@ footer { background: #0f172a; color: #94a3b8; padding: 2rem 0; text-align: cente
 </div>
 <div class="card" style="text-align:center">
 <div class="metric">0</div>
-<p>reponse individuelle stockee, a aucun moment</p>
+<p>réponse individuelle stockee, a aucun moment</p>
 </div>
 <div class="card" style="text-align:center">
 <div class="metric">Open</div>
-<p>code source verifiable, modele de menace public</p>
+<p>code source vérifiable, modèle de menace public</p>
 </div>
 </div>
 </div>
 </section>
 <section style="background:#f8fafc;">
 <div class="container">
+<h2>Ce que VERA peut poser comme question</h2>
+
+<div class="card">
+<h3>Une question, trois options, quatre fois par an</h3>
+<p><strong>C'est le fait le plus décisif pour évaluer ce système.</strong> Une
+consultation VERA porte sur <strong>une seule question</strong>, à trois options
+fixes : oui, non, abstention. Pas deux questions, pas d'échelle, pas de champ
+libre. Toute la calibration en dépend.</p>
+<p>Si votre besoin est un baromètre social de quarante items croisés par service
+et par ancienneté, <strong>VERA n'est pas l'outil</strong>. Il produit quatre
+référendums d'entreprise par an, pas un questionnaire.</p>
+</div>
+
+<div class="card">
+<h3>Combien de personnes faut-il ?</h3>
+<p>240 <strong>réponses</strong> par groupe, pas 240 invités. La différence
+décide de votre éligibilité.</p>
+<p>À un taux de participation de 40 % — hypothèse prudente —, il faut
+<strong>environ 600 personnes</strong> par groupe consulté. À 25 %, près de
+1 000. <strong>Ce taux n'a jamais été mesuré sur VERA</strong> : c'est l'inconnue
+principale du projet, et la raison d'être du premier déploiement réel.</p>
+<p>En dessous de 240 réponses, rien n'est publié. VERA refuse.</p>
+</div>
+
+<div class="card">
+<h3>Statut RGPD : non tranché</h3>
+<p>VERA ne revendique pas que les données produites constituent juridiquement
+des données <strong>anonymisées</strong> au sens du règlement. Cette
+qualification — anonymisation ou pseudonymisation — doit être déterminée par
+votre DPO ou votre conseil juridique, au regard de votre contexte. Elle décide
+si le traitement sort ou non du champ du règlement.</p>
+</div>
+
 <h2>Ce que VERA ne garantit pas</h2>
 <p style="margin-bottom:1.5rem; color:#64748b;">Un outil qui ne dit que ses forces ne merite pas votre confiance. Voici ses limites, ecrites noir sur blanc.</p>
 <div class="grid">
 <div class="card">
-<h3>La liste des invites reste la votre</h3>
-<p>VERA ne connait pas vos membres — c'est ce qui protege leur anonymat. Il ne peut donc verifier ni que les invitations sont parties aux bonnes personnes, ni qu'elles ne sont parties qu'a elles. La fiabilite du resultat repose sur l'integrite de votre liste de diffusion.</p>
+<h3>La liste des invités reste la votre</h3>
+<p>VERA ne connait pas vos membres — c'est ce qui protege leur anonymat. Il ne peut donc verifier ni que les invitations sont parties aux bonnes personnes, ni qu'elles ne sont parties qu'a elles. La fiabilite du résultat repose sur l'intégrité de votre liste de diffusion.</p>
 </div>
 <div class="card">
 <h3>Consultation, pas scrutin</h3>
-<p>Il n'y a ni recu, ni urne publique, ni recomptage possible : un decompte verifiable trahirait les personnes que le bruit protege. Pour un scrutin contraignant ou juridiquement opposable, cette garantie manquante est redhibitoire — VERA n'est pas concu pour cet usage.</p>
+<p>Il n'y a ni recu, ni urne publique, ni recomptage possible : un decompte vérifiable trahirait les personnes que le bruit protege. Pour un scrutin contraignant ou juridiquement opposable, cette garantie manquante est redhibitoire — VERA n'est pas concu pour cet usage.</p>
 </div>
 <div class="card">
-<h3>L'hebergeur compte</h3>
-<p>La garantie tient contre un tiers et contre un operateur honnete-mais-curieux. Face a une organisation qui aurait interet a desanonymiser ET qui heberge elle-meme le serveur, un hebergement par un tiers de confiance est necessaire.</p>
+<h3>L'hébergeur compte</h3>
+<p>La garantie tient contre un tiers et contre un operateur honnete-mais-curieux. Face a une organisation qui aurait interet a desanonymiser ET qui heberge elle-meme le serveur, un hébergement par un tiers de confiance est nécessaire.</p>
 </div>
 <div class="card">
-<h3>Frequence des consultations</h3>
-<p>Interroger plusieurs fois les memes personnes erode la protection. Regle d'usage : pas plus de quatre consultations par an sur un meme groupe.</p>
+<h3>Fréquence des consultations</h3>
+<p>Interroger plusieurs fois les mêmes personnes érode la protection, et le chiffre mérite d'être dit : une publication coûte ε = 0,5, quatre coûtent ε = 2,0 — la certitude d'un adversaire dans le pire cas passe de 62 % à <strong>88 %</strong>. Règle d'usage : pas plus de <strong>quatre publications par an</strong> portant sur les mêmes personnes. VERA ne peut pas l'imposer — il ne sait pas qui sont vos membres, c'est ce qui les protège.</p>
 </div>
 </div>
 <p style="margin-top:2rem; padding:1.25rem; background:white; border-left:3px solid #2563eb; border-radius:4px;">
-<strong>Vous evaluez VERA pour votre organisation ?</strong> Le code, le modele de menace complet et les limites detaillees sont publics. Faites-les examiner par votre responsable informatique, votre DPO ou un auditeur externe — c'est precisement pour cela qu'ils sont publies.
+<strong>Vous evaluez VERA pour votre organisation ?</strong> Le code, le modèle de menace complet et les limites detaillees sont publics. Faites-les examiner par votre responsable informatique, votre DPO ou un auditeur externe — c'est precisement pour cela qu'ils sont publies.
 </p>
 </div>
 </section>
 <section>
 <div class="container">
-<h2>Comment ca marche</h2>
+<h2>Comment ça marche</h2>
 <div class="grid">
-<div class="card"><h3>1. Ouverture</h3><p>L'organisateur ouvre une consultation. Chaque participant recoit une invitation a usage unique, envoyee depuis la liste de l'organisation, jamais transmise a l'hebergeur.</p></div>
-<div class="card"><h3>2. Reponses</h3><p>Les participants repondent une fois chacun. Le seuil minimum de participants est verifie.</p></div>
-<div class="card"><h3>3. Agregation + bruit</h3><p>Les reponses alimentent un compteur agrege, jamais un enregistrement individuel. Le resultat est bruite par le mecanisme de Laplace (OpenDP).</p></div>
-<div class="card"><h3>4. Publication</h3><p>Seule la tendance bruitee est publiee. Le budget de confidentialite est decompte ; au-dela, publication refusee.</p></div>
+<div class="card"><h3>1. Ouverture</h3><p>L'organisateur ouvre une consultation. Chaque participant reçoit une invitation a usage unique, envoyee depuis la liste de l'organisation, jamais transmise a l'hébergeur.</p></div>
+<div class="card"><h3>2. Réponses</h3><p>Les participants répondent une fois chacun. Le seuil de publication porte sur les <strong>réponses reçues</strong>, pas sur le nombre d'invités.</p></div>
+<div class="card"><h3>3. Agrégation + bruit</h3><p>Les réponses alimentent un compteur agrégé, jamais un enregistrement individuel. Le résultat est bruité par le mécanisme de Laplace (OpenDP).</p></div>
+<div class="card"><h3>4. Publication</h3><p>Seule la tendance bruitee est publiee. Le budget de confidentialité est decompte ; au-dela, publication refusee.</p></div>
 </div>
 </div>
 </section>
 </main>
 <footer>
 <div class="container">
-<p>VERA est un service heberge, au code public. L'organisation qui consulte n'installe rien : c'est la condition de la garantie. Chacun peut lire le code, le verifier, l'auditer.</p>
+<p>VERA est un service hébergé, au code public. L'organisation qui consulte n'installe rien : <strong>c'est la condition de la garantie</strong>. Celui qui héberge n'a pas la liste, celui qui a la liste n'héberge pas.</p>
+<p>Le code public permet de vérifier ce qui est publié, et un tiers peut recalculer les empreintes en deux commandes. Mais ce n'est pas le code qui protège vos membres : <strong>c'est la séparation des rôles</strong>. Contre un opérateur qui servirait un client modifié, aucune vérification exécutée dans un navigateur ne suffit — c'est écrit dans nos limites, et c'est pourquoi l'hébergement par un tiers distinct n'est pas négociable.</p>
 <p style="margin-top:1rem;">
 <a href="https://github.com/taha-vera/projet-vera-consultations-" style="color:#60a5fa;">GitHub</a> —
 <a href="https://github.com/taha-vera/projet-vera-consultations-/blob/main/VERA_THREAT_MODEL_COMPLETE.md" style="color:#60a5fa;">Modele de menace</a> —
